@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
 import { useColegio } from '../context/ColegioContext';
-import { getLogoUrl } from '../utils/theme';
 import './Login.css';
 
 // Detectar si estamos en desarrollo o producción
@@ -32,7 +31,7 @@ function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   const { login, isAuthenticated } = useAuth();
-  const { nombreIntranet, logo, loading: loadingColegio } = useColegio();
+  const { loading: loadingColegio } = useColegio();
   const navigate = useNavigate();
 
   const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);

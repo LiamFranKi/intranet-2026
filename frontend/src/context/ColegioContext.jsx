@@ -24,11 +24,16 @@ export const ColegioProvider = ({ children, colegioId = 1 }) => {
         setColegioData(response.data);
         setError(null);
       } catch (err) {
-        console.error('Error obteniendo datos del colegio:', err);
+        // Solo mostrar error si no es un error de conexión (normal en desarrollo local)
+        if (err.response?.status !== 500 || err.code !== 'ECONNREFUSED') {
+          console.warn('⚠️ No se pudieron obtener datos del colegio desde MySQL:', err.message);
+        } else {
+          console.log('ℹ️ MySQL remoto no disponible (normal en desarrollo local)');
+        }
         setError(err.message);
         // Valores por defecto en caso de error
         setColegioData({
-          nombre_intranet: 'Aula Virtual',
+          nombre_intranet: 'VanguardNet',
           nombre: 'Colegio',
           logo: null,
           color_principal: null,
