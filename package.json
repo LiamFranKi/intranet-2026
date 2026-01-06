@@ -10,7 +10,8 @@
     "dev:frontend": "cd frontend && npm start",
     "build": "cd frontend && npm run build",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "postgres:create": "node database/scripts/create-database.js"
+    "postgres:create": "node database/scripts/create-database.js",
+    "postgres:migrate": "node database/scripts/run-migrations.js"
   },
   "keywords": [
     "aula-virtual",
