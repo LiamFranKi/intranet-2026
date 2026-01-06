@@ -31,11 +31,21 @@ import {
 } from '@mui/icons-material';
 import { getLogoUrl } from '../utils/theme';
 
-// Detectar si estamos en desarrollo
+// Detectar si estamos en desarrollo o producción
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const apiBaseUrl = isDevelopment 
-  ? 'http://localhost:5000'
-  : (process.env.REACT_APP_API_URL?.replace('/api', '') || 'https://intranet.vanguardschools.com');
+const isProduction = window.location.hostname === 'intranet.vanguardschools.com';
+
+// Determinar URL base de API para logos
+let apiBaseUrl;
+if (isDevelopment) {
+  apiBaseUrl = 'http://localhost:5000';
+} else if (isProduction) {
+  apiBaseUrl = window.location.protocol === 'https:' 
+    ? 'https://intranet.vanguardschools.com'
+    : 'http://intranet.vanguardschools.com';
+} else {
+  apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+}
 import './Login.css';
 
 function Login() {
