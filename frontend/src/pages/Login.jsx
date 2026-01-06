@@ -151,13 +151,17 @@ function Login() {
                 src={logoUrl} 
                 alt="Logo" 
                 className="form-logo"
+                crossOrigin="anonymous"
                 onLoad={() => {
-                  console.log('✅ Logo cargado correctamente');
+                  console.log('✅ Logo cargado correctamente desde:', logoUrl);
                 }}
                 onError={(e) => {
                   console.error('❌ Error cargando logo:', logoUrl);
-                  // No ocultar, solo mostrar en consola para debug
-                  // e.target.style.display = 'none';
+                  console.error('Detalles del error:', e);
+                  // Intentar cargar con timestamp para evitar cache
+                  const newUrl = `${logoUrl}?t=${Date.now()}`;
+                  console.log('🔄 Intentando recargar desde:', newUrl);
+                  e.target.src = newUrl;
                 }}
               />
             </div>
