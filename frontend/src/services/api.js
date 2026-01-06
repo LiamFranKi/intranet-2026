@@ -1,15 +1,15 @@
 import axios from 'axios';
 
 // Detectar si estamos en desarrollo o producción
-// Verificar primero si hay variable de entorno
-const hostname = window.location.hostname;
-const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+// FORZAR desarrollo si no es explícitamente producción
+const hostname = window.location.hostname || '';
 const isProduction = hostname === 'intranet.vanguardschools.com';
+const isDevelopment = !isProduction; // Todo lo demás es desarrollo
 
 // Determinar URL de API
 let apiUrl;
-if (process.env.REACT_APP_API_URL) {
-  // Si está definida en .env, usarla (tiene prioridad)
+if (process.env.REACT_APP_API_URL && !isDevelopment) {
+  // Solo usar .env si NO estamos en desarrollo
   apiUrl = process.env.REACT_APP_API_URL;
 } else if (isDevelopment) {
   // Desarrollo: SIEMPRE usar HTTP local

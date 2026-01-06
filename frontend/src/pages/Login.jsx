@@ -7,17 +7,17 @@ import { getLogoUrl } from '../utils/theme';
 import './Login.css';
 
 // Detectar si estamos en desarrollo o producción
-const hostname = window.location.hostname;
-const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+// FORZAR desarrollo si no es explícitamente producción
+const hostname = window.location.hostname || '';
 const isProduction = hostname === 'intranet.vanguardschools.com';
+const isDevelopment = !isProduction; // Todo lo demás es desarrollo
 
 function resolveApiBaseUrl() {
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL.replace('/api', '');
-  }
+  // En desarrollo, SIEMPRE usar localhost
   if (isDevelopment) {
     return 'http://localhost:5000';
   }
+  // Solo en producción usar la URL del servidor
   if (isProduction) {
     return 'http://intranet.vanguardschools.com';
   }
