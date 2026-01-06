@@ -105,27 +105,7 @@ function Login() {
           <div className="login-branding-left">
             <div className="branding-content">
               <div className="brand-logo-main">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="brand-logo-image" onError={(e) => {
-                    // Si falla la carga, intentar con ruta directa
-                    const directUrl = `${apiBaseUrl}/assets/logos/logo.png`;
-                    if (e.target.src !== directUrl) {
-                      e.target.src = directUrl;
-                    } else {
-                      e.target.style.display = 'none';
-                    }
-                  }} />
-                ) : (
-                  <img 
-                    src={`${apiBaseUrl}/assets/logos/logo.png`} 
-                    alt="Logo" 
-                    className="brand-logo-image"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                )}
-                <h1>{nombreIntranet || 'Aula Virtual'}</h1>
+                <h1>VanguardNet</h1>
               </div>
 
               <p className="brand-description">
@@ -151,6 +131,26 @@ function Login() {
 
           {/* Panel Derecho: Formulario */}
           <div className="login-form-right">
+            {/* Logo en esquina superior derecha */}
+            <div className="form-logo-container">
+              {(logoUrl || true) && (
+                <img 
+                  src={logoUrl || `${apiBaseUrl}/assets/logos/logo.png`} 
+                  alt="Logo" 
+                  className="form-logo"
+                  onError={(e) => {
+                    // Si falla la carga, intentar con ruta directa
+                    const directUrl = `${apiBaseUrl}/assets/logos/logo.png`;
+                    if (e.target.src !== directUrl) {
+                      e.target.src = directUrl;
+                    } else {
+                      e.target.style.display = 'none';
+                    }
+                  }}
+                />
+              )}
+            </div>
+
             <div className="form-header">
               <h2>Iniciar Sesión</h2>
               <p>Ingresa tus credenciales para acceder</p>
