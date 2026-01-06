@@ -1,0 +1,26 @@
+{
+  "name": "react-aula-virtual",
+  "version": "1.0.0",
+  "description": "Sistema de aula virtual React + Node.js",
+  "private": true,
+  "scripts": {
+    "kill": "node backend/scripts/kill-ports.js",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && node scripts/find-port.js && nodemon server.js",
+    "dev:frontend": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "postgres:create": "node database/scripts/create-database.js"
+  },
+  "keywords": [
+    "aula-virtual",
+    "react",
+    "node"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

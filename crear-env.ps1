@@ -15,7 +15,7 @@ MYSQL_DATABASE=vanguard_intranet
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=Vanguard2025@&
+POSTGRES_PASSWORD=Vanguard2025@`&
 POSTGRES_DATABASE=aula_virtual
 
 # PHP API (Para exportar notas)
@@ -103,18 +103,19 @@ REACT_APP_VAPID_PUBLIC_KEY=temporal_public_key
 "@
 
 # Crear archivos
-$backendEnv | Out-File -FilePath "backend\.env" -Encoding utf8 -NoNewline
-Write-Host "✅ backend/.env creado" -ForegroundColor Green
+$backendEnv | Out-File -FilePath "backend/.env" -Encoding utf8
+Write-Host "OK backend/.env creado" -ForegroundColor Green
 
-$backendDevEnv | Out-File -FilePath "backend\.env.development" -Encoding utf8 -NoNewline
-Write-Host "✅ backend/.env.development creado" -ForegroundColor Green
+$backendDevEnv | Out-File -FilePath "backend/.env.development" -Encoding utf8
+Write-Host "OK backend/.env.development creado" -ForegroundColor Green
 
-$frontendEnv | Out-File -FilePath "frontend\.env" -Encoding utf8 -NoNewline
-Write-Host "✅ frontend/.env creado" -ForegroundColor Green
+$frontendEnv | Out-File -FilePath "frontend/.env" -Encoding utf8
+Write-Host "OK frontend/.env creado" -ForegroundColor Green
 
-$frontendDevEnv | Out-File -FilePath "frontend\.env.development" -Encoding utf8 -NoNewline
-Write-Host "✅ frontend/.env.development creado" -ForegroundColor Green
+$frontendDevEnv | Out-File -FilePath "frontend/.env.development" -Encoding utf8
+Write-Host "OK frontend/.env.development creado" -ForegroundColor Green
 
-Write-Host "`n✅ Todos los archivos .env han sido creados!" -ForegroundColor Green
-Write-Host "⚠️  Recuerda: Los archivos .env están en .gitignore y NO se subirán a Git" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "OK Todos los archivos .env han sido creados!" -ForegroundColor Green
+Write-Host "Recuerda: Los archivos .env estan en .gitignore y NO se subiran a Git" -ForegroundColor Yellow
 
