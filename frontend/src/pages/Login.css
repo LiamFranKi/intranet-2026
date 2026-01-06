@@ -9,13 +9,116 @@
 
 .login-wrapper {
   width: 100%;
-  max-width: 450px;
 }
 
+/* Sección de Información / Landing */
+.login-info-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-info-content {
+  color: white;
+  max-width: 500px;
+}
+
+.login-info-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.login-info-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+.login-info-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.login-info-subtitle {
+  font-weight: 300;
+  opacity: 0.9;
+}
+
+.login-features {
+  margin-bottom: 30px;
+}
+
+.feature-card {
+  margin-bottom: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(5px);
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.feature-icon {
+  font-size: 40px;
+  color: #fff;
+  margin-top: 5px;
+}
+
+.feature-title {
+  color: white;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.feature-card .MuiTypography-body2 {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.login-benefits {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 20px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.benefit-icon {
+  font-size: 20px;
+  color: #fff;
+}
+
+.benefit-item .MuiTypography-body2 {
+  color: white;
+  font-weight: 500;
+}
+
+/* Sección de Login */
 .login-paper {
   padding: 40px;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background: white;
 }
 
 .login-header {
@@ -62,6 +165,25 @@
 }
 
 /* Responsive */
+@media (max-width: 960px) {
+  .login-info-section {
+    order: 2;
+    margin-top: 30px;
+  }
+
+  .login-info-content {
+    text-align: center;
+  }
+
+  .login-features {
+    margin-bottom: 20px;
+  }
+
+  .feature-card {
+    margin-bottom: 10px;
+  }
+}
+
 @media (max-width: 600px) {
   .login-paper {
     padding: 30px 20px;
@@ -73,6 +195,19 @@
 
   .login-title {
     font-size: 28px;
+  }
+
+  .login-info-icon {
+    font-size: 60px;
+  }
+
+  .login-info-title {
+    font-size: 32px;
+  }
+
+  .login-benefits {
+    flex-direction: column;
+    gap: 15px;
   }
 }
 

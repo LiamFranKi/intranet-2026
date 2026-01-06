@@ -12,6 +12,9 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   Visibility,
@@ -19,6 +22,12 @@ import {
   Person,
   Lock,
   School,
+  Quiz,
+  Assignment,
+  Book,
+  Assessment,
+  Security,
+  Speed,
 } from '@mui/icons-material';
 import './Login.css';
 
@@ -105,89 +114,186 @@ function Login() {
 
   return (
     <Box className="login-container">
-      <Container maxWidth="sm" className="login-wrapper">
-        <Paper elevation={10} className="login-paper">
-          <Box className="login-header">
-            <School className="login-icon" />
-            <Typography variant="h4" component="h1" className="login-title">
-              Aula Virtual
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Ingresa con tu DNI y contraseña
-            </Typography>
-          </Box>
+      <Container maxWidth="lg" className="login-wrapper">
+        <Grid container spacing={3}>
+          {/* Sección de Información / Landing */}
+          <Grid item xs={12} md={6} className="login-info-section">
+            <Box className="login-info-content">
+              <Box className="login-info-header">
+                <School className="login-info-icon" />
+                <Typography variant="h3" component="h1" className="login-info-title">
+                  Aula Virtual
+                </Typography>
+                <Typography variant="h6" className="login-info-subtitle">
+                  Tu plataforma educativa completa
+                </Typography>
+              </Box>
 
-          <form onSubmit={handleSubmit} className="login-form">
-            <TextField
-              fullWidth
-              label="DNI"
-              variant="outlined"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              margin="normal"
-              required
-              autoComplete="username"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Person />
-                  </InputAdornment>
-                ),
-              }}
-            />
+              <Box className="login-features">
+                <Card className="feature-card">
+                  <CardContent>
+                    <Box className="feature-item">
+                      <Quiz className="feature-icon" />
+                      <Box>
+                        <Typography variant="h6" className="feature-title">
+                          Exámenes en Línea
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Realiza exámenes interactivos con calificación automática
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
 
-            <TextField
-              fullWidth
-              label="Contraseña"
-              type={showPassword ? 'text' : 'password'}
-              variant="outlined"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-              autoComplete="current-password"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+                <Card className="feature-card">
+                  <CardContent>
+                    <Box className="feature-item">
+                      <Assignment className="feature-icon" />
+                      <Box>
+                        <Typography variant="h6" className="feature-title">
+                          Gestión de Tareas
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Asigna y entrega tareas de forma sencilla y organizada
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={loading}
-              className="login-button"
-              sx={{ mt: 3, mb: 2 }}
-            >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Iniciar Sesión'
-              )}
-            </Button>
-          </form>
+                <Card className="feature-card">
+                  <CardContent>
+                    <Box className="feature-item">
+                      <Book className="feature-icon" />
+                      <Box>
+                        <Typography variant="h6" className="feature-title">
+                          Contenido Interactivo
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Accede a temas, videos y materiales de estudio
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
 
-          <Box className="login-footer">
-            <Typography variant="caption" color="text.secondary">
-              Sistema de Aula Virtual
-            </Typography>
-          </Box>
-        </Paper>
+                <Card className="feature-card">
+                  <CardContent>
+                    <Box className="feature-item">
+                      <Assessment className="feature-icon" />
+                      <Box>
+                        <Typography variant="h6" className="feature-title">
+                          Calificaciones
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Consulta tus notas y seguimiento académico
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Box>
+
+              <Box className="login-benefits">
+                <Box className="benefit-item">
+                  <Security className="benefit-icon" />
+                  <Typography variant="body2">Acceso seguro y protegido</Typography>
+                </Box>
+                <Box className="benefit-item">
+                  <Speed className="benefit-icon" />
+                  <Typography variant="body2">Rápido y fácil de usar</Typography>
+                </Box>
+              </Box>
+            </Box>
+          </Grid>
+
+          {/* Sección de Login */}
+          <Grid item xs={12} md={6}>
+            <Paper elevation={10} className="login-paper">
+              <Box className="login-header">
+                <School className="login-icon" />
+                <Typography variant="h4" component="h1" className="login-title">
+                  Iniciar Sesión
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Ingresa con tu DNI y contraseña
+                </Typography>
+              </Box>
+
+              <form onSubmit={handleSubmit} className="login-form">
+                <TextField
+                  fullWidth
+                  label="DNI"
+                  variant="outlined"
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  margin="normal"
+                  required
+                  autoComplete="username"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Person />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Contraseña"
+                  type={showPassword ? 'text' : 'password'}
+                  variant="outlined"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  margin="normal"
+                  required
+                  autoComplete="current-password"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={loading}
+                  className="login-button"
+                  sx={{ mt: 3, mb: 2 }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Iniciar Sesión'
+                  )}
+                </Button>
+              </form>
+
+              <Box className="login-footer">
+                <Typography variant="caption" color="text.secondary">
+                  Sistema de Aula Virtual © 2025
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
       </Container>
     </Box>
   );
