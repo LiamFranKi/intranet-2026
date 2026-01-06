@@ -35,6 +35,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(limiter);
 
+// Servir archivos estáticos (logos, assets)
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+
 // Routes
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -44,6 +47,10 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Rutas del colegio
+const colegioRoutes = require('./routes/colegio.routes');
+app.use('/api/colegio', colegioRoutes);
 
 // 404
 app.use((req, res) => {
@@ -62,4 +69,3 @@ app.listen(PORT, () => {
   console.log(`🌐 URL: http://localhost:${PORT}`);
   console.log(`📡 Health: http://localhost:${PORT}/api/health\n`);
 });
-
