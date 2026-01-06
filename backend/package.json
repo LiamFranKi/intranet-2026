@@ -1,0 +1,21 @@
+{
+  "name": "react-aula-virtual-backend",
+  "version": "1.0.0",
+  "description": "Backend para sistema de aula virtual",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node scripts/find-port.js && nodemon server.js",
+    "kill": "node scripts/kill-ports.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "aula-virtual",
+    "react",
+    "node",
+    "pwa"
+  ],
+  "author": "",
+  "license": "ISC"
+}
+
