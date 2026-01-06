@@ -106,9 +106,24 @@ function Login() {
             <div className="branding-content">
               <div className="brand-logo-main">
                 {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="brand-logo-image" />
+                  <img src={logoUrl} alt="Logo" className="brand-logo-image" onError={(e) => {
+                    // Si falla la carga, intentar con ruta directa
+                    const directUrl = `${apiBaseUrl}/assets/logos/logo.png`;
+                    if (e.target.src !== directUrl) {
+                      e.target.src = directUrl;
+                    } else {
+                      e.target.style.display = 'none';
+                    }
+                  }} />
                 ) : (
-                  <div className="brand-logo-fallback" />
+                  <img 
+                    src={`${apiBaseUrl}/assets/logos/logo.png`} 
+                    alt="Logo" 
+                    className="brand-logo-image"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
                 )}
                 <h1>{nombreIntranet || 'Aula Virtual'}</h1>
               </div>
@@ -136,10 +151,6 @@ function Login() {
 
           {/* Panel Derecho: Formulario */}
           <div className="login-form-right">
-            <button className="btn-back" type="button" onClick={() => navigate('/')}>
-              ← Volver al Inicio
-            </button>
-
             <div className="form-header">
               <h2>Iniciar Sesión</h2>
               <p>Ingresa tus credenciales para acceder</p>

@@ -13,11 +13,9 @@ if (process.env.REACT_APP_API_URL) {
   // Desarrollo: usar HTTP local
   apiUrl = 'http://localhost:5000/api';
 } else if (isProduction) {
-  // Producción: usar HTTP (el SSL lo maneja Nginx)
-  // Si el certificado SSL no está configurado, usar HTTP
-  apiUrl = window.location.protocol === 'https:' 
-    ? 'https://intranet.vanguardschools.com/api'
-    : 'http://intranet.vanguardschools.com/api';
+  // Producción: Si hay error de certificado, usar HTTP directamente
+  // Por ahora, usar HTTP hasta que se configure SSL correctamente
+  apiUrl = 'http://intranet.vanguardschools.com/api';
 } else {
   // Fallback
   apiUrl = 'http://localhost:5000/api';

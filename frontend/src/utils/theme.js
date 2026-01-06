@@ -46,7 +46,11 @@ export const createMuiTheme = (colorPrincipal, colorSecundario) => {
  * Obtener URL completa del logo
  */
 export const getLogoUrl = (logoPath, apiUrl) => {
-  if (!logoPath) return null;
+  // Si no hay logoPath, intentar con logo.png por defecto
+  if (!logoPath) {
+    const baseUrl = apiUrl.replace('/api', '');
+    return `${baseUrl}/assets/logos/logo.png`;
+  }
   
   // Si ya es una URL completa, retornarla
   if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
@@ -58,6 +62,7 @@ export const getLogoUrl = (logoPath, apiUrl) => {
     return `${apiUrl.replace('/api', '')}${logoPath}`;
   }
   
+  // Si es solo un nombre de archivo, construir la ruta completa
   return `${apiUrl.replace('/api', '')}/assets/logos/${logoPath}`;
 };
 

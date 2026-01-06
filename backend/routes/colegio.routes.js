@@ -30,11 +30,19 @@ router.get('/:colegioId', async (req, res) => {
         // Si no existe localmente, usar el path de MySQL (puede ser URL remota)
         logoPath = colegioData.logo;
       }
-    } else {
-      // Buscar logo por defecto
-      const defaultLogoPath = path.join(__dirname, '..', 'public', 'assets', 'logos', 'logo-default.png');
+    }
+    
+    // Si no hay logo o no se encontró, buscar logo.png por defecto
+    if (!logoPath) {
+      const defaultLogoPath = path.join(__dirname, '..', 'public', 'assets', 'logos', 'logo.png');
       if (fs.existsSync(defaultLogoPath)) {
-        logoPath = '/assets/logos/logo-default.png';
+        logoPath = '/assets/logos/logo.png';
+      } else {
+        // Intentar con logo-default.png
+        const fallbackLogoPath = path.join(__dirname, '..', 'public', 'assets', 'logos', 'logo-default.png');
+        if (fs.existsSync(fallbackLogoPath)) {
+          logoPath = '/assets/logos/logo-default.png';
+        }
       }
     }
 
