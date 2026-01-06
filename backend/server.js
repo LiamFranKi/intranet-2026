@@ -35,6 +35,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(limiter);
 
+// Middleware de auditoría (registra todas las acciones)
+const middlewareAuditoria = require('./middleware/auditoria');
+app.use(middlewareAuditoria);
+
 // Servir archivos estáticos (logos, assets)
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 
@@ -55,6 +59,10 @@ app.use('/api/colegio', colegioRoutes);
 // Rutas de autenticación
 const authRoutes = require('./routes/auth.routes');
 app.use('/api/auth', authRoutes);
+
+// Rutas de auditoría
+const auditoriaRoutes = require('./routes/auditoria.routes');
+app.use('/api/auditoria', auditoriaRoutes);
 
 // 404
 app.use((req, res) => {

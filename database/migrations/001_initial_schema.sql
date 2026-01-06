@@ -1,17 +1,8 @@
 -- Esquema inicial para Aula Virtual
 -- Base de datos: aula_virtual
 
--- Tabla de usuarios (sincronización con MySQL)
-CREATE TABLE IF NOT EXISTS usuarios_sync (
-  id SERIAL PRIMARY KEY,
-  mysql_user_id INTEGER NOT NULL UNIQUE,
-  colegio_id INTEGER NOT NULL,
-  tipo VARCHAR(50) NOT NULL,
-  estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
-  ultima_sincronizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- NOTA: No necesitamos tabla usuarios_sync porque leemos directamente de MySQL
+-- El login se hace directamente desde MySQL, no necesitamos sincronizar usuarios
 
 -- Tabla de exámenes
 CREATE TABLE IF NOT EXISTS examenes (

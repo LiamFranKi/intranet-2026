@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { query, getAnioActivo } = require('../utils/mysql');
 const { getColegioData } = require('../utils/colegio');
+const { registrarAccion } = require('../utils/auditoria');
 
 /**
  * POST /api/auth/login
@@ -95,6 +96,21 @@ router.post('/login', async (req, res) => {
       apellidos: usuarioDB.alumno_apellido_paterno || usuarioDB.personal_apellido_paterno || '',
       colegio: colegioData
     };
+
+    // Registrar login exitoso en auditoría
+    registrarAccion({
+      usuario_id: usuarioDB.id,
+      colegio_id: usuarioDB.colegio_id,
+      tipo_usuario: usuarioDB.tipo,
+      accion: 'LOGIN',
+      modulo: 'AUTENTICACION',
+      descripcion: 'Inicio de sesión exitoso',
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      resultado: 'EXITOSO',
+    }).catch(err => console.error('Error registrando login:', err));
 
     res.json({
       success: true,
