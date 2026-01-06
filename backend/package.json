@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node scripts/find-port.js && nodemon server.js",
+    "dev": "node scripts/find-port.js && npx nodemon server.js",
     "kill": "node scripts/kill-ports.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
