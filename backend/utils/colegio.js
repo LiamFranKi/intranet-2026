@@ -24,12 +24,12 @@ async function getColegioData(colegioId) {
 
     const colegio = colegios[0];
 
-    // Buscar configuración adicional (si existe tabla configuraciones)
+    // Buscar configuración adicional (tabla config)
     let configuracion = {};
     try {
       const configs = await query(
         `SELECT nombre_empresa, logo, color_principal, color_secundario
-         FROM configuraciones 
+         FROM config 
          WHERE colegio_id = ? 
          LIMIT 1`,
         [colegioId]
@@ -43,7 +43,7 @@ async function getColegioData(colegioId) {
           color_secundario: configs[0].color_secundario || null,
         };
       } else {
-        // Si no hay tabla configuraciones, usar valores por defecto
+        // Si no hay registro en tabla config, usar valores por defecto
         configuracion = {
           nombre_intranet: colegio.nombre,
           logo: null,
@@ -52,8 +52,8 @@ async function getColegioData(colegioId) {
         };
       }
     } catch (error) {
-      // Si no existe tabla configuraciones, usar valores por defecto
-      console.log('Tabla configuraciones no encontrada, usando valores por defecto');
+      // Si no existe tabla config, usar valores por defecto
+      console.log('Tabla config no encontrada, usando valores por defecto');
       configuracion = {
         nombre_intranet: colegio.nombre,
         logo: null,

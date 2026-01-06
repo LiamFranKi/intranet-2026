@@ -15,11 +15,11 @@ El nombre se obtiene desde MySQL en el siguiente orden:
 **Query utilizado:**
 ```sql
 SELECT nombre_empresa, logo, color_principal, color_secundario
-FROM configuraciones 
+FROM config 
 WHERE colegio_id = ?
 ```
 
-Si la tabla `configuraciones` no existe, se usa directamente:
+Si la tabla `config` no existe, se usa directamente:
 ```sql
 SELECT nombre FROM colegios WHERE id = ?
 ```
@@ -85,13 +85,13 @@ react-aula-virtual/
 Si quieres que el sistema lea el nombre del logo desde MySQL:
 
 ```sql
--- Si existe tabla configuraciones
-UPDATE configuraciones 
+-- Si existe tabla config
+UPDATE config 
 SET logo = 'logo-colegio-1.png'
 WHERE colegio_id = 1;
 
 -- O crear registro si no existe
-INSERT INTO configuraciones (colegio_id, nombre_empresa, logo)
+INSERT INTO config (colegio_id, nombre_empresa, logo)
 VALUES (1, 'Nombre de la Intranet', 'logo-colegio-1.png');
 ```
 
@@ -120,7 +120,7 @@ function Header() {
 
 ### Opción 1: Colores desde MySQL
 
-Si en la tabla `configuraciones` hay campos `color_principal` y `color_secundario`:
+Si en la tabla `config` hay campos `color_principal` y `color_secundario`:
 
 ```sql
 UPDATE configuraciones 
