@@ -37,7 +37,11 @@ function Login() {
 
   const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
   // Logo siempre desde la carpeta local, sin depender de MySQL
-  const logoUrl = useMemo(() => `${apiBaseUrl}/assets/logos/logo.png`, [apiBaseUrl]);
+  const logoUrl = useMemo(() => {
+    const url = `${apiBaseUrl}/assets/logos/logo.png`;
+    console.log('🔍 Logo URL:', url); // Debug
+    return url;
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard');
@@ -147,9 +151,13 @@ function Login() {
                 src={logoUrl} 
                 alt="Logo" 
                 className="form-logo"
+                onLoad={() => {
+                  console.log('✅ Logo cargado correctamente');
+                }}
                 onError={(e) => {
-                  // Si falla, ocultar el logo
-                  e.target.style.display = 'none';
+                  console.error('❌ Error cargando logo:', logoUrl);
+                  // No ocultar, solo mostrar en consola para debug
+                  // e.target.style.display = 'none';
                 }}
               />
             </div>
