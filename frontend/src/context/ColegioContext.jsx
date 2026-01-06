@@ -11,18 +11,13 @@ export const useColegio = () => {
   return context;
 };
 
-export const ColegioProvider = ({ children, colegioId }) => {
+export const ColegioProvider = ({ children, colegioId = 1 }) => {
   const [colegioData, setColegioData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const obtenerDatosColegio = async () => {
-      if (!colegioId) {
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
         const response = await api.get(`/colegio/${colegioId}`);

@@ -8,6 +8,14 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import './App.css';
 
+// Configurar React Router para evitar warnings
+const routerConfig = {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  },
+};
+
 // Tema de Material-UI
 const theme = createTheme({
   palette: {
@@ -53,9 +61,11 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
+        <ColegioProvider colegioId={1}>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </ColegioProvider>
       </AuthProvider>
     </ThemeProvider>
   );

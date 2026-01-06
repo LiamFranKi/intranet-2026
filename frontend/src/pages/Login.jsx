@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useColegio } from '../context/ColegioContext';
 import Swal from 'sweetalert2';
 import {
   Container,
@@ -21,7 +22,6 @@ import {
   VisibilityOff,
   Person,
   Lock,
-  School,
   Quiz,
   Assignment,
   Book,
@@ -29,6 +29,13 @@ import {
   Security,
   Speed,
 } from '@mui/icons-material';
+import { getLogoUrl } from '../utils/theme';
+
+// Detectar si estamos en desarrollo
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const apiBaseUrl = isDevelopment 
+  ? 'http://localhost:5000'
+  : (process.env.REACT_APP_API_URL?.replace('/api', '') || 'https://intranet.vanguardschools.com');
 import './Login.css';
 
 function Login() {
@@ -36,7 +43,9 @@ function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingColegio, setLoadingColegio] = useState(true);
   const { login, isAuthenticated } = useAuth();
+  const { colegioData, nombreIntranet, logo, loading: loadingColegioData } = useColegio(1); // colegio_id = 1 por defecto
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,7 +53,11 @@ function Login() {
     if (isAuthenticated) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+    // Cuando termine de cargar datos del colegio
+    if (!loadingColegioData) {
+      setLoadingColegio(false);
+    }
+  }, [isAuthenticated, navigate, loadingColegioData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,17 +125,31 @@ function Login() {
     }
   };
 
+  const logoUrl = logo ? getLogoUrl(logo, `${apiBaseUrl}/api`) : null;
+
+  if (loadingColegio) {
+    return (
+      <Box className="login-container" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress sx={{ color: 'white' }} />
+      </Box>
+    );
+  }
+
   return (
     <Box className="login-container">
       <Container maxWidth="lg" className="login-wrapper">
-        <Grid container spacing={3}>
+        <Grid container spacing={3} alignItems="center">
           {/* Sección de Información / Landing */}
           <Grid item xs={12} md={6} className="login-info-section">
             <Box className="login-info-content">
               <Box className="login-info-header">
-                <School className="login-info-icon" />
+                {logoUrl ? (
+                  <img src={logoUrl} alt={nombreIntranet} className="login-logo" />
+                ) : (
+                  <Box className="login-logo-placeholder" />
+                )}
                 <Typography variant="h3" component="h1" className="login-info-title">
-                  Aula Virtual
+                  {nombreIntranet || 'Aula Virtual'}
                 </Typography>
                 <Typography variant="h6" className="login-info-subtitle">
                   Tu plataforma educativa completa
@@ -212,7 +239,11 @@ function Login() {
           <Grid item xs={12} md={6}>
             <Paper elevation={10} className="login-paper">
               <Box className="login-header">
-                <School className="login-icon" />
+                {logoUrl ? (
+                  <img src={logoUrl} alt={nombreIntranet} className="login-icon-img" />
+                ) : (
+                  <Box className="login-icon-placeholder" />
+                )}
                 <Typography variant="h4" component="h1" className="login-title">
                   Iniciar Sesión
                 </Typography>
@@ -231,6 +262,12 @@ function Login() {
                   margin="normal"
                   required
                   autoComplete="username"
+                  className="login-input"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                    },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -250,6 +287,12 @@ function Login() {
                   margin="normal"
                   required
                   autoComplete="current-password"
+                  className="login-input"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                    },
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -276,7 +319,14 @@ function Login() {
                   size="large"
                   disabled={loading}
                   className="login-button"
-                  sx={{ mt: 3, mb: 2 }}
+                  sx={{ 
+                    mt: 3, 
+                    mb: 2,
+                    borderRadius: '12px',
+                    padding: '14px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                  }}
                 >
                   {loading ? (
                     <CircularProgress size={24} color="inherit" />

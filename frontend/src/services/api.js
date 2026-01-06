@@ -1,10 +1,17 @@
 import axios from 'axios';
 
+// Detectar si estamos en desarrollo o producción
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const apiUrl = isDevelopment 
+  ? (process.env.REACT_APP_API_URL || 'http://localhost:5000/api')
+  : (process.env.REACT_APP_API_URL || 'https://intranet.vanguardschools.com/api');
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: apiUrl,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 segundos de timeout para conexiones remotas
 });
 
 // Interceptor para agregar token
