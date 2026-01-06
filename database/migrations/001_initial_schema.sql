@@ -165,19 +165,24 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Triggers para updated_at
+-- Triggers para updated_at (DROP IF EXISTS para evitar errores si ya existen)
+DROP TRIGGER IF EXISTS update_examenes_updated_at ON examenes;
 CREATE TRIGGER update_examenes_updated_at BEFORE UPDATE ON examenes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_tareas_updated_at ON tareas;
 CREATE TRIGGER update_tareas_updated_at BEFORE UPDATE ON tareas
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_temas_updated_at ON temas;
 CREATE TRIGGER update_temas_updated_at BEFORE UPDATE ON temas
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_resultados_examenes_updated_at ON resultados_examenes;
 CREATE TRIGGER update_resultados_examenes_updated_at BEFORE UPDATE ON resultados_examenes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_entregas_tareas_updated_at ON entregas_tareas;
 CREATE TRIGGER update_entregas_tareas_updated_at BEFORE UPDATE ON entregas_tareas
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

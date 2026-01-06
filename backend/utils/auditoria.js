@@ -23,12 +23,14 @@ async function registrarAccion({
   duracion_ms = null,
 }) {
   try {
+    const ahora = new Date();
     await query(
       `INSERT INTO auditoria_logs (
         usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
         descripcion, url, metodo_http, ip_address, user_agent,
-        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+        fecha_hora, fecha, hora
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
       [
         usuario_id,
         colegio_id,
@@ -47,6 +49,9 @@ async function registrarAccion({
         resultado,
         mensaje_error,
         duracion_ms,
+        ahora,
+        ahora.toISOString().split('T')[0], // fecha
+        ahora.toTimeString().split(' ')[0], // hora
       ]
     );
   } catch (error) {

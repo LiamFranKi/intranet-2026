@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS auditoria_logs (
   mensaje_error TEXT, -- Si hubo error, el mensaje
   duracion_ms INTEGER, -- Tiempo que tomó la acción en milisegundos
   fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  fecha DATE GENERATED ALWAYS AS (DATE(fecha_hora)) STORED, -- Para búsquedas por fecha
-  hora TIME GENERATED ALWAYS AS (TIME(fecha_hora)) STORED, -- Para búsquedas por hora
+  fecha DATE, -- Para búsquedas por fecha (se llena automáticamente)
+  hora TIME, -- Para búsquedas por hora (se llena automáticamente)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_accion ON auditoria_logs(accion);
 CREATE INDEX IF NOT EXISTS idx_auditoria_modulo ON auditoria_logs(modulo);
 CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria_logs(entidad, entidad_id);
 CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria_logs(fecha);
-CREATE INDEX IF NOT EXISTS idx_auditoria_fecha_hora ON auditoria_logs(fecha_hora);
+CREATE INDEX IF NOT EXISTS idx_auditoria_fecha_hora ON auditoria_logs(fecha_hora DESC);
 CREATE INDEX IF NOT EXISTS idx_auditoria_resultado ON auditoria_logs(resultado);
 
 -- Índice compuesto para búsquedas comunes
