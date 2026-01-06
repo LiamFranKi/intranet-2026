@@ -1,24 +1,28 @@
 import axios from 'axios';
 
 // Detectar si estamos en desarrollo o producción
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isProduction = window.location.hostname === 'intranet.vanguardschools.com';
+// Verificar primero si hay variable de entorno
+const hostname = window.location.hostname;
+const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+const isProduction = hostname === 'intranet.vanguardschools.com';
 
 // Determinar URL de API
 let apiUrl;
 if (process.env.REACT_APP_API_URL) {
-  // Si está definida en .env, usarla
+  // Si está definida en .env, usarla (tiene prioridad)
   apiUrl = process.env.REACT_APP_API_URL;
 } else if (isDevelopment) {
-  // Desarrollo: usar HTTP local
+  // Desarrollo: SIEMPRE usar HTTP local
   apiUrl = 'http://localhost:5000/api';
+  console.log('🔧 Modo desarrollo: usando API local en', apiUrl);
 } else if (isProduction) {
-  // Producción: Si hay error de certificado, usar HTTP directamente
-  // Por ahora, usar HTTP hasta que se configure SSL correctamente
+  // Producción: usar HTTP (sin SSL por ahora)
   apiUrl = 'http://intranet.vanguardschools.com/api';
+  console.log('🌐 Modo producción: usando API en', apiUrl);
 } else {
-  // Fallback
+  // Fallback: asumir desarrollo
   apiUrl = 'http://localhost:5000/api';
+  console.log('⚠️ Modo desconocido, usando fallback:', apiUrl);
 }
 
 const api = axios.create({

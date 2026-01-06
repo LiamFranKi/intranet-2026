@@ -7,13 +7,22 @@ import { getLogoUrl } from '../utils/theme';
 import './Login.css';
 
 // Detectar si estamos en desarrollo o producción
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isProduction = window.location.hostname === 'intranet.vanguardschools.com';
+const hostname = window.location.hostname;
+const isDevelopment = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
+const isProduction = hostname === 'intranet.vanguardschools.com';
 
 function resolveApiBaseUrl() {
-  if (isDevelopment) return 'http://localhost:5000';
-  if (isProduction) return window.location.protocol === 'https:' ? 'https://intranet.vanguardschools.com' : 'http://intranet.vanguardschools.com';
-  return process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL.replace('/api', '');
+  }
+  if (isDevelopment) {
+    return 'http://localhost:5000';
+  }
+  if (isProduction) {
+    return 'http://intranet.vanguardschools.com';
+  }
+  // Fallback: desarrollo
+  return 'http://localhost:5000';
 }
 
 function Login() {
@@ -27,7 +36,8 @@ function Login() {
   const navigate = useNavigate();
 
   const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
-  const logoUrl = useMemo(() => (logo ? getLogoUrl(logo, `${apiBaseUrl}/api`) : null), [logo, apiBaseUrl]);
+  // Logo siempre desde la carpeta local, sin depender de MySQL
+  const logoUrl = useMemo(() => `${apiBaseUrl}/assets/logos/logo.png`, [apiBaseUrl]);
 
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard');
@@ -133,22 +143,15 @@ function Login() {
           <div className="login-form-right">
             {/* Logo en esquina superior derecha */}
             <div className="form-logo-container">
-              {(logoUrl || true) && (
-                <img 
-                  src={logoUrl || `${apiBaseUrl}/assets/logos/logo.png`} 
-                  alt="Logo" 
-                  className="form-logo"
-                  onError={(e) => {
-                    // Si falla la carga, intentar con ruta directa
-                    const directUrl = `${apiBaseUrl}/assets/logos/logo.png`;
-                    if (e.target.src !== directUrl) {
-                      e.target.src = directUrl;
-                    } else {
-                      e.target.style.display = 'none';
-                    }
-                  }}
-                />
-              )}
+              <img 
+                src={logoUrl} 
+                alt="Logo" 
+                className="form-logo"
+                onError={(e) => {
+                  // Si falla, ocultar el logo
+                  e.target.style.display = 'none';
+                }}
+              />
             </div>
 
             <div className="form-header">
