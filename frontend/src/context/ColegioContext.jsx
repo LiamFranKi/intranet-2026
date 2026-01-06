@@ -42,6 +42,21 @@ export const ColegioProvider = ({ children, colegioId = 1 }) => {
     obtenerDatosColegio();
   }, [colegioId]);
 
+  // Aplicar variables CSS globales basadas en configuración del colegio
+  useEffect(() => {
+    const root = document.documentElement;
+    const primary = colegioData?.color_principal || '#667eea';
+    const secondary = colegioData?.color_secundario || '#764ba2';
+
+    root.style.setProperty('--primary-color', primary);
+    root.style.setProperty('--secondary-color', secondary);
+
+    // Sidebar / navbar (pueden ajustarse luego según diseño)
+    root.style.setProperty('--sidebar-bg', primary);
+    root.style.setProperty('--sidebar-text', 'white');
+    root.style.setProperty('--navbar-bg', '#ffffff');
+  }, [colegioData]);
+
   const value = {
     colegioData,
     loading,

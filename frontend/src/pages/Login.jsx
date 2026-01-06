@@ -1,76 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
 import { useColegio } from '../context/ColegioContext';
-import Swal from 'sweetalert2';
-import {
-  Container,
-  Paper,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  CircularProgress,
-  InputAdornment,
-  IconButton,
-  Grid,
-  Card,
-  CardContent,
-} from '@mui/material';
-import {
-  Visibility,
-  VisibilityOff,
-  Person,
-  Lock,
-  SportsEsports,
-  SmartToy,
-  GetApp,
-  ArrowBack,
-  ArrowForward,
-} from '@mui/icons-material';
 import { getLogoUrl } from '../utils/theme';
+import './Login.css';
 
 // Detectar si estamos en desarrollo o producción
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const isProduction = window.location.hostname === 'intranet.vanguardschools.com';
 
-// Determinar URL base de API para logos
-let apiBaseUrl;
-if (isDevelopment) {
-  apiBaseUrl = 'http://localhost:5000';
-} else if (isProduction) {
-  apiBaseUrl = window.location.protocol === 'https:' 
-    ? 'https://intranet.vanguardschools.com'
-    : 'http://intranet.vanguardschools.com';
-} else {
-  apiBaseUrl = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+function resolveApiBaseUrl() {
+  if (isDevelopment) return 'http://localhost:5000';
+  if (isProduction) return window.location.protocol === 'https:' ? 'https://intranet.vanguardschools.com' : 'http://intranet.vanguardschools.com';
+  return process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
 }
-import './Login.css';
 
 function Login() {
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [loadingColegio, setLoadingColegio] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const { login, isAuthenticated } = useAuth();
-  const { colegioData, nombreIntranet, logo, loading: loadingColegioData } = useColegio(1); // colegio_id = 1 por defecto
+  const { nombreIntranet, logo, loading: loadingColegio } = useColegio();
   const navigate = useNavigate();
 
+  const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
+  const logoUrl = useMemo(() => (logo ? getLogoUrl(logo, `${apiBaseUrl}/api`) : null), [logo, apiBaseUrl]);
+
   useEffect(() => {
-    // Si ya está autenticado, redirigir
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-    // Cuando termine de cargar datos del colegio
-    if (!loadingColegioData) {
-      setLoadingColegio(false);
-    }
-  }, [isAuthenticated, navigate, loadingColegioData]);
+    if (isAuthenticated) navigate('/dashboard');
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!usuario || !password) {
       Swal.fire({
         icon: 'warning',
@@ -85,39 +50,35 @@ function Login() {
       return;
     }
 
-    setLoading(true);
-
+    setSubmitting(true);
     try {
       const result = await login(usuario, password);
-
-      if (result.success) {
-        Swal.fire({
-          icon: 'success',
-          title: '¡Bienvenido!',
-          text: `Hola ${result.user.nombres || result.user.usuario}`,
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 2000,
-          timerProgressBar: true,
-        });
-
-        // Redirigir según tipo de usuario
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 500);
-      } else {
+      if (!result?.success) {
         Swal.fire({
           icon: 'error',
           title: 'Error de autenticación',
-          text: result.error,
+          text: result?.error || 'No se pudo iniciar sesión',
           toast: true,
           position: 'top-end',
           showConfirmButton: false,
           timer: 4000,
           timerProgressBar: true,
         });
+        return;
       }
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Bienvenido!',
+        text: `Hola ${result.user?.nombres || result.user?.usuario || usuario}`,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1800,
+        timerProgressBar: true,
+      });
+
+      navigate('/dashboard');
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -130,184 +91,122 @@ function Login() {
         timerProgressBar: true,
       });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const logoUrl = logo ? getLogoUrl(logo, `${apiBaseUrl}/api`) : null;
-
-  if (loadingColegio) {
-    return (
-      <Box className="login-container" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress sx={{ color: 'white' }} />
-      </Box>
-    );
-  }
-
   return (
-    <Box className="login-container">
-      <Container maxWidth="lg" className="login-wrapper">
-        <Paper elevation={0} className="login-main-card">
-          <Grid container>
-            {/* Sección de Información / Landing */}
-            <Grid item xs={12} md={6} className="login-info-section">
-              <Box className="login-info-content">
-                <Box className="login-info-header">
-                  {logoUrl ? (
-                    <img src={logoUrl} alt={nombreIntranet} className="login-logo" />
-                  ) : (
-                    <Box className="login-logo-placeholder" />
-                  )}
-                  <Typography variant="h3" component="h1" className="login-info-title">
-                    {nombreIntranet?.toUpperCase() || 'AULA VIRTUAL'}
-                  </Typography>
-                </Box>
+    <div className="login-page">
+      <div className="login-background" />
 
-                <Typography variant="body1" className="login-description">
-                  Accede a tu aula virtual gamificada, chatea con ASISTENTE IA y lleva tu aprendizaje al siguiente nivel.
-                </Typography>
+      <div className="login-container-simple">
+        <div className="login-card-wide">
+          {/* Panel Izquierdo: Branding */}
+          <div className="login-branding-left">
+            <div className="branding-content">
+              <div className="brand-logo-main">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="brand-logo-image" />
+                ) : (
+                  <div className="brand-logo-fallback" />
+                )}
+                <h1>{nombreIntranet || 'Aula Virtual'}</h1>
+              </div>
 
-                <Box className="login-features">
-                  <Card className="feature-card">
-                    <CardContent className="feature-card-content">
-                      <SportsEsports className="feature-icon feature-icon-purple" />
-                      <Typography variant="body1" className="feature-text">
-                        Aula Virtual Gamificada
-                      </Typography>
-                    </CardContent>
-                  </Card>
+              <p className="brand-description">
+                Accede a tu aula virtual gamificada, chatea con ASISTENTE IA y lleva tu aprendizaje al siguiente nivel.
+              </p>
 
-                  <Card className="feature-card">
-                    <CardContent className="feature-card-content">
-                      <SmartToy className="feature-icon feature-icon-red" />
-                      <Typography variant="body1" className="feature-text">
-                        Asistente IA
-                      </Typography>
-                    </CardContent>
-                  </Card>
+              <div className="brand-features-list">
+                <div className="feature-item">
+                  <span className="feature-icon">🎮</span>
+                  <span>Aula Virtual Gamificada</span>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">🤖</span>
+                  <span>Asistente IA</span>
+                </div>
+                <div className="feature-item">
+                  <span className="feature-icon">📲</span>
+                  <span>Aplicación PWA Instalable</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                  <Card className="feature-card">
-                    <CardContent className="feature-card-content">
-                      <GetApp className="feature-icon feature-icon-multicolor" />
-                      <Typography variant="body1" className="feature-text">
-                        Aplicación PWA Instalable
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Box>
-              </Box>
-            </Grid>
+          {/* Panel Derecho: Formulario */}
+          <div className="login-form-right">
+            <button className="btn-back" type="button" onClick={() => navigate('/')}>
+              ← Volver al Inicio
+            </button>
 
-            {/* Sección de Login */}
-            <Grid item xs={12} md={6} className="login-form-section">
-              <Box className="login-form-wrapper">
-                <Button
-                  startIcon={<ArrowBack />}
-                  className="back-button"
-                  onClick={() => window.location.href = '/'}
-                >
-                  Volver al Inicio
-                </Button>
+            <div className="form-header">
+              <h2>Iniciar Sesión</h2>
+              <p>Ingresa tus credenciales para acceder</p>
+            </div>
 
-                <Box className="login-header">
-                  <Typography variant="h3" component="h1" className="login-title">
-                    Iniciar Sesión
-                  </Typography>
-                  <Typography variant="body2" className="login-subtitle">
-                    Ingresa tus credenciales para acceder
-                  </Typography>
-                </Box>
-
-                <form onSubmit={handleSubmit} className="login-form">
-                  <TextField
-                    fullWidth
-                    label="DNI"
+            <form className="login-form" onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="dni">DNI</label>
+                <div className="input-wrapper">
+                  <span className="input-icon">👤</span>
+                  <input
+                    id="dni"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Ej: 12345678"
-                    variant="outlined"
                     value={usuario}
                     onChange={(e) => setUsuario(e.target.value)}
-                    required
                     autoComplete="username"
-                    className="login-input"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '12px',
-                      },
-                    }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Person sx={{ color: '#667eea' }} />
-                        </InputAdornment>
-                      ),
-                    }}
+                    disabled={submitting}
                   />
+                </div>
+              </div>
 
-                  <TextField
-                    fullWidth
-                    label="Contraseña"
-                    placeholder="Ingresa tu contraseña"
+              <div className="form-group">
+                <label htmlFor="password">Contraseña</label>
+                <div className="input-wrapper">
+                  <span className="input-icon">🔒</span>
+                  <input
+                    id="password"
                     type={showPassword ? 'text' : 'password'}
-                    variant="outlined"
+                    placeholder="Ingresa tu contraseña"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
                     autoComplete="current-password"
-                    className="login-input"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '12px',
-                      },
-                    }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock sx={{ color: '#f59e0b' }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            edge="end"
-                            sx={{ color: '#667eea' }}
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
+                    disabled={submitting}
                   />
-
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    size="large"
-                    disabled={loading}
-                    className="login-button"
-                    endIcon={!loading && <ArrowForward />}
-                    sx={{ 
-                      mt: 3,
-                      borderRadius: '12px',
-                      padding: '14px',
-                      fontSize: '16px',
-                      fontWeight: 600,
-                    }}
+                  <button
+                    className="toggle-password"
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
-                    {loading ? (
-                      <CircularProgress size={24} color="inherit" />
-                    ) : (
-                      'Iniciar Sesión'
-                    )}
-                  </Button>
-                </form>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-      </Container>
-    </Box>
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
+
+              <button className="btn-submit" type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <span className="spinner" /> <span>Ingresando...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Iniciar Sesión</span> <span>→</span>
+                  </>
+                )}
+              </button>
+
+              {loadingColegio ? (
+                <div className="login-hint">Cargando configuración del colegio...</div>
+              ) : null}
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

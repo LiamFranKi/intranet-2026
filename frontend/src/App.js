@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ColegioProvider } from './context/ColegioContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import AulaVirtual from './pages/AulaVirtual';
 import './App.css';
 
 // Configurar React Router para evitar warnings
@@ -45,6 +46,23 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route
         path="/dashboard"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/aula"
+        element={
+          <PrivateRoute>
+            <AulaVirtual />
+          </PrivateRoute>
+        }
+      />
+      {/* Placeholder: Auditoría UI se implementará en la siguiente iteración */}
+      <Route
+        path="/auditoria"
         element={
           <PrivateRoute>
             <Dashboard />
