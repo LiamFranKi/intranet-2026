@@ -64,6 +64,12 @@ app.use('/api/auth', authRoutes);
 const auditoriaRoutes = require('./routes/auditoria.routes');
 app.use('/api/auditoria', auditoriaRoutes);
 
+// Rutas de prueba (solo desarrollo)
+if (process.env.NODE_ENV === 'development') {
+  const testRoutes = require('./routes/test.routes');
+  app.use('/api/test', testRoutes);
+}
+
 // 404
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
