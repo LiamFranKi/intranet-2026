@@ -22,12 +22,11 @@ import {
   VisibilityOff,
   Person,
   Lock,
-  Quiz,
-  Assignment,
-  Book,
-  Assessment,
-  Security,
-  Speed,
+  SportsEsports,
+  SmartToy,
+  GetApp,
+  ArrowBack,
+  ArrowForward,
 } from '@mui/icons-material';
 import { getLogoUrl } from '../utils/theme';
 
@@ -148,212 +147,165 @@ function Login() {
   return (
     <Box className="login-container">
       <Container maxWidth="lg" className="login-wrapper">
-        <Grid container spacing={3} alignItems="center">
-          {/* Sección de Información / Landing */}
-          <Grid item xs={12} md={6} className="login-info-section">
-            <Box className="login-info-content">
-              <Box className="login-info-header">
-                {logoUrl ? (
-                  <img src={logoUrl} alt={nombreIntranet} className="login-logo" />
-                ) : (
-                  <Box className="login-logo-placeholder" />
-                )}
-                <Typography variant="h3" component="h1" className="login-info-title">
-                  {nombreIntranet || 'Aula Virtual'}
-                </Typography>
-                <Typography variant="h6" className="login-info-subtitle">
-                  Tu plataforma educativa completa
-                </Typography>
-              </Box>
-
-              <Box className="login-features">
-                <Card className="feature-card">
-                  <CardContent>
-                    <Box className="feature-item">
-                      <Quiz className="feature-icon" />
-                      <Box>
-                        <Typography variant="h6" className="feature-title">
-                          Exámenes en Línea
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Realiza exámenes interactivos con calificación automática
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-
-                <Card className="feature-card">
-                  <CardContent>
-                    <Box className="feature-item">
-                      <Assignment className="feature-icon" />
-                      <Box>
-                        <Typography variant="h6" className="feature-title">
-                          Gestión de Tareas
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Asigna y entrega tareas de forma sencilla y organizada
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-
-                <Card className="feature-card">
-                  <CardContent>
-                    <Box className="feature-item">
-                      <Book className="feature-icon" />
-                      <Box>
-                        <Typography variant="h6" className="feature-title">
-                          Contenido Interactivo
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Accede a temas, videos y materiales de estudio
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-
-                <Card className="feature-card">
-                  <CardContent>
-                    <Box className="feature-item">
-                      <Assessment className="feature-icon" />
-                      <Box>
-                        <Typography variant="h6" className="feature-title">
-                          Calificaciones
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Consulta tus notas y seguimiento académico
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              <Box className="login-benefits">
-                <Box className="benefit-item">
-                  <Security className="benefit-icon" />
-                  <Typography variant="body2">Acceso seguro y protegido</Typography>
-                </Box>
-                <Box className="benefit-item">
-                  <Speed className="benefit-icon" />
-                  <Typography variant="body2">Rápido y fácil de usar</Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Grid>
-
-          {/* Sección de Login */}
-          <Grid item xs={12} md={6}>
-            <Paper elevation={10} className="login-paper">
-              <Box className="login-header">
-                {logoUrl ? (
-                  <img src={logoUrl} alt={nombreIntranet} className="login-icon-img" />
-                ) : (
-                  <Box className="login-icon-placeholder" />
-                )}
-                <Typography variant="h4" component="h1" className="login-title">
-                  Iniciar Sesión
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Ingresa con tu DNI y contraseña
-                </Typography>
-              </Box>
-
-              <form onSubmit={handleSubmit} className="login-form">
-                <TextField
-                  fullWidth
-                  label="DNI"
-                  variant="outlined"
-                  value={usuario}
-                  onChange={(e) => setUsuario(e.target.value)}
-                  margin="normal"
-                  required
-                  autoComplete="username"
-                  className="login-input"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                    },
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <TextField
-                  fullWidth
-                  label="Contraseña"
-                  type={showPassword ? 'text' : 'password'}
-                  variant="outlined"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  margin="normal"
-                  required
-                  autoComplete="current-password"
-                  className="login-input"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                    },
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Lock />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  disabled={loading}
-                  className="login-button"
-                  sx={{ 
-                    mt: 3, 
-                    mb: 2,
-                    borderRadius: '12px',
-                    padding: '14px',
-                    fontSize: '16px',
-                    fontWeight: 600,
-                  }}
-                >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
+        <Paper elevation={0} className="login-main-card">
+          <Grid container>
+            {/* Sección de Información / Landing */}
+            <Grid item xs={12} md={6} className="login-info-section">
+              <Box className="login-info-content">
+                <Box className="login-info-header">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={nombreIntranet} className="login-logo" />
                   ) : (
-                    'Iniciar Sesión'
+                    <Box className="login-logo-placeholder" />
                   )}
-                </Button>
-              </form>
+                  <Typography variant="h3" component="h1" className="login-info-title">
+                    {nombreIntranet?.toUpperCase() || 'AULA VIRTUAL'}
+                  </Typography>
+                </Box>
 
-              <Box className="login-footer">
-                <Typography variant="caption" color="text.secondary">
-                  Sistema de Aula Virtual © 2025
+                <Typography variant="body1" className="login-description">
+                  Accede a tu aula virtual gamificada, chatea con ASISTENTE IA y lleva tu aprendizaje al siguiente nivel.
                 </Typography>
+
+                <Box className="login-features">
+                  <Card className="feature-card">
+                    <CardContent className="feature-card-content">
+                      <SportsEsports className="feature-icon feature-icon-purple" />
+                      <Typography variant="body1" className="feature-text">
+                        Aula Virtual Gamificada
+                      </Typography>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="feature-card">
+                    <CardContent className="feature-card-content">
+                      <SmartToy className="feature-icon feature-icon-red" />
+                      <Typography variant="body1" className="feature-text">
+                        Asistente IA
+                      </Typography>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="feature-card">
+                    <CardContent className="feature-card-content">
+                      <GetApp className="feature-icon feature-icon-multicolor" />
+                      <Typography variant="body1" className="feature-text">
+                        Aplicación PWA Instalable
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Box>
               </Box>
-            </Paper>
+            </Grid>
+
+            {/* Sección de Login */}
+            <Grid item xs={12} md={6} className="login-form-section">
+              <Box className="login-form-wrapper">
+                <Button
+                  startIcon={<ArrowBack />}
+                  className="back-button"
+                  onClick={() => window.location.href = '/'}
+                >
+                  Volver al Inicio
+                </Button>
+
+                <Box className="login-header">
+                  <Typography variant="h3" component="h1" className="login-title">
+                    Iniciar Sesión
+                  </Typography>
+                  <Typography variant="body2" className="login-subtitle">
+                    Ingresa tus credenciales para acceder
+                  </Typography>
+                </Box>
+
+                <form onSubmit={handleSubmit} className="login-form">
+                  <TextField
+                    fullWidth
+                    label="DNI"
+                    placeholder="Ej: 12345678"
+                    variant="outlined"
+                    value={usuario}
+                    onChange={(e) => setUsuario(e.target.value)}
+                    required
+                    autoComplete="username"
+                    className="login-input"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                      },
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: '#667eea' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Contraseña"
+                    placeholder="Ingresa tu contraseña"
+                    type={showPassword ? 'text' : 'password'}
+                    variant="outlined"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="login-input"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '12px',
+                      },
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: '#f59e0b' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                            sx={{ color: '#667eea' }}
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    disabled={loading}
+                    className="login-button"
+                    endIcon={!loading && <ArrowForward />}
+                    sx={{ 
+                      mt: 3,
+                      borderRadius: '12px',
+                      padding: '14px',
+                      fontSize: '16px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {loading ? (
+                      <CircularProgress size={24} color="inherit" />
+                    ) : (
+                      'Iniciar Sesión'
+                    )}
+                  </Button>
+                </form>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
+        </Paper>
       </Container>
     </Box>
   );
