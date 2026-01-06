@@ -26,11 +26,44 @@ const limiter = rateLimit({
 });
 
 // Middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Permitir cargar recursos desde otros orígenes
 }));
+
+// Configurar CORS para permitir múltiples orígenes
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'https://intranet.vanguardschools.com',
+  'http://intranet.vanguardschools.com'
+];
+
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como mobile apps o curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      // En desarrollo, permitir cualquier origen localhost
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        callback(null, true);
+      } else {
+        callback(new Error('No permitido por CORS'));
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(limiter);
@@ -39,8 +72,15 @@ app.use(limiter);
 const middlewareAuditoria = require('./middleware/auditoria');
 app.use(middlewareAuditoria);
 
-// Servir archivos estáticos (logos, assets)
-app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+// Servir archivos estáticos (logos, assets) con headers CORS
+app.use('/assets', express.static(path.join(__dirname, 'public', 'assets'), {
+  setHeaders: (res, path) => {
+    // Permitir CORS para archivos estáticos
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Cache-Control', 'public, max-age=31536000'); // Cache por 1 año
+  }
+}));
 
 // Routes
 app.get('/api/health', (req, res) => {
