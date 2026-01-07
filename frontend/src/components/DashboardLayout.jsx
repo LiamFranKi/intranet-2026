@@ -28,7 +28,8 @@ export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
-  const logoUrl = useMemo(() => (logo ? getLogoUrl(logo, `${apiBaseUrl}/api`) : null), [logo, apiBaseUrl]);
+  // Logo blanco para el sidebar
+  const logoUrl = useMemo(() => `${apiBaseUrl}/assets/logos/logoblanco.png`, [apiBaseUrl]);
 
   const displayName = user?.nombres || user?.usuario || 'Usuario';
   const initials = getInitials(displayName);
@@ -54,7 +55,7 @@ export default function DashboardLayout({ children }) {
             ) : (
               <div className="sidebar-logo-fallback">🏫</div>
             )}
-            <div className="logo-text">{nombreIntranet || 'Aula Virtual'}</div>
+            <div className="logo-text">VanguardNet</div>
           </div>
 
           <button className="sidebar-close-btn" type="button" onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú">
@@ -86,7 +87,7 @@ export default function DashboardLayout({ children }) {
 
           <div className="sidebar-item">
             <button className="sidebar-link sidebar-link-button" type="button" onClick={logout}>
-              <span className="sidebar-icon">🚪</span>
+              <span className="sidebar-icon">⏻</span>
               <span className="sidebar-label">Cerrar sesión</span>
             </button>
           </div>
@@ -116,6 +117,13 @@ export default function DashboardLayout({ children }) {
             </button>
             <button className="header-btn" type="button" title="Ir al Dashboard" onClick={() => navigate('/dashboard')}>
               🏠
+            </button>
+            <button className="header-btn header-btn-logout" type="button" title="Cerrar sesión" onClick={logout}>
+              <svg className="logout-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="9" stroke="#ef4444" strokeWidth="2" fill="none"/>
+                <path d="M12 7V12" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M9 9L12 12L15 9" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
           </div>
         </header>
