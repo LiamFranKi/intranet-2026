@@ -16,20 +16,44 @@ El puerto 3306 está cerrado desde tu IP local. Necesitas usar un túnel SSH.
 
 ---
 
-## 🚇 Solución: Túnel SSH a través de Hostinger
+## 🚇 Soluciones Posibles
 
-### Paso 1: Crear Túnel SSH
+### Opción 1: Túnel SSH Directo al Servidor MySQL (Recomendado)
 
-Abre una **nueva terminal PowerShell** y ejecuta:
+Si tienes acceso SSH al servidor MySQL (89.117.52.9):
+
+```powershell
+ssh -L 3306:localhost:3306 root@89.117.52.9
+```
+
+**Nota:** Necesitas las credenciales SSH del servidor MySQL (no las de Hostinger).
+
+**Cómo funciona:**
+1. Te conectas directamente al servidor MySQL
+2. Rediriges el puerto 3306 local → MySQL en el servidor
+3. Tu PC ve MySQL como si estuviera en `localhost:3306`
+
+---
+
+### Opción 2: Configurar MySQL para Aceptar Conexiones Remotas
+
+Si tienes acceso al servidor MySQL, puedes configurarlo para aceptar conexiones remotas desde tu IP:
+
+1. Conectarte al servidor MySQL (SSH)
+2. Configurar `bind-address = 0.0.0.0` en MySQL
+3. Dar permisos al usuario `vanguard` desde tu IP
+4. Abrir puerto 3306 en firewall
+
+**Ver detalles en:** `VERIFICAR_MYSQL_REMOTO.md`
+
+---
+
+### Opción 3: Usar Hostinger como Intermediario (Solo si no tienes acceso directo)
+
+**⚠️ Solo usar si NO tienes acceso SSH directo al servidor MySQL**
 
 ```powershell
 ssh -L 3306:mysql.vanguardschools.edu.pe:3306 root@72.60.172.101
-```
-
-**O usando la IP directamente:**
-
-```powershell
-ssh -L 3306:89.117.52.9:3306 root@72.60.172.101
 ```
 
 **Credenciales Hostinger:**
@@ -40,6 +64,8 @@ ssh -L 3306:89.117.52.9:3306 root@72.60.172.101
 1. Te conectas a Hostinger (72.60.172.101)
 2. Hostinger redirige el puerto 3306 local → MySQL remoto (mysql.vanguardschools.edu.pe:3306)
 3. Tu PC ve MySQL como si estuviera en `localhost:3306`
+
+**Nota:** Esto solo es necesario si Hostinger tiene acceso al servidor MySQL y tú no tienes acceso directo.
 
 ---
 
