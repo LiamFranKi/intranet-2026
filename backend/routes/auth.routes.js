@@ -21,15 +21,16 @@ router.post('/login', async (req, res) => {
     }
 
     // Buscar usuario en MySQL
-    // Según la estructura real: alumnos y personal tienen apellido_paterno, apellido_materno, nombres
+    // Estructura real según vanguard_intranet_2.sql:
+    // - alumnos: apellido_paterno, apellido_materno, nombres
+    // - personal: nombres, apellidos (un solo campo)
     const usuarios = await query(
       `SELECT u.*, 
               a.nombres as alumno_nombres, 
               a.apellido_paterno as alumno_apellido_paterno,
               a.apellido_materno as alumno_apellido_materno,
               p.nombres as personal_nombres,
-              p.apellido_paterno as personal_apellido_paterno,
-              p.apellido_materno as personal_apellido_materno
+              p.apellidos as personal_apellidos
        FROM usuarios u
        LEFT JOIN alumnos a ON a.id = u.alumno_id
        LEFT JOIN personal p ON p.id = u.personal_id
@@ -91,17 +92,16 @@ router.post('/login', async (req, res) => {
     let nombres = '';
     let apellidos = '';
     
-    // Si es alumno (usa columnas con alias alumno_*)
+    // Si es alumno: tiene apellido_paterno, apellido_materno separados
     if (usuarioDB.alumno_id && usuarioDB.alumno_nombres) {
       nombres = usuarioDB.alumno_nombres || '';
       apellidos = (usuarioDB.alumno_apellido_paterno || '') + 
                   (usuarioDB.alumno_apellido_materno ? ' ' + usuarioDB.alumno_apellido_materno : '');
     } 
-    // Si es personal/docente (usa columnas con alias personal_*)
+    // Si es personal/docente: tiene apellidos (un solo campo)
     else if (usuarioDB.personal_id && usuarioDB.personal_nombres) {
       nombres = usuarioDB.personal_nombres || '';
-      apellidos = (usuarioDB.personal_apellido_paterno || '') + 
-                  (usuarioDB.personal_apellido_materno ? ' ' + usuarioDB.personal_apellido_materno : '');
+      apellidos = usuarioDB.personal_apellidos || '';
     }
     
     const userData = {
@@ -152,15 +152,16 @@ router.get('/me', async (req, res) => {
     const { usuario_id, colegio_id, anio_activo } = req.user;
 
     // Obtener datos actualizados del usuario
-    // Según la estructura real: alumnos y personal tienen apellido_paterno, apellido_materno, nombres
+    // Estructura real según vanguard_intranet_2.sql:
+    // - alumnos: apellido_paterno, apellido_materno, nombres
+    // - personal: nombres, apellidos (un solo campo)
     const usuarios = await query(
       `SELECT u.*, 
               a.nombres as alumno_nombres, 
               a.apellido_paterno as alumno_apellido_paterno,
               a.apellido_materno as alumno_apellido_materno,
               p.nombres as personal_nombres,
-              p.apellido_paterno as personal_apellido_paterno,
-              p.apellido_materno as personal_apellido_materno
+              p.apellidos as personal_apellidos
        FROM usuarios u
        LEFT JOIN alumnos a ON a.id = u.alumno_id
        LEFT JOIN personal p ON p.id = u.personal_id
@@ -179,17 +180,16 @@ router.get('/me', async (req, res) => {
     let nombres = '';
     let apellidos = '';
     
-    // Si es alumno (usa columnas con alias alumno_*)
+    // Si es alumno: tiene apellido_paterno, apellido_materno separados
     if (usuarioDB.alumno_id && usuarioDB.alumno_nombres) {
       nombres = usuarioDB.alumno_nombres || '';
       apellidos = (usuarioDB.alumno_apellido_paterno || '') + 
                   (usuarioDB.alumno_apellido_materno ? ' ' + usuarioDB.alumno_apellido_materno : '');
     } 
-    // Si es personal/docente (usa columnas con alias personal_*)
+    // Si es personal/docente: tiene apellidos (un solo campo)
     else if (usuarioDB.personal_id && usuarioDB.personal_nombres) {
       nombres = usuarioDB.personal_nombres || '';
-      apellidos = (usuarioDB.personal_apellido_paterno || '') + 
-                  (usuarioDB.personal_apellido_materno ? ' ' + usuarioDB.personal_apellido_materno : '');
+      apellidos = usuarioDB.personal_apellidos || '';
     }
 
     const userData = {
