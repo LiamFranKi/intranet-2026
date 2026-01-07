@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useColegio } from '../context/ColegioContext';
-import { getLogoUrl } from '../utils/theme';
 import './DashboardLayout.css';
 
 // Detectar si estamos en desarrollo o producción
@@ -23,7 +21,6 @@ function getInitials(nombre) {
 
 export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth();
-  const { nombreIntranet, logo } = useColegio();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
