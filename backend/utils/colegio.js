@@ -59,10 +59,34 @@ async function getColegioData(colegioId) {
       }
 
       // Si la tabla existe, intentar obtener solo las columnas que existen
-      // Usar SELECT * y luego mapear solo las columnas disponibles
+      // Primero verificar qué columnas tiene la tabla
+      const columns = await query(
+        `SELECT COLUMN_NAME 
+         FROM INFORMATION_SCHEMA.COLUMNS 
+         WHERE TABLE_SCHEMA = DATABASE() 
+         AND TABLE_NAME = 'config'`
+      );
+
+      const columnNames = columns.map(col => col.COLUMN_NAME.toLowerCase());
+
+      // Construir la consulta según las columnas disponibles
+      let whereClause = '';
+      let queryParams = [];
+
+      // Si tiene colegio_id, usar ese filtro
+      if (columnNames.includes('colegio_id')) {
+        whereClause = 'WHERE colegio_id = ?';
+        queryParams = [colegioId];
+      } else if (columnNames.includes('id')) {
+        // Si tiene id pero no colegio_id, usar id
+        whereClause = 'WHERE id = ?';
+        queryParams = [colegioId];
+      }
+      // Si no tiene ningún campo de ID, obtener el primer registro
+
       const configs = await query(
-        `SELECT * FROM config WHERE colegio_id = ? LIMIT 1`,
-        [colegioId]
+        `SELECT * FROM config ${whereClause} LIMIT 1`,
+        queryParams
       );
 
       if (configs.length > 0) {
