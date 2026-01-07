@@ -21,11 +21,15 @@ router.post('/login', async (req, res) => {
     }
 
     // Buscar usuario en MySQL
-    // Usar SELECT * para obtener todas las columnas y luego mapear
+    // Según la estructura real: alumnos y personal tienen apellido_paterno, apellido_materno, nombres
     const usuarios = await query(
       `SELECT u.*, 
-              a.*,
-              p.*
+              a.nombres as alumno_nombres, 
+              a.apellido_paterno as alumno_apellido_paterno,
+              a.apellido_materno as alumno_apellido_materno,
+              p.nombres as personal_nombres,
+              p.apellido_paterno as personal_apellido_paterno,
+              p.apellido_materno as personal_apellido_materno
        FROM usuarios u
        LEFT JOIN alumnos a ON a.id = u.alumno_id
        LEFT JOIN personal p ON p.id = u.personal_id
@@ -83,23 +87,21 @@ router.post('/login', async (req, res) => {
     );
 
     // Preparar datos del usuario para el frontend
-    // Mapear nombres y apellidos de las columnas disponibles
+    // Mapear nombres y apellidos según la estructura real de la base de datos
     let nombres = '';
     let apellidos = '';
     
-    // Si es alumno
-    if (usuarioDB.alumno_id && usuarioDB.nombres) {
-      nombres = usuarioDB.nombres || '';
-      // Intentar diferentes nombres de columnas de apellidos
-      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
-                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    // Si es alumno (usa columnas con alias alumno_*)
+    if (usuarioDB.alumno_id && usuarioDB.alumno_nombres) {
+      nombres = usuarioDB.alumno_nombres || '';
+      apellidos = (usuarioDB.alumno_apellido_paterno || '') + 
+                  (usuarioDB.alumno_apellido_materno ? ' ' + usuarioDB.alumno_apellido_materno : '');
     } 
-    // Si es personal/docente
-    else if (usuarioDB.personal_id) {
-      // Los datos de personal vienen con prefijo, buscar columnas directas
-      nombres = usuarioDB.nombres || '';
-      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
-                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    // Si es personal/docente (usa columnas con alias personal_*)
+    else if (usuarioDB.personal_id && usuarioDB.personal_nombres) {
+      nombres = usuarioDB.personal_nombres || '';
+      apellidos = (usuarioDB.personal_apellido_paterno || '') + 
+                  (usuarioDB.personal_apellido_materno ? ' ' + usuarioDB.personal_apellido_materno : '');
     }
     
     const userData = {
@@ -150,11 +152,15 @@ router.get('/me', async (req, res) => {
     const { usuario_id, colegio_id, anio_activo } = req.user;
 
     // Obtener datos actualizados del usuario
-    // Usar SELECT * para obtener todas las columnas
+    // Según la estructura real: alumnos y personal tienen apellido_paterno, apellido_materno, nombres
     const usuarios = await query(
       `SELECT u.*, 
-              a.*,
-              p.*
+              a.nombres as alumno_nombres, 
+              a.apellido_paterno as alumno_apellido_paterno,
+              a.apellido_materno as alumno_apellido_materno,
+              p.nombres as personal_nombres,
+              p.apellido_paterno as personal_apellido_paterno,
+              p.apellido_materno as personal_apellido_materno
        FROM usuarios u
        LEFT JOIN alumnos a ON a.id = u.alumno_id
        LEFT JOIN personal p ON p.id = u.personal_id
@@ -169,21 +175,21 @@ router.get('/me', async (req, res) => {
     const usuarioDB = usuarios[0];
     const colegioData = await getColegioData(colegio_id);
 
-    // Mapear nombres y apellidos de las columnas disponibles
+    // Mapear nombres y apellidos según la estructura real de la base de datos
     let nombres = '';
     let apellidos = '';
     
-    // Si es alumno
-    if (usuarioDB.alumno_id && usuarioDB.nombres) {
-      nombres = usuarioDB.nombres || '';
-      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
-                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    // Si es alumno (usa columnas con alias alumno_*)
+    if (usuarioDB.alumno_id && usuarioDB.alumno_nombres) {
+      nombres = usuarioDB.alumno_nombres || '';
+      apellidos = (usuarioDB.alumno_apellido_paterno || '') + 
+                  (usuarioDB.alumno_apellido_materno ? ' ' + usuarioDB.alumno_apellido_materno : '');
     } 
-    // Si es personal/docente
-    else if (usuarioDB.personal_id) {
-      nombres = usuarioDB.nombres || '';
-      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
-                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    // Si es personal/docente (usa columnas con alias personal_*)
+    else if (usuarioDB.personal_id && usuarioDB.personal_nombres) {
+      nombres = usuarioDB.personal_nombres || '';
+      apellidos = (usuarioDB.personal_apellido_paterno || '') + 
+                  (usuarioDB.personal_apellido_materno ? ' ' + usuarioDB.personal_apellido_materno : '');
     }
 
     const userData = {
