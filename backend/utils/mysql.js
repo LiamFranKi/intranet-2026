@@ -1,8 +1,19 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+// Detectar si estamos en producción o desarrollo
+const isProduction = process.env.NODE_ENV === 'production';
+
+// En producción: conexión directa al MySQL remoto
+// En desarrollo: conexión a través del túnel SSH (localhost)
+const mysqlHost = isProduction 
+  ? (process.env.MYSQL_HOST_PRODUCTION || process.env.MYSQL_HOST || '89.117.52.9')
+  : (process.env.MYSQL_HOST_DEVELOPMENT || process.env.MYSQL_HOST || 'localhost');
+
+console.log(`🔌 MySQL: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'} - Host: ${mysqlHost}`);
+
 const mysqlReadPool = mysql.createPool({
-  host: process.env.MYSQL_HOST,
+  host: mysqlHost,
   port: process.env.MYSQL_PORT || 3306,
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
@@ -10,7 +21,11 @@ const mysqlReadPool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  multipleStatements: false
+  multipleStatements: false,
+  // Configuración adicional para producción
+  reconnect: true,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
 async function query(sql, params = []) {
