@@ -18,6 +18,7 @@ Write-Host ""
 # OPCIÓN 1: Si tienes acceso SSH directo al servidor MySQL
 # ssh -L 3306:localhost:3306 root@89.117.52.9
 
-# OPCIÓN 2: Si NO tienes acceso directo, usa Hostinger como intermediario
-ssh -L 3306:89.117.52.9:3306 root@72.60.172.101
+# OPCIÓN 2: Usar Hostinger como intermediario (Recomendado)
+# Esto redirige localhost:3306 → mysql.vanguardschools.edu.pe:3306 a través de Hostinger
+ssh -L 3306:mysql.vanguardschools.edu.pe:3306 root@72.60.172.101
 
