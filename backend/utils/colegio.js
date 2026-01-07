@@ -27,8 +27,9 @@ async function getColegioData(colegioId) {
     // Buscar configuración adicional (tabla config)
     let configuracion = {};
     try {
+      // Primero intentar obtener las columnas disponibles de la tabla config
       const configs = await query(
-        `SELECT nombre_empresa, logo, color_principal, color_secundario
+        `SELECT nombre_intranet, logo, color_principal, color_secundario
          FROM config 
          WHERE colegio_id = ? 
          LIMIT 1`,
@@ -37,7 +38,7 @@ async function getColegioData(colegioId) {
 
       if (configs.length > 0) {
         configuracion = {
-          nombre_intranet: configs[0].nombre_empresa || colegio.nombre,
+          nombre_intranet: configs[0].nombre_intranet || colegio.nombre,
           logo: configs[0].logo || null,
           color_principal: configs[0].color_principal || null,
           color_secundario: configs[0].color_secundario || null,
@@ -52,14 +53,48 @@ async function getColegioData(colegioId) {
         };
       }
     } catch (error) {
-      // Si no existe tabla config, usar valores por defecto
-      console.log('Tabla config no encontrada, usando valores por defecto');
-      configuracion = {
-        nombre_intranet: colegio.nombre,
-        logo: null,
-        color_principal: null,
-        color_secundario: null,
-      };
+      // Si la columna no existe o la tabla no existe, intentar con otras posibles columnas
+      if (error.code === 'ER_BAD_FIELD_ERROR') {
+        try {
+          // Intentar con nombre_empresa (por si acaso)
+          const configs = await query(
+            `SELECT nombre_empresa as nombre_intranet, logo, color_principal, color_secundario
+             FROM config 
+             WHERE colegio_id = ? 
+             LIMIT 1`,
+            [colegioId]
+          );
+          
+          if (configs.length > 0) {
+            configuracion = {
+              nombre_intranet: configs[0].nombre_intranet || colegio.nombre,
+              logo: configs[0].logo || null,
+              color_principal: configs[0].color_principal || null,
+              color_secundario: configs[0].color_secundario || null,
+            };
+          } else {
+            throw new Error('No config found');
+          }
+        } catch (error2) {
+          // Si tampoco funciona, usar valores por defecto
+          console.log('Tabla config no encontrada o estructura diferente, usando valores por defecto');
+          configuracion = {
+            nombre_intranet: colegio.nombre,
+            logo: null,
+            color_principal: null,
+            color_secundario: null,
+          };
+        }
+      } else {
+        // Si no existe tabla config, usar valores por defecto
+        console.log('Tabla config no encontrada, usando valores por defecto');
+        configuracion = {
+          nombre_intranet: colegio.nombre,
+          logo: null,
+          color_principal: null,
+          color_secundario: null,
+        };
+      }
     }
 
     return {
