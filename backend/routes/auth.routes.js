@@ -21,14 +21,11 @@ router.post('/login', async (req, res) => {
     }
 
     // Buscar usuario en MySQL
+    // Usar SELECT * para obtener todas las columnas y luego mapear
     const usuarios = await query(
       `SELECT u.*, 
-              a.nombres as alumno_nombres, 
-              a.apellido_paterno as alumno_apellido_paterno,
-              a.apellido_materno as alumno_apellido_materno,
-              p.nombres as personal_nombres,
-              p.apellido_paterno as personal_apellido_paterno,
-              p.apellido_materno as personal_apellido_materno
+              a.*,
+              p.*
        FROM usuarios u
        LEFT JOIN alumnos a ON a.id = u.alumno_id
        LEFT JOIN personal p ON p.id = u.personal_id
@@ -86,14 +83,33 @@ router.post('/login', async (req, res) => {
     );
 
     // Preparar datos del usuario para el frontend
+    // Mapear nombres y apellidos de las columnas disponibles
+    let nombres = '';
+    let apellidos = '';
+    
+    // Si es alumno
+    if (usuarioDB.alumno_id && usuarioDB.nombres) {
+      nombres = usuarioDB.nombres || '';
+      // Intentar diferentes nombres de columnas de apellidos
+      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
+                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    } 
+    // Si es personal/docente
+    else if (usuarioDB.personal_id) {
+      // Los datos de personal vienen con prefijo, buscar columnas directas
+      nombres = usuarioDB.nombres || '';
+      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
+                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    }
+    
     const userData = {
       id: usuarioDB.id,
       usuario: usuarioDB.usuario,
       tipo: usuarioDB.tipo,
       colegio_id: usuarioDB.colegio_id,
       anio_activo: anioActivo,
-      nombres: usuarioDB.alumno_nombres || usuarioDB.personal_nombres || '',
-      apellidos: usuarioDB.alumno_apellido_paterno || usuarioDB.personal_apellido_paterno || '',
+      nombres: nombres.trim() || usuarioDB.usuario,
+      apellidos: apellidos.trim(),
       colegio: colegioData
     };
 
@@ -134,14 +150,11 @@ router.get('/me', async (req, res) => {
     const { usuario_id, colegio_id, anio_activo } = req.user;
 
     // Obtener datos actualizados del usuario
+    // Usar SELECT * para obtener todas las columnas
     const usuarios = await query(
       `SELECT u.*, 
-              a.nombres as alumno_nombres, 
-              a.apellido_paterno as alumno_apellido_paterno,
-              a.apellido_materno as alumno_apellido_materno,
-              p.nombres as personal_nombres,
-              p.apellido_paterno as personal_apellido_paterno,
-              p.apellido_materno as personal_apellido_materno
+              a.*,
+              p.*
        FROM usuarios u
        LEFT JOIN alumnos a ON a.id = u.alumno_id
        LEFT JOIN personal p ON p.id = u.personal_id
@@ -156,14 +169,31 @@ router.get('/me', async (req, res) => {
     const usuarioDB = usuarios[0];
     const colegioData = await getColegioData(colegio_id);
 
+    // Mapear nombres y apellidos de las columnas disponibles
+    let nombres = '';
+    let apellidos = '';
+    
+    // Si es alumno
+    if (usuarioDB.alumno_id && usuarioDB.nombres) {
+      nombres = usuarioDB.nombres || '';
+      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
+                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    } 
+    // Si es personal/docente
+    else if (usuarioDB.personal_id) {
+      nombres = usuarioDB.nombres || '';
+      apellidos = (usuarioDB.apellido_paterno || usuarioDB.apellidos || '') + 
+                  (usuarioDB.apellido_materno ? ' ' + usuarioDB.apellido_materno : '');
+    }
+
     const userData = {
       id: usuarioDB.id,
       usuario: usuarioDB.usuario,
       tipo: usuarioDB.tipo,
       colegio_id: usuarioDB.colegio_id,
       anio_activo: anio_activo,
-      nombres: usuarioDB.alumno_nombres || usuarioDB.personal_nombres || '',
-      apellidos: usuarioDB.alumno_apellido_paterno || usuarioDB.personal_apellido_paterno || '',
+      nombres: nombres.trim() || usuarioDB.usuario,
+      apellidos: apellidos.trim(),
       colegio: colegioData
     };
 
