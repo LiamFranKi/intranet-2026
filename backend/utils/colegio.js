@@ -24,98 +24,18 @@ async function getColegioData(colegioId) {
 
     const colegio = colegios[0];
 
-    // Buscar configuración adicional (tabla config)
-    // Si la tabla config no existe o no tiene las columnas esperadas, usar valores por defecto
-    let configuracion = {
-      nombre_intranet: colegio.nombre,
-      logo: null,
-      color_principal: null,
-      color_secundario: null,
-    };
-
-    try {
-      // Primero verificar si la tabla config existe
-      const tables = await query(
-        `SELECT TABLE_NAME 
-         FROM INFORMATION_SCHEMA.TABLES 
-         WHERE TABLE_SCHEMA = DATABASE() 
-         AND TABLE_NAME = 'config'`
-      );
-
-      if (tables.length === 0) {
-        // Tabla config no existe, usar valores por defecto
-        console.log('Tabla config no existe, usando valores por defecto');
-        return {
-          id: colegio.id,
-          nombre: colegio.nombre,
-          nombre_intranet: colegio.nombre,
-          anio_activo: colegio.anio_activo,
-          bloquear_deudores: colegio.bloquear_deudores,
-          dias_tolerancia: colegio.dias_tolerancia,
-          logo: null,
-          color_principal: null,
-          color_secundario: null,
-        };
-      }
-
-      // Si la tabla existe, intentar obtener solo las columnas que existen
-      // Primero verificar qué columnas tiene la tabla
-      const columns = await query(
-        `SELECT COLUMN_NAME 
-         FROM INFORMATION_SCHEMA.COLUMNS 
-         WHERE TABLE_SCHEMA = DATABASE() 
-         AND TABLE_NAME = 'config'`
-      );
-
-      const columnNames = columns.map(col => col.COLUMN_NAME.toLowerCase());
-
-      // Construir la consulta según las columnas disponibles
-      let whereClause = '';
-      let queryParams = [];
-
-      // Si tiene colegio_id, usar ese filtro
-      if (columnNames.includes('colegio_id')) {
-        whereClause = 'WHERE colegio_id = ?';
-        queryParams = [colegioId];
-      } else if (columnNames.includes('id')) {
-        // Si tiene id pero no colegio_id, usar id
-        whereClause = 'WHERE id = ?';
-        queryParams = [colegioId];
-      }
-      // Si no tiene ningún campo de ID, obtener el primer registro
-
-      const configs = await query(
-        `SELECT * FROM config ${whereClause} LIMIT 1`,
-        queryParams
-      );
-
-      if (configs.length > 0) {
-        const configRow = configs[0];
-        // Mapear solo las columnas que existen
-        configuracion = {
-          nombre_intranet: configRow.nombre_intranet || 
-                          configRow.nombre_empresa || 
-                          colegio.nombre,
-          logo: configRow.logo || null,
-          color_principal: configRow.color_principal || null,
-          color_secundario: configRow.color_secundario || null,
-        };
-      }
-    } catch (error) {
-      // Si hay cualquier error, usar valores por defecto
-      console.log('Error obteniendo configuración de tabla config, usando valores por defecto:', error.message);
-    }
-
+    // No usar tabla config - todo se maneja directamente
+    // Logo y nombre se obtienen desde archivos locales o valores por defecto
     return {
       id: colegio.id,
       nombre: colegio.nombre,
-      nombre_intranet: configuracion.nombre_intranet,
+      nombre_intranet: colegio.nombre, // Usar nombre del colegio como nombre de intranet
       anio_activo: colegio.anio_activo,
       bloquear_deudores: colegio.bloquear_deudores,
       dias_tolerancia: colegio.dias_tolerancia,
-      logo: configuracion.logo,
-      color_principal: configuracion.color_principal,
-      color_secundario: configuracion.color_secundario,
+      logo: null, // Logo se maneja directamente desde archivos locales
+      color_principal: null, // Colores se pueden configurar después si es necesario
+      color_secundario: null,
     };
   } catch (error) {
     console.error('Error obteniendo datos del colegio:', error);
