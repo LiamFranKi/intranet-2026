@@ -81,17 +81,45 @@
 **Componente:** `DocenteDashboard.jsx`
 
 **Funcionalidades:**
-- ✅ Estadísticas: Cursos asignados, Estudiantes
-- ✅ Próximos exámenes (con fecha_desde y titulo)
-- ✅ Próximas tareas (con fecha_fin y descripcion)
+- ✅ Estadísticas: Cursos asignados, Estudiantes, Tardanzas del mes
+- ✅ Sección unificada "Próximos Eventos" (reemplaza Exámenes y Tareas separadas)
+- ✅ Grid de 4 columnas con paginación (8 eventos por página)
+- ✅ Cards diferenciadas por color según tipo (Examen/Tarea/Actividad)
+- ✅ Modal de detalles de eventos (`EventoDetalleModal`)
 - ✅ Widgets: Calendario, Publicaciones, Notificaciones
 - ✅ Diseño centrado y limpio (sin tarjeta de bienvenida)
 
+**Tarjetas de Estadísticas:**
+- `estadisticas.cursosAsignados` - Número de cursos asignados
+- `estadisticas.estudiantes` - Número total de estudiantes
+- `Tardanzas de [Mes]` - Tardanzas del mes actual (valor inicial: 0, pendiente implementación)
+
+**Sección Próximos Eventos:**
+- Combina exámenes, tareas y actividades en una sola vista
+- Solo muestra eventos futuros (fecha >= hoy)
+- Grid responsive: 4 columnas (desktop), 3 (tablet), 2 (móvil), 1 (pequeño)
+- Paginación: 8 eventos por página (2 filas × 4 columnas)
+- Cada card muestra:
+  - Fecha (día y mes)
+  - Título completo (sin truncar)
+  - Tipo de evento (Examen/Tarea/Actividad)
+  - Color diferenciado por tipo:
+    - **Examen**: Gradiente naranja/amarillo
+    - **Tarea**: Gradiente verde
+    - **Actividad**: Gradiente azul
+
+**Modal EventoDetalleModal:**
+- Muestra detalles completos del evento seleccionado
+- Información específica según tipo:
+  - **Exámenes**: Título, fecha, asignatura, grupo
+  - **Tareas**: Descripción, fecha límite, asignatura, grupo
+  - **Actividades**: Descripción, fecha, hora, lugar, detalles
+- Header con color según tipo de evento
+
 **Datos mostrados:**
-- `estadisticas.cursosAsignados` - Número de cursos
-- `estadisticas.estudiantes` - Número de estudiantes
-- `proximosExamenes[]` - Array de exámenes próximos
-- `proximasTareas[]` - Array de tareas próximas
+- `proximosExamenes[]` - Array de exámenes futuros (sin límite de días)
+- `proximasTareas[]` - Array de tareas futuras (sin límite de días)
+- `actividades[]` - Array de actividades futuras del colegio
 
 ---
 
@@ -201,6 +229,26 @@
 - `images`: Serializado como PHP `base64_encode(serialize(array))`
 - `archivos`: Serializado como PHP `base64_encode(serialize(array))`
 - `privacidad`: "-1" = Todos, IDs de grupos separados por comas
+
+---
+
+### EventoDetalleModal
+
+**Componente:** `EventoDetalleModal.jsx`
+
+**Funcionalidades Implementadas:**
+- ✅ Modal para mostrar detalles completos de eventos
+- ✅ Header con color según tipo de evento
+- ✅ Información específica según tipo:
+  - **Exámenes**: Título, fecha del examen, asignatura, grupo
+  - **Tareas**: Descripción, fecha límite, asignatura, grupo
+  - **Actividades**: Descripción, fecha, hora, lugar, detalles
+- ✅ Diseño responsive y animaciones
+- ✅ Cierre al hacer clic fuera del modal o en botón X
+
+**Uso:**
+- Se abre al hacer clic en cualquier card de evento en el Dashboard
+- Recibe props: `evento`, `tipo` ('examen'|'tarea'|'actividad'), `onClose`
 
 ---
 
