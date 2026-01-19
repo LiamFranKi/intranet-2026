@@ -7,7 +7,7 @@ function CalendarioWidget() {
   const [fechaActual, setFechaActual] = useState(new Date());
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
   const [actividades, setActividades] = useState([]);
-  const [actividadesDelDia, setActividadesDelDia] = useState([]);
+  const [actividadesDelDiaSeleccionado, setActividadesDelDiaSeleccionado] = useState([]);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [actividadSeleccionada, setActividadSeleccionada] = useState(null);
 
@@ -23,34 +23,30 @@ function CalendarioWidget() {
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  // Cargar actividades del mes actual
+  // Cargar todas las actividades (sin filtrar por fecha para mostrar todas)
   useEffect(() => {
     cargarActividades();
   }, [añoActual, mesActual]);
 
-  // Cargar actividades del día seleccionado
-  useEffect(() => {
-    cargarActividadesDelDia();
-  }, [fechaSeleccionada]);
-
   const cargarActividades = async () => {
     try {
+      // Cargar todas las actividades del año activo (sin filtrar por fecha específica)
       const response = await api.get('/docente/actividades');
-      setActividades(response.data.actividades || []);
+      const actividadesData = response.data.actividades || [];
+      console.log('📅 Actividades cargadas:', actividadesData.length);
+      if (actividadesData.length > 0) {
+        console.log('📅 Primeras actividades:', actividadesData.slice(0, 3).map(a => ({
+          id: a.id,
+          descripcion: a.descripcion,
+          fecha_inicio: a.fecha_inicio,
+          fecha_fin: a.fecha_fin
+        })));
+      }
+      setActividades(actividadesData);
     } catch (error) {
-      console.error('Error cargando actividades:', error);
-    }
-  };
-
-  const cargarActividadesDelDia = async () => {
-    try {
-      const fechaStr = fechaSeleccionada.toISOString().split('T')[0];
-      const response = await api.get('/docente/actividades', {
-        params: { fecha: fechaStr }
-      });
-      setActividadesDelDia(response.data.actividades || []);
-    } catch (error) {
-      console.error('Error cargando actividades del día:', error);
+      console.error('❌ Error cargando actividades:', error);
+      console.error('❌ Error details:', error.response?.data || error.message);
+      setActividades([]);
     }
   };
 
@@ -81,21 +77,80 @@ function CalendarioWidget() {
     );
   };
 
+  // Obtener actividades de un día específico
+  const obtenerActividadesDelDia = (dia) => {
+    if (!dia || actividades.length === 0) return [];
+    
+    // Crear fecha del día en formato YYYY-MM-DD para comparar
+    const fechaDia = new Date(añoActual, mesActual, dia);
+    const añoDia = fechaDia.getFullYear();
+    const mesDia = fechaDia.getMonth();
+    const diaDia = fechaDia.getDate();
+    
+    return actividades.filter(act => {
+      if (!act.fecha_inicio) {
+        console.log('⚠️ Actividad sin fecha_inicio:', act);
+        return false;
+      }
+      
+      try {
+        const fechaInicio = new Date(act.fecha_inicio);
+        const fechaFin = act.fecha_fin ? new Date(act.fecha_fin) : new Date(act.fecha_inicio);
+        
+        // Extraer año, mes, día de las fechas del evento
+        const añoInicio = fechaInicio.getFullYear();
+        const mesInicio = fechaInicio.getMonth();
+        const diaInicio = fechaInicio.getDate();
+        
+        const añoFin = fechaFin.getFullYear();
+        const mesFin = fechaFin.getMonth();
+        const diaFin = fechaFin.getDate();
+        
+        // Crear objetos Date para comparar solo fechas (sin hora)
+        const inicioEvento = new Date(añoInicio, mesInicio, diaInicio);
+        const finEvento = new Date(añoFin, mesFin, diaFin);
+        const fechaComparar = new Date(añoDia, mesDia, diaDia);
+        
+        // Verificar si el día está dentro del rango del evento
+        const estaEnRango = fechaComparar >= inicioEvento && fechaComparar <= finEvento;
+        
+        if (estaEnRango) {
+          console.log(`✅ Actividad encontrada para día ${dia}:`, act.descripcion, {
+            fechaComparar: fechaComparar.toISOString().split('T')[0],
+            inicioEvento: inicioEvento.toISOString().split('T')[0],
+            finEvento: finEvento.toISOString().split('T')[0]
+          });
+        }
+        
+        return estaEnRango;
+      } catch (error) {
+        console.error('❌ Error procesando actividad:', act, error);
+        return false;
+      }
+    });
+  };
+
   // Verificar si un día tiene actividades
   const tieneActividades = (dia) => {
-    if (!dia) return false;
-    const fecha = new Date(añoActual, mesActual, dia);
-    return actividades.some(act => {
-      const fechaInicio = new Date(act.fecha_inicio);
-      const fechaFin = act.fecha_fin ? new Date(act.fecha_fin) : fechaInicio;
-      return fecha >= fechaInicio && fecha <= fechaFin;
-    });
+    if (!dia || actividades.length === 0) return false;
+    const actividadesDelDia = obtenerActividadesDelDia(dia);
+    return actividadesDelDia.length > 0;
   };
 
   const handleDiaClick = (dia) => {
     if (dia) {
       const nuevaFecha = new Date(añoActual, mesActual, dia);
       setFechaSeleccionada(nuevaFecha);
+      
+      // Obtener actividades del día seleccionado
+      const actividadesDelDia = obtenerActividadesDelDia(dia);
+      setActividadesDelDiaSeleccionado(actividadesDelDia);
+      
+      // Si hay actividades, abrir modal con la primera
+      if (actividadesDelDia.length > 0) {
+        setActividadSeleccionada(actividadesDelDia[0]);
+        setMostrarModal(true);
+      }
     }
   };
 
@@ -117,7 +172,6 @@ function CalendarioWidget() {
   return (
     <>
       <div className="calendario-widget">
-        <h3 className="widget-title">Calendario</h3>
         <div className="calendario-header">
           <button className="btn-nav" onClick={() => cambiarMes(-1)}>‹</button>
           <div className="mes-ano">
@@ -136,59 +190,30 @@ function CalendarioWidget() {
         </div>
 
         <div className="calendario-grid">
-          {dias.map((dia, index) => (
-            <div
-              key={index}
-              className={`calendario-dia ${dia === null ? 'empty' : ''} ${dia && esHoy(dia) ? 'hoy' : ''} ${dia && esSeleccionado(dia) ? 'seleccionado' : ''} ${dia && tieneActividades(dia) ? 'tiene-actividades' : ''}`}
-              onClick={() => handleDiaClick(dia)}
-            >
-              {dia}
-              {dia && tieneActividades(dia) && (
-                <span className="actividad-indicador"></span>
-              )}
-            </div>
-          ))}
+          {dias.map((dia, index) => {
+            const tieneAct = dia && tieneActividades(dia);
+            return (
+              <div
+                key={index}
+                className={`calendario-dia ${dia === null ? 'empty' : ''} ${dia && esHoy(dia) ? 'hoy' : ''} ${dia && esSeleccionado(dia) ? 'seleccionado' : ''} ${tieneAct ? 'tiene-actividades' : ''}`}
+                onClick={() => handleDiaClick(dia)}
+                title={tieneAct ? `${obtenerActividadesDelDia(dia).length} actividad(es)` : ''}
+              >
+                {dia}
+                {tieneAct && (
+                  <span className="actividad-indicador"></span>
+                )}
+              </div>
+            );
+          })}
         </div>
-
-        {/* Lista de actividades del día seleccionado */}
-        {actividadesDelDia.length > 0 && (
-          <div className="actividades-del-dia">
-            <h4 className="actividades-del-dia-title">
-              {fechaSeleccionada.toLocaleDateString('es-PE', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long' 
-              })}
-            </h4>
-            <div className="actividades-lista-mini">
-              {actividadesDelDia.slice(0, 3).map((act) => (
-                <div 
-                  key={act.id} 
-                  className="actividad-mini-card"
-                  onClick={() => handleActividadClick(act)}
-                >
-                  <span className="actividad-mini-hora">
-                    {new Date(act.fecha_inicio).toLocaleTimeString('es-PE', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </span>
-                  <span className="actividad-mini-titulo">{act.descripcion}</span>
-                </div>
-              ))}
-              {actividadesDelDia.length > 3 && (
-                <div className="actividad-mas">
-                  +{actividadesDelDia.length - 3} más
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {mostrarModal && actividadSeleccionada && (
+      {mostrarModal && actividadesDelDiaSeleccionado.length > 0 && (
         <EventoModal
-          actividad={actividadSeleccionada}
+          actividades={actividadesDelDiaSeleccionado}
+          fechaSeleccionada={fechaSeleccionada}
+          actividadInicial={actividadSeleccionada}
           onClose={() => {
             setMostrarModal(false);
             setActividadSeleccionada(null);

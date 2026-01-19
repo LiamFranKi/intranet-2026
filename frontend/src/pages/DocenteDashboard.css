@@ -17,60 +17,6 @@
   color: #4a83c1;
 }
 
-/* Header con bienvenida */
-.dashboard-header-section {
-  margin-bottom: 2rem;
-}
-
-.welcome-card {
-  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 50%, #2d5a8f 100%);
-  border-radius: 20px;
-  padding: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  color: white;
-  box-shadow: 0 8px 24px rgba(74, 131, 193, 0.3);
-}
-
-.welcome-avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  flex-shrink: 0;
-}
-
-.welcome-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  font-weight: 700;
-  color: white;
-}
-
-.welcome-text h1 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.75rem;
-  font-weight: 800;
-}
-
-.welcome-text p {
-  margin: 0;
-  opacity: 0.95;
-  font-size: 1rem;
-}
 
 /* Grid de estadísticas - Mejorado estilo DataCole */
 .stats-grid {
@@ -98,8 +44,10 @@
   border-radius: 16px;
   padding: 1.5rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  justify-content: center;
+  gap: 1rem;
   box-shadow: 0 8px 26px rgba(74, 131, 193, 0.16);
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
@@ -131,6 +79,7 @@
 
 .stat-content {
   flex: 1;
+  text-align: center;
 }
 
 .stat-number {
@@ -253,12 +202,6 @@
 @media (max-width: 768px) {
   .docente-dashboard {
     padding: 1rem;
-  }
-
-  .welcome-card {
-    flex-direction: column;
-    text-align: center;
-    padding: 1.5rem;
   }
 
   .stats-grid {

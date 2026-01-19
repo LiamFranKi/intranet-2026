@@ -137,6 +137,18 @@
 
 .calendario-dia.tiene-actividades {
   position: relative;
+  background: rgba(74, 131, 193, 0.1);
+  border: 1px solid rgba(74, 131, 193, 0.3);
+}
+
+.calendario-dia.tiene-actividades:not(.hoy):not(.seleccionado):hover {
+  background: rgba(74, 131, 193, 0.2);
+  border-color: rgba(74, 131, 193, 0.5);
+}
+
+.calendario-dia.hoy.tiene-actividades {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .actividad-indicador {

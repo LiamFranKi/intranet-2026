@@ -543,20 +543,23 @@ router.get('/comunicados', async (req, res) => {
  */
 router.get('/actividades', async (req, res) => {
   try {
-    const { colegio_id, anio_activo } = req.user;
+    const { colegio_id } = req.user;
     const { fecha } = req.query;
 
     // actividades NO tiene anio ni estado. Tiene fecha_inicio y fecha_fin (datetime)
-    // Filtrar por año usando fecha_inicio
+    // Cargar TODAS las actividades del colegio (sin restricción de año)
+    // Si se pasa fecha, filtrar solo las que incluyen ese día en su rango
     let querySql = `
       SELECT a.*
       FROM actividades a
-      WHERE a.colegio_id = ? AND YEAR(a.fecha_inicio) = ?
+      WHERE a.colegio_id = ?
     `;
-    const params = [colegio_id, anio_activo];
+    const params = [colegio_id];
 
     if (fecha) {
-      querySql += ` AND DATE(a.fecha_inicio) = ?`;
+      // Filtrar actividades que incluyen esta fecha en su rango
+      // La fecha puede estar entre fecha_inicio y fecha_fin
+      querySql += ` AND DATE(?) BETWEEN DATE(a.fecha_inicio) AND COALESCE(DATE(a.fecha_fin), DATE(a.fecha_inicio))`;
       params.push(fecha);
     }
 

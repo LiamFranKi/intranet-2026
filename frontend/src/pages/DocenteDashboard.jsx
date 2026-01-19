@@ -51,30 +51,6 @@ function DocenteDashboard() {
   return (
     <DashboardLayout>
       <div className="docente-dashboard">
-        {/* Header con bienvenida */}
-        <div className="dashboard-header-section">
-          <div className="welcome-card">
-            <div className="welcome-avatar">
-              {docente.foto && docente.foto !== '' ? (
-                <img 
-                  src={docente.foto.startsWith('http') 
-                    ? docente.foto 
-                    : `${window.location.protocol}//${window.location.hostname}:5000${docente.foto}`} 
-                  alt={docente.nombres} 
-                />
-              ) : (
-                <div className="avatar-placeholder">
-                  {docente.nombres?.charAt(0) || 'D'}
-                </div>
-              )}
-            </div>
-            <div className="welcome-text">
-              <h1>¡Bienvenido, {docente.nombres || 'Docente'}!</h1>
-              <p>Gestiona tus cursos, grupos y actividades desde aquí</p>
-            </div>
-          </div>
-        </div>
-
         {/* Tarjetas de estadísticas */}
         <div className="stats-grid">
           <div className="stat-card mundo-card">

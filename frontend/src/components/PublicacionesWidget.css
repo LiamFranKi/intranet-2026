@@ -420,9 +420,9 @@
 .btn-eliminar-publicacion {
   background: transparent;
   border: none;
-  font-size: 1.2rem;
+  font-size: 0.9rem;
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.4rem;
   border-radius: 4px;
   transition: all 0.2s;
   opacity: 0.6;
