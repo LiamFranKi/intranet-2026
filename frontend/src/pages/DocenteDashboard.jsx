@@ -181,6 +181,14 @@ function DocenteDashboard() {
         {/* Tarjetas de estadísticas */}
         <div className="stats-grid">
           <div className="stat-card mundo-card">
+            <div className="stat-icon">🎓</div>
+            <div className="stat-content">
+              <div className="stat-number">{estadisticas?.gruposAsignados || 0}</div>
+              <div className="stat-label">Grupos Asignados</div>
+            </div>
+          </div>
+
+          <div className="stat-card mundo-card">
             <div className="stat-icon">📚</div>
             <div className="stat-content">
               <div className="stat-number">{estadisticas?.cursosAsignados || 0}</div>

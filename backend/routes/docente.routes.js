@@ -120,6 +120,15 @@ router.get('/dashboard', async (req, res) => {
 
     const docente = personal[0];
 
+    // Contar grupos asignados (grupos distintos donde el docente tiene asignaturas)
+    const gruposAsignados = await query(
+      `SELECT COUNT(DISTINCT g.id) as total
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [docente.id, colegio_id, anio_activo]
+    );
+
     // Contar cursos asignados
     // asignaturas tiene grupo_id directamente, no area_curso_id. El año viene de grupos.anio
     const cursosAsignados = await query(
@@ -215,6 +224,7 @@ router.get('/dashboard', async (req, res) => {
         email: docente.email || ''
       },
       estadisticas: {
+        gruposAsignados: gruposAsignados[0]?.total || 0,
         cursosAsignados: cursosAsignados[0]?.total || 0,
         estudiantes: estudiantes[0]?.total || 0
       },
@@ -359,17 +369,25 @@ router.get('/grupos', async (req, res) => {
       return res.status(404).json({ error: 'Docente no encontrado' });
     }
 
-    // Obtener grupos asignados
+    // Obtener grupos asignados con conteo de alumnos
     // asignaturas tiene grupo_id directamente, no area_curso_id
+    // El conteo de alumnos se hace igual que en el sistema anterior: estado = 0 OR estado = 4
     const grupos = await query(
-      `SELECT DISTINCT g.*, n.nombre as nivel_nombre, t.nombre as turno_nombre
+      `SELECT DISTINCT g.*, 
+              n.nombre as nivel_nombre, 
+              t.nombre as turno_nombre,
+              (SELECT COUNT(*) 
+               FROM matriculas m 
+               WHERE m.grupo_id = g.id 
+               AND m.colegio_id = ? 
+               AND (m.estado = 0 OR m.estado = 4)) as total_alumnos
        FROM grupos g
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN turnos t ON t.id = g.turno_id
        INNER JOIN asignaturas a ON a.grupo_id = g.id
        WHERE a.personal_id = ? AND g.colegio_id = ? AND g.anio = ?
        ORDER BY n.nombre, g.grado, g.seccion`,
-      [personalId, colegio_id, anio_activo]
+      [colegio_id, personalId, colegio_id, anio_activo]
     );
 
     res.json({ grupos: grupos || [] });
@@ -407,11 +425,22 @@ router.get('/grupos/:grupoId/alumnos', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este grupo' });
     }
 
-    // Obtener alumnos del grupo
+    // Obtener alumnos del grupo con fecha de nacimiento y teléfono (del alumno o apoderado)
+    // Los alumnos se relacionan con apoderados a través de la tabla familias
     const alumnos = await query(
-      `SELECT a.*, m.fecha_registro, m.estado as estado_matricula
+      `SELECT a.*, 
+              m.fecha_registro, 
+              m.estado as estado_matricula,
+              a.fecha_nacimiento,
+              COALESCE(
+                NULLIF(ap.telefono_celular, ''), 
+                NULLIF(ap.telefono_fijo, ''),
+                'N/A'
+              ) as telefono
        FROM alumnos a
        INNER JOIN matriculas m ON m.alumno_id = a.id
+       LEFT JOIN familias f ON f.alumno_id = a.id
+       LEFT JOIN apoderados ap ON ap.id = f.apoderado_id
        WHERE m.grupo_id = ? AND m.colegio_id = ? AND m.estado = 0
        ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres`,
       [grupoId, colegio_id]

@@ -508,9 +508,11 @@ function DocentePerfil() {
           {/* Botones */}
           <div className="form-actions">
             <button type="button" className="btn-cancel" onClick={() => navigate('/docente/dashboard')}>
+              <span className="btn-icon">❌</span>
               Cancelar
             </button>
             <button type="submit" className="btn-save" disabled={saving}>
+              <span className="btn-icon">💾</span>
               {saving ? 'Guardando...' : 'Guardar Cambios'}
             </button>
           </div>
@@ -577,6 +579,7 @@ function DocentePerfil() {
                     });
                   }}
                 >
+                  <span className="btn-icon">❌</span>
                   Cancelar
                 </button>
                 <button 
@@ -584,6 +587,7 @@ function DocentePerfil() {
                   className="btn-save"
                   disabled={changingPassword}
                 >
+                  <span className="btn-icon">💾</span>
                   {changingPassword ? 'Cambiando...' : 'Cambiar Contraseña'}
                 </button>
               </div>
