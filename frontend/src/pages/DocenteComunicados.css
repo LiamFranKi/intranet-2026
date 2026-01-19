@@ -1,0 +1,88 @@
+.docente-comunicados {
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.docente-comunicados-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.page-header p {
+  color: #6b7280;
+  margin: 0;
+}
+
+.comunicados-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.comunicado-card {
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border: 1px solid rgba(74, 131, 193, 0.18);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.12);
+}
+
+.comunicado-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(74, 131, 193, 0.2);
+}
+
+.comunicado-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.comunicado-fecha {
+  font-size: 0.85rem;
+  color: #6b7280;
+  background: rgba(74, 131, 193, 0.1);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.comunicado-contenido {
+  color: #374151;
+  line-height: 1.6;
+}
+
+.comunicado-contenido p {
+  margin: 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+

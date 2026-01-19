@@ -1,0 +1,224 @@
+.calendario-widget {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.calendario-widget:hover {
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.15);
+}
+
+.calendario-widget .widget-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.calendario-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.mes-ano {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mes-ano span {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.btn-hoy {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-hoy:hover {
+  transform: translateY(-1px);
+}
+
+.btn-nav {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.btn-nav:hover {
+  background: #f3f4f6;
+  border-color: #4a83c1;
+  color: #4a83c1;
+}
+
+.calendario-dias-semana {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.dia-semana {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  padding: 0.5rem 0;
+}
+
+.calendario-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.calendario-dia {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.calendario-dia.empty {
+  cursor: default;
+  opacity: 0;
+}
+
+.calendario-dia:not(.empty):hover {
+  background: #f3f4f6;
+  color: #4a83c1;
+}
+
+.calendario-dia.hoy {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  font-weight: 700;
+}
+
+.calendario-dia.seleccionado:not(.hoy) {
+  background: rgba(74, 131, 193, 0.2);
+  color: #4a83c1;
+  border: 2px solid #4a83c1;
+}
+
+.calendario-dia.tiene-actividades {
+  position: relative;
+}
+
+.actividad-indicador {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  background: #4a83c1;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px white;
+}
+
+.calendario-dia.hoy .actividad-indicador {
+  background: white;
+  box-shadow: 0 0 0 2px #4a83c1;
+}
+
+.actividades-del-dia {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.actividades-del-dia-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.75rem 0;
+  text-transform: capitalize;
+}
+
+.actividades-lista-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.actividad-mini-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 3px solid #4a83c1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.actividad-mini-card:hover {
+  background: linear-gradient(90deg, #f3f4f6 0%, #ffffff 100%);
+  transform: translateX(4px);
+  box-shadow: 0 4px 8px rgba(74, 131, 193, 0.15);
+  border-left-width: 4px;
+}
+
+.actividad-mini-hora {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4a83c1;
+  min-width: 50px;
+}
+
+.actividad-mini-titulo {
+  font-size: 0.85rem;
+  color: #374151;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actividad-mas {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding: 0.5rem;
+  font-style: italic;
+}
+

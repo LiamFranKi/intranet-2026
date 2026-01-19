@@ -19,10 +19,19 @@ try {
   console.log('Usando puerto por defecto:', PORT);
 }
 
-// Rate limiting
+// Rate limiting - Configuración más permisiva para desarrollo
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // máximo 100 requests
+  max: isDevelopment ? 1000 : 200, // En desarrollo: 1000 requests, en producción: 200
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true, // Retorna rate limit info en headers `RateLimit-*`
+  legacyHeaders: false, // Desactiva headers `X-RateLimit-*`
+  skip: (req) => {
+    // Excluir health check del rate limiting
+    return req.path === '/api/health';
+  }
 });
 
 // Middleware
@@ -66,12 +75,8 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(limiter);
 
-// Middleware de auditoría (registra todas las acciones)
-const middlewareAuditoria = require('./middleware/auditoria');
-app.use(middlewareAuditoria);
-
+// Servir archivos estáticos ANTES del rate limiter (no deben estar limitados)
 // Servir archivos estáticos (logos, assets) con headers CORS
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets'), {
   setHeaders: (res, path) => {
@@ -81,6 +86,22 @@ app.use('/assets', express.static(path.join(__dirname, 'public', 'assets'), {
     res.set('Cache-Control', 'public, max-age=31536000'); // Cache por 1 año
   }
 }));
+
+// Servir archivos subidos (fotos de personal, publicaciones, archivos, etc.)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, path) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Cache-Control', 'public, max-age=86400'); // Cache por 1 día
+  }
+}));
+
+// Aplicar rate limiter solo a rutas de API (después de archivos estáticos)
+app.use('/api', limiter);
+
+// Middleware de auditoría (registra todas las acciones)
+const middlewareAuditoria = require('./middleware/auditoria');
+app.use(middlewareAuditoria);
 
 // Routes
 app.get('/api/health', (req, res) => {
@@ -103,6 +124,10 @@ app.use('/api/auth', authRoutes);
 // Rutas de auditoría
 const auditoriaRoutes = require('./routes/auditoria.routes');
 app.use('/api/auditoria', auditoriaRoutes);
+
+// Rutas de docente
+const docenteRoutes = require('./routes/docente.routes');
+app.use('/api/docente', docenteRoutes);
 
 // Rutas de prueba (solo desarrollo)
 if (process.env.NODE_ENV === 'development') {

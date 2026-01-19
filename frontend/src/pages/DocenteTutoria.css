@@ -1,0 +1,72 @@
+.docente-tutoria {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.docente-tutoria-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.page-header p {
+  color: #6b7280;
+  margin: 0;
+}
+
+.no-tutor {
+  text-align: center;
+  padding: 3rem;
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border: 1px solid rgba(74, 131, 193, 0.18);
+  border-radius: 16px;
+}
+
+.no-tutor h2 {
+  margin: 0 0 1rem 0;
+  color: #1f2937;
+}
+
+.no-tutor p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.tutoria-content {
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border: 1px solid rgba(74, 131, 193, 0.18);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.12);
+}
+
+.grupo-info {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(74, 131, 193, 0.2);
+}
+
+.grupo-info h2 {
+  margin: 0 0 0.5rem 0;
+  color: #1f2937;
+  font-size: 1.5rem;
+}
+
+.grupo-info p {
+  margin: 0;
+  color: #6b7280;
+}
+

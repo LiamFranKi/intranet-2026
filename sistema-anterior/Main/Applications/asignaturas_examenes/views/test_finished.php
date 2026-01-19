@@ -1,0 +1,1 @@
+<div class="alert alert-danger text-center text-bold">LA PRUEBA HA FINALIZADO</div>

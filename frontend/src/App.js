@@ -7,6 +7,16 @@ import { ColegioProvider } from './context/ColegioContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AulaVirtual from './pages/AulaVirtual';
+import DocenteDashboard from './pages/DocenteDashboard';
+import DocentePerfil from './pages/DocentePerfil';
+import DocenteGrupos from './pages/DocenteGrupos';
+import DocenteCursos from './pages/DocenteCursos';
+import DocenteHorario from './pages/DocenteHorario';
+import DocenteTutoria from './pages/DocenteTutoria';
+import DocenteComunicados from './pages/DocenteComunicados';
+import DocenteActividades from './pages/DocenteActividades';
+import DocenteMensajes from './pages/DocenteMensajes';
+import DocenteAulaVirtual from './pages/DocenteAulaVirtual';
 import './App.css';
 
 // Configurar React Router para evitar warnings
@@ -40,6 +50,18 @@ function PrivateRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" />;
 }
 
+// Componente para redirigir al dashboard correcto según el tipo de usuario
+function NavigateToDashboard() {
+  const { user } = useAuth();
+  const tipo = user?.tipo;
+  
+  if (tipo === 'DOCENTE') {
+    return <Navigate to="/docente/dashboard" />;
+  }
+  
+  return <Navigate to="/dashboard" />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -69,7 +91,87 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route
+        path="/docente/dashboard"
+        element={
+          <PrivateRoute>
+            <DocenteDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/perfil"
+        element={
+          <PrivateRoute>
+            <DocentePerfil />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/grupos"
+        element={
+          <PrivateRoute>
+            <DocenteGrupos />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/cursos"
+        element={
+          <PrivateRoute>
+            <DocenteCursos />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/horario"
+        element={
+          <PrivateRoute>
+            <DocenteHorario />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/tutoria"
+        element={
+          <PrivateRoute>
+            <DocenteTutoria />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/comunicados"
+        element={
+          <PrivateRoute>
+            <DocenteComunicados />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/actividades"
+        element={
+          <PrivateRoute>
+            <DocenteActividades />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/mensajes"
+        element={
+          <PrivateRoute>
+            <DocenteMensajes />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/docente/cursos/:cursoId/aula"
+        element={
+          <PrivateRoute>
+            <DocenteAulaVirtual />
+          </PrivateRoute>
+        }
+      />
+      <Route path="/" element={<NavigateToDashboard />} />
     </Routes>
   );
 }

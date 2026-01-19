@@ -1,0 +1,7 @@
+{
+	"vendor":"Zarkiel",
+	"version":"1.0",
+	"require": {
+		"crystals": ["Form:UndefinedFormControlException", "Form:FormControl"]
+	}
+}

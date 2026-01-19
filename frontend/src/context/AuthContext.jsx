@@ -19,17 +19,41 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Verificar si hay token guardado
     const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    
     if (token) {
+      // Si hay usuario guardado, restaurarlo inmediatamente para evitar flash de login
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          setIsAuthenticated(true);
+        } catch (e) {
+          console.error('Error al parsear usuario guardado:', e);
+        }
+      }
+      
       // Verificar token con el servidor
       api.get('/auth/me')
         .then(response => {
           setUser(response.data.user);
           setIsAuthenticated(true);
+          // Actualizar usuario guardado
+          localStorage.setItem('user', JSON.stringify(response.data.user));
         })
-        .catch(() => {
-          // Token inválido, limpiar
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+        .catch((error) => {
+          // Solo limpiar token si es un error 401 (no autorizado)
+          // Si es error de red, mantener el token y el usuario
+          if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            setIsAuthenticated(false);
+          } else {
+            // Error de red u otro error: mantener el estado actual
+            // El usuario seguirá autenticado con los datos guardados
+            console.warn('Error al verificar token (posible error de red):', error.message);
+          }
         })
         .finally(() => {
           setLoading(false);
@@ -65,6 +89,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    setUser,
     loading,
     isAuthenticated,
     login,

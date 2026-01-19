@@ -30,7 +30,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const { loading: loadingColegio } = useColegio();
   const navigate = useNavigate();
 
@@ -43,8 +43,17 @@ function Login() {
   }, [apiBaseUrl]);
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard');
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated && user) {
+      // Redirigir según el tipo de usuario
+      if (user.tipo === 'DOCENTE') {
+        navigate('/docente/dashboard');
+      } else if (user.tipo === 'ALUMNO') {
+        navigate('/alumno/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -91,7 +100,14 @@ function Login() {
         timerProgressBar: true,
       });
 
-      navigate('/dashboard');
+      // Redirigir según el tipo de usuario
+      if (result.user?.tipo === 'DOCENTE') {
+        navigate('/docente/dashboard');
+      } else if (result.user?.tipo === 'ALUMNO') {
+        navigate('/alumno/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -190,7 +206,7 @@ function Login() {
 
               <div className="form-group">
                 <label htmlFor="password">Contraseña</label>
-                <div className="input-wrapper">
+                <div className="input-wrapper input-wrapper-password">
                   <span className="input-icon">🔒</span>
                   <input
                     id="password"

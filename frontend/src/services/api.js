@@ -62,9 +62,10 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
+      // Limpiar token y usuario, pero no redirigir automáticamente
+      // Dejar que el AuthContext y PrivateRoute manejen la redirección
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
     }
     
     // Si es un error de red (sin respuesta), mostrar mensaje más claro

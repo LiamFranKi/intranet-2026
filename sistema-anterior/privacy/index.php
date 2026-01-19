@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>	
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<link rel="icon" href="images/favicon.png" sizes="16x16" type="image/png">
+	
+	<link rel="stylesheet" type="text/css" href="css/fonts.css">
+	<link rel="stylesheet" href="css/bootstrap.css">
+	<link rel="stylesheet" href="css/animate.css">
+	<link rel="stylesheet" href="css/style_light.css">
+	<link rel="stylesheet" href="css/style_slider.css">
+	<link rel="stylesheet" href="css/color.css">
+	
+
+	<title>Privacy Policy | Vanguard Schools</title>
+
+	<style type="text/css">
+		body {
+			color: black;
+		}
+		body a {
+			text-decoration: underline;
+		}
+
+		body a:hover {
+			text-decoration: underline;
+		}
+		.container {
+			max-width: 900px;
+			margin-top: 50px;
+		}
+		.row .section-head {
+			margin-bottom: 50px;
+		}
+		li, p, span {
+			background: transparent !important; 
+		}
+		.row.tos * {
+			font-family: Calibri;
+			font-size: 10pt;
+		}
+		.row ul {
+			list-style: initial;
+		}
+		.row li {
+			list-style: inherit;
+		}
+		.row ul {
+			padding-left: 40px;
+		}
+		.row ol {
+			padding-left: 40px;
+		}
+		.section > ol > li {
+			margin-bottom: 20px;
+		}
+		.row ul > li {
+			margin-bottom: 5px;
+			margin-top: 5px;
+		}
+	</style>
+</head>
+
+<body style="background:#f9f9f9;">
+	<div class="container">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="section-head wow fadeIn animated" data-wow-offset="120" data-wow-duration="1.5s">
+					<h1>Privacy Policy</h1>
+					<span class="underline"></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="row tos">	
+			<div class="col-md-12">
+				<div class="features-right wow fadeInRight animated" data-wow-offset="10" data-wow-duration="1.5s">
+
+					<div class="feature">
+						<div class="fetaure-details">
+							<div class="section">
+
+								<b>Last updated:</b> October 04, 2018<br>
+								<br>
+								This Privacy Policy outlines the practices of Vanguard Schools. (the &quot;<b>Company</b>&quot;, &quot; <b>we</b>&quot;, &quot;<b>us</b>&quot; or &quot;<b>our</b>&quot;) concerning the collection, use and disclosure of information pertaining to end users. <br>
+								This Privacy Policy is a legally binding agreement between the Company and the Partner (the &quot;<b>Partner</b>&quot;). By accessing or using our Services, the Partner agrees to abide by and not derogate from the terms of this Privacy Policy, as amended from time to time, and consent to the collection and use of information in the manner set out in this Privacy Policy. We encourage our Partner to periodically review this Privacy Policy. <br>
+								<!--The definitions in the Terms of Service apply to this Privacy Policy unless stated otherwise. In addition to this policy, please review our Terms of Service, which is incorporated herein by reference, together with such other policies of which the Partner may be notified of by the Company from time to time. <br>-->
+								<br>
+
+								<ol>
+									<li>
+										<b>What information we collect</b><br>
+										We collect the following types of data:<br>
+										<b>Anonymous Information</b><br>
+										<ul>
+											<li>The anonymous information the Company collects (i.e. information that does not enable identification of individual persons) includes technical information transmitted by the end user&#39;s device, including the end user&#39;s approximate location, software and hardware specifications (e.g. browser type and version, operating system, version), language preferences, visited pages, registry entries and time stamps.</li>
+											<li>Our service will allow enhanced and streamlined content delivery by downloading files (or portions of files) of the designated content to the end user&#39;s device, from other end users (who have downloaded or are also downloading those files), and transmitting the files between the end users through WebRTC technology.</li>
+											<li>The Company will not be liable for any files or content downloaded or transferred by or between the end users. The Company will not be responsible for the accuracy, correctness and security of any of the information we gather, store and disclose.</li>
+											<li>We encourage any third party to refrain from using our Services in any manner which may infringe upon other persons&#39; proprietary or privacy rights, or any other rights. Although we do not have the ability to monitor the use of our Services, if we are aware of a breach of our standard, or of any applicable laws or regulations, we reserve the right to suspend or terminate the use of our Services.</li>
+											<li><b>Personal Information</b><br>We do not collect any personal information from end users.</li>
+											<li><b>Mobile Identifiers.</b> When you are using our a mobile application that incorporates our Services, we may also automatically record your Google Advertising ID (if you are using an Android device) or your Advertising Identifier (IDFA – if you are using an iOS device; together with the Google Advertising ID – &quot;Mobile Advertising IDs&quot;), for advertising or analytics purposes. The Google Advertising ID is an anonymous identifier, provided by Google Play services. If your device has an Advertising ID, we may collect and use it for advertising and user analytics purposes. If your device does not have Advertising ID, we may use other persistent identifiers. The information collected may be also stored on your device. Please see below how you can reset you mobile Advertising ID or opt-out of receiving targeted ads through your mobile Advertising IDs.</li>
+										</ul>
+									</li>
+									<li>
+										<b>What is the Purpose of collecting the information?</b><br>
+										<ul>
+											We collect the information specified above in order to:
+											<ol type="a">
+												<li>enable the Company to further provide, develop, enhance, customize and improve the Services, based on the end users&#39; preferences, uses and interactions with the Services;</li>
+												<li>audit and track usage statistics and traffic flow, audit our affiliates and calculate payments;</li>
+												<li>perform research, as well as for analytical and statistical purposes;</li>
+												<li>respond to inquiries, feedbacks, support request and questions;</li>
+												<li>detect, prevent, or otherwise address fraud, security or technical issues;</li>
+												<li>to respond to claims that any content available through the Service violates rights of third-parties;</li>
+												<li>To resolve disputes and enforce our policies, including investigation of potential violations thereof, for the purpose of law enforcement or in accordance with any applicable law or regulation.</li>
+											</ol>
+											<br>
+											<b>How we collect the information</b><br>
+											<ul>
+												<li>
+													While we do not use cookies, we may use various technologies to collect and store technical information about the activity on websites, such as pixel tags, log files,web beacons or similar technologies. This information is anonymous and de-identified. We cannot use such data for the purpose of tracking or profiling any user. For your convenience, below you can find a general explanation about some of the technologies that we may use:
+													<ul>
+														<li><b>Pixel Tags: </b>A pixel tag is a type of technology placed on a website in combination with cookie to enable tracking activity on websites.</li>
+														<li><b>Web Beacon: </b>A web beacon is technique used to track who is reading a web page or email, when, and from which computer.</li>
+													</ul>
+												</li>
+												<li><b>Mobile Device Opt-Out</b> - you may opt out of receiving targeted ads on mobile devices using the Android operating system, by using platform level controls enabled through your device settings. You should consult your device settings and instructions provided by your device manufacturer. However, we provide the following information solely for informational purposes.</li>
+												<li>If you have an Apple device, you can opt out of targeted advertising by updating to iOS 6.0 or higher, and setting &quot;Limit Ad Tracking&quot; to &quot;ON&quot;. You can do this by clicking on Settings -&gt; Privacy -&gt; Advertising, and toggling &quot;Limit Ad Tracking&quot; to &quot;ON&quot;. This prevents apps that you use from using your Apple device’s Advertising Identifier to serve you targeted ads. In addition, or as an alternative, you may reset your device’s Advertising Identifier, which will result in your device being disassociated from ad targeting profiles based on the Advertising Identifier in effect prior to reset. You can do this by clicking on Settings -&gt; Privacy -&gt; Advertising -&gt; Reset Advertising Identifier. Again, you should consult Apple’s support web pages and instructions for the most current applicable settings.</li>
+												<li>If you have an Android device, you can opt out of targeted advertising on your device. You can do this by clicking the menu icon to display the apps list, then find and select the Google Settings icon, then find and select &quot;Ads&quot; and check the box &quot;Opt out of interest-based ads&quot;. In addition, or as an alternative, you may reset your device’s Android advertising ID, which will result in your device being disassociated from ad targeting profiles based on the Android advertising ID in effect prior to reset. You can do this by clicking the menu icon to display the apps list, then find and select the Google Settings icon, then find and select &quot;Ads&quot; and selecting &quot;Reset advertising ID&quot;. Note that Android settings menus may vary among device manufacturers and these instructions may not be accurate for your device. You should consult Google’s settings and instructions for the most current settings information. </li>
+											</ul>
+										</ul>
+									</li>
+									<li>
+										<b>With whom we share information</b>
+										<ul>
+											<li>We do not share Personal Information with third parties except as specifically consented by the end user pursuant to this Privacy Policy or if required by applicable laws or court order.</li>
+											<li>We share Anonymous Information with third parties, when this is required in order to provide, maintain or improve the Services and for the purposes detailed above, and only to the extent needed to provide such services.</li>
+											<li>We may also share information in order to: (a) ensure compliance with any applicable law or regulation, subpoena or court order; (b) detect, prevent or otherwise address fraud, security, violation of our policies or technical issues; (c) enforce the provisions of this Privacy Policy, Terms of Service or any other agreements between the Company and the Partner, including investigation of potential violations thereof; or (d) protect against harm to the rights, property or safety of the Company or its partners, affiliates, or any other third party.</li>
+											<li>Anonymous information may be shared with other third parties (including retailers, ad networks, advertising companies, service providers, media and other interested parties) in any of the above circumstances, as well as for the purpose of developing or delivering advertising (whether via our Services, or services of other third parties), or for the purpose of improving our Services, conducting business analysis or other business purposes. This information may be combined with information we collect from other sources, to the extent that the information remains anonymous information.</li>
+										</ul>
+									</li>
+									<li>
+										<b>Children&#39;s information</b>
+										<ul>
+											<li>The Services are not directed or intended for children under 13 years of age. We do not knowingly collect or solicit information from individuals under 13 years of age. If we later obtain actual knowledge that an end user is under 13 years of age, we will take steps to remove that end user&#39;s information from our systems.</li>
+										</ul>
+									</li>
+									<li>
+										<b>For how long we retain the information?</b>
+										<ul>
+											<li>We may rectify, replenish or remove incomplete or inaccurate information, at any time and at our own discretion. End users may, at any time, rectify, update or withdraw personal information pertaining to them, by contacting us at <a href="mailto:legal@vanguardschools.edu.pe" target="_blank">legal@vanguardschools.edu.pe.</a></li>
+											<li>Unless we are instructed otherwise, we retain the information we collect for as long as needed to provide the Services and to comply with our legal obligations, resolve disputes and enforce our agreements.</li>
+										</ul>
+									</li>
+									<li>
+										<b>Security and confidentiality</b>
+										<ul>
+											<li>We use industry standard information security tools and measures, as well as internal procedures and strict guidelines to prevent information misuse and data leakage. Our employees and contractors access the information on a &quot;need-to-know&quot; basis and subject to confidentiality obligations.</li>
+											<li>While we strive to use commercially acceptable means and procedures to protect the information, which considerably reduce the risks of data misuse, we cannot guarantee that our systems will be absolutely safe. To notify the Company about any security vulnerability or potential data breach, please contact us at: <a href="mailto:legal@vanguardschools.edu.pe" target="_blank">legal@vanguardschools.edu.pe</a>, and we will take the appropriate measures to address such incident, as deemed necessary.</li>
+										</ul>
+									</li>
+									<li>
+										<b>Merger, sale or bankruptcy</b>
+										<ul><li>In the event that the Company is acquired by or merged with a third party entity, or other corporate transaction, or in the event of bankruptcy or a comparable event, we reserve the right to transfer or assign information in connection with the foregoing events. In the event of the above, our affiliated companies or acquiring company will assume the rights and obligations as described in this Privacy Policy.</li></ul>
+									</li>
+									<li>
+										<b>Updates or amendments to the Privacy Policy</b><br>
+										<ul><li>We reserve the right to periodically amend or revise the Privacy Policy; material changes will be effective immediately upon such changes being presented on our Privacy Policy. The continued use of the Services, following notice of such amendments, constitutes acknowledgement and consent of such amendments to the Privacy Policy and agreement to be bound by the terms of such amendments. The last revision will be reflected in the &quot;Last Updated&quot; heading.</li></ul>
+									</li>
+									<li>
+										<b>Contact Us</b><br>
+										<ul><li>For further information or queries please contact us at <a href="legal@vanguardschools.edu.pe" target="_blank">legal@vanguardschools.edu.pe</a>.</li></ul>
+									</li></ol>
+
+									<p>
+										<span>© 2018 Vanguard Schools. All Rights Reserved </span>
+									</p>
+								</div>
+							</div>
+
+						</div>
+					</div>
+
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

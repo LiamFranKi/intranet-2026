@@ -1,4 +1,4 @@
-const { query } = require('./postgres');
+const { query, execute } = require('./mysql');
 
 /**
  * Registrar una acción en el log de auditoría
@@ -24,13 +24,20 @@ async function registrarAccion({
 }) {
   try {
     const ahora = new Date();
-    await query(
+    const fecha = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+    const hora = ahora.toTimeString().split(' ')[0]; // HH:MM:SS
+    
+    // Convertir datos a JSON string para MySQL
+    const datosAnterioresJson = datos_anteriores ? JSON.stringify(datos_anteriores) : null;
+    const datosNuevosJson = datos_nuevos ? JSON.stringify(datos_nuevos) : null;
+    
+    await execute(
       `INSERT INTO auditoria_logs (
         usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
         descripcion, url, metodo_http, ip_address, user_agent,
         datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
         fecha_hora, fecha, hora
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         usuario_id,
         colegio_id,
@@ -44,14 +51,14 @@ async function registrarAccion({
         metodo_http,
         ip_address,
         user_agent,
-        datos_anteriores ? JSON.stringify(datos_anteriores) : null,
-        datos_nuevos ? JSON.stringify(datos_nuevos) : null,
+        datosAnterioresJson,
+        datosNuevosJson,
         resultado,
         mensaje_error,
         duracion_ms,
         ahora,
-        ahora.toISOString().split('T')[0], // fecha
-        ahora.toTimeString().split(' ')[0], // hora
+        fecha,
+        hora,
       ]
     );
   } catch (error) {
@@ -66,27 +73,24 @@ async function registrarAccion({
  */
 async function obtenerLogsUsuario(usuarioId, fechaDesde = null, fechaHasta = null, limite = 100) {
   try {
-    let sql = `
-      SELECT * FROM auditoria_logs
-      WHERE usuario_id = $1
-    `;
+    let sql = `SELECT * FROM auditoria_logs WHERE usuario_id = ?`;
     const params = [usuarioId];
 
     if (fechaDesde) {
-      sql += ` AND fecha >= $${params.length + 1}`;
+      sql += ` AND fecha >= ?`;
       params.push(fechaDesde);
     }
 
     if (fechaHasta) {
-      sql += ` AND fecha <= $${params.length + 1}`;
+      sql += ` AND fecha <= ?`;
       params.push(fechaHasta);
     }
 
-    sql += ` ORDER BY fecha_hora DESC LIMIT $${params.length + 1}`;
+    sql += ` ORDER BY fecha_hora DESC LIMIT ?`;
     params.push(limite);
 
     const result = await query(sql, params);
-    return result.rows;
+    return result;
   } catch (error) {
     console.error('Error obteniendo logs:', error);
     throw error;
@@ -98,27 +102,24 @@ async function obtenerLogsUsuario(usuarioId, fechaDesde = null, fechaHasta = nul
  */
 async function obtenerLogsModulo(modulo, fechaDesde = null, fechaHasta = null, limite = 100) {
   try {
-    let sql = `
-      SELECT * FROM auditoria_logs
-      WHERE modulo = $1
-    `;
+    let sql = `SELECT * FROM auditoria_logs WHERE modulo = ?`;
     const params = [modulo];
 
     if (fechaDesde) {
-      sql += ` AND fecha >= $${params.length + 1}`;
+      sql += ` AND fecha >= ?`;
       params.push(fechaDesde);
     }
 
     if (fechaHasta) {
-      sql += ` AND fecha <= $${params.length + 1}`;
+      sql += ` AND fecha <= ?`;
       params.push(fechaHasta);
     }
 
-    sql += ` ORDER BY fecha_hora DESC LIMIT $${params.length + 1}`;
+    sql += ` ORDER BY fecha_hora DESC LIMIT ?`;
     params.push(limite);
 
     const result = await query(sql, params);
-    return result.rows;
+    return result;
   } catch (error) {
     console.error('Error obteniendo logs:', error);
     throw error;

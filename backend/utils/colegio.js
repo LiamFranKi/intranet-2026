@@ -11,6 +11,7 @@ async function getColegioData(colegioId) {
         id,
         nombre,
         anio_activo,
+        titulo_intranet,
         bloquear_deudores,
         dias_tolerancia
        FROM colegios 
@@ -29,10 +30,10 @@ async function getColegioData(colegioId) {
     return {
       id: colegio.id,
       nombre: colegio.nombre,
-      nombre_intranet: colegio.nombre, // Usar nombre del colegio como nombre de intranet
+      nombre_intranet: colegio.titulo_intranet || colegio.nombre, // Usar titulo_intranet si existe
       anio_activo: colegio.anio_activo,
-      bloquear_deudores: colegio.bloquear_deudores,
-      dias_tolerancia: colegio.dias_tolerancia,
+      bloquear_deudores: colegio.bloquear_deudores || 'NO',
+      dias_tolerancia: colegio.dias_tolerancia || 0,
       logo: null, // Logo se maneja directamente desde archivos locales
       color_principal: null, // Colores se pueden configurar después si es necesario
       color_secundario: null,

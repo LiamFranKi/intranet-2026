@@ -225,3 +225,7 @@ sudo systemctl status aula-virtual
 2. Usar PM2 o systemd para mantener el servidor activo
 3. ¡Listo! La conexión funciona automáticamente
 
+
+
+
+

@@ -1,0 +1,721 @@
+.alumno-aula-virtual {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.alumno-aula-virtual-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 2rem;
+}
+
+.loading-spinner {
+  font-size: 1.2rem;
+  color: #4a83c1;
+  font-weight: 600;
+}
+
+.aula-header {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.3);
+  color: white;
+}
+
+.aula-title h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+}
+
+.aula-title p {
+  margin: 0;
+  font-size: 1rem;
+  opacity: 0.95;
+  color: white;
+}
+
+.curso-selector {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.curso-selector label {
+  font-weight: 600;
+  color: white;
+}
+
+.curso-select {
+  flex: 1;
+  min-width: 250px;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: white;
+  color: #1f2937;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.curso-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+/* Mundos/Bimestres */
+.mundos-container {
+  margin-bottom: 2rem;
+}
+
+.mundos-header {
+  margin-bottom: 1rem;
+}
+
+.mundos-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.mundos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.mundo-card {
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 3px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.mundo-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #6ba3d4, #4a83c1);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.mundo-card:hover::before {
+  transform: scaleX(1);
+}
+
+.mundo-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(74, 131, 193, 0.3);
+  border-color: #4a83c1;
+}
+
+.mundo-card.activo {
+  border-color: #4a83c1;
+  background: linear-gradient(135deg, #e0ebff 0%, #d1e3ff 100%);
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.4);
+}
+
+.mundo-card.completado {
+  opacity: 0.8;
+  background: linear-gradient(145deg, #f0fdf4, #dcfce7);
+}
+
+.mundo-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.mundo-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.mundo-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  margin-top: 0.5rem;
+}
+
+.mundo-badge.completado {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* Tabs */
+.aula-content {
+  background: linear-gradient(145deg, #f9fafb, #ffffff);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.aula-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-btn:hover {
+  background: rgba(74, 131, 193, 0.1);
+  color: #4a83c1;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(74, 131, 193, 0.3);
+}
+
+/* Contenido de tabs */
+.aula-content-body {
+  min-height: 400px;
+}
+
+.loading-content,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+
+/* Temas */
+.temas-section h2,
+.tareas-section h2,
+.examenes-section h2,
+.videos-section h2,
+.enlaces-section h2,
+.publicaciones-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.temas-list,
+.tareas-list,
+.examenes-list,
+.videos-list,
+.enlaces-list,
+.publicaciones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.tema-card,
+.tarea-card,
+.examen-card,
+.video-card,
+.enlace-card,
+.publicacion-card {
+  background: linear-gradient(145deg, #ffffff, #f9fafb);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.tema-card:hover,
+.tarea-card:hover,
+.examen-card:hover,
+.video-card:hover,
+.enlace-card:hover,
+.publicacion-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.2);
+}
+
+.tema-header,
+.tarea-header,
+.examen-header,
+.publicacion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tema-header h3,
+.tarea-header h3,
+.examen-header h3,
+.publicacion-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  flex: 1;
+}
+
+.tema-fecha,
+.tarea-fecha,
+.examen-fecha,
+.publicacion-fecha {
+  font-size: 0.85rem;
+  color: #6b7280;
+  padding: 0.25rem 0.75rem;
+  background: rgba(74, 131, 193, 0.1);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.tarea-estado {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tarea-estado.entregada {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.tarea-estado.pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.examen-estado.activo {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.examen-estado.inactivo {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tarea-descripcion,
+.publicacion-contenido {
+  color: #4b5563;
+  margin: 1rem 0;
+  line-height: 1.6;
+}
+
+.tarea-info,
+.examen-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.tarea-nota {
+  color: #4a83c1;
+  font-weight: 600;
+}
+
+.tema-archivos,
+.tarea-archivos {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tema-archivos h4,
+.tarea-archivos h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin: 0 0 0.5rem 0;
+}
+
+.tema-archivos ul,
+.tarea-archivos ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tema-archivos li,
+.tarea-archivos li {
+  margin: 0.5rem 0;
+}
+
+.tema-archivos a,
+.tarea-archivos a {
+  color: #4a83c1;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.tema-archivos a:hover,
+.tarea-archivos a:hover {
+  color: #2d5a8f;
+  text-decoration: underline;
+}
+
+.btn-entregar,
+.btn-iniciar-examen {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(74, 131, 193, 0.25);
+}
+
+.btn-entregar:hover,
+.btn-iniciar-examen:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.4);
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+}
+
+.tarea-entrega {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tarea-entrega h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin: 0 0 0.5rem 0;
+}
+
+.tarea-entrega a {
+  color: #4a83c1;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.entrega-mensaje {
+  color: #6b7280;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.entrega-fecha {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin: 0.5rem 0 0 0;
+}
+
+.video-enlace,
+.enlace-url {
+  margin: 1rem 0;
+}
+
+.video-enlace a,
+.enlace-url a {
+  color: #4a83c1;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.video-enlace a:hover,
+.enlace-url a:hover {
+  color: #2d5a8f;
+  text-decoration: underline;
+}
+
+.video-fecha,
+.enlace-fecha {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin: 0.5rem 0 0 0;
+}
+
+.publicacion-comentarios {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.publicacion-comentarios h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin: 0 0 0.5rem 0;
+}
+
+.comentario-item {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.comentario-item strong {
+  color: #1f2937;
+}
+
+/* Modal de entrega */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  animation: scaleIn 0.3s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.modal-body {
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.form-group input[type="file"],
+.form-group input[type="url"],
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input[type="file"]:focus,
+.form-group input[type="url"]:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #4a83c1;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.btn-cancel {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  color: #6b7280;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.btn-submit {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(74, 131, 193, 0.25);
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.4);
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+}
+
+@media (max-width: 768px) {
+  .alumno-aula-virtual {
+    padding: 1rem;
+  }
+
+  .aula-header {
+    padding: 1rem;
+  }
+
+  .aula-title h1 {
+    font-size: 1.5rem;
+  }
+
+  .mundos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .mundo-icon {
+    font-size: 3rem;
+  }
+
+  .aula-tabs {
+    gap: 0.25rem;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .modal-content {
+    padding: 1.5rem;
+    width: 95%;
+  }
+}
+
+
+

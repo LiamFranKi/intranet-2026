@@ -3,6 +3,7 @@
   max-width: 1400px;
   margin: 0 auto;
   background: #f5f6fa;
+  padding: 1rem 0;
 }
 
 /* Sección de Bienvenida */
@@ -47,8 +48,8 @@
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(74, 131, 193, 0.22);
 }
 
 .stat-icon {

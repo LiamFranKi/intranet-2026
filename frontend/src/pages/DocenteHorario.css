@@ -1,0 +1,119 @@
+.docente-horario {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.docente-horario-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.page-header p {
+  color: #6b7280;
+  margin: 0;
+}
+
+.horario-container {
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border: 1px solid rgba(74, 131, 193, 0.18);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.12);
+}
+
+.horario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.dia-column {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dia-header {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #4a83c1;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 2px solid rgba(74, 131, 193, 0.2);
+  text-align: center;
+}
+
+.clases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.clase-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: all 0.2s;
+}
+
+.clase-item:hover {
+  background: #f3f4f6;
+  border-color: #4a83c1;
+}
+
+.clase-hora {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4a83c1;
+  margin-bottom: 0.25rem;
+}
+
+.clase-curso {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.clase-grupo {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .docente-horario {
+    padding: 1rem;
+  }
+
+  .horario-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import CalendarioWidget from './CalendarioWidget';
+import PublicacionesWidget from './PublicacionesWidget';
+import NotificacionesWidget from './NotificacionesWidget';
 import './DashboardLayout.css';
 
 // Detectar si estamos en desarrollo o producción
@@ -28,9 +31,41 @@ export default function DashboardLayout({ children }) {
   // Logo blanco para el sidebar
   const logoUrl = useMemo(() => `${apiBaseUrl}/assets/logos/logoblanco.png`, [apiBaseUrl]);
 
-  const displayName = user?.nombres || user?.usuario || 'Usuario';
+  // Manejar nombres para alumnos (tienen apellido_paterno y apellido_materno separados)
+  let displayName = '';
+  if (user?.tipo === 'ALUMNO') {
+    displayName = user?.nombres && user?.apellido_paterno 
+      ? `${user.nombres} ${user.apellido_paterno}${user.apellido_materno ? ' ' + user.apellido_materno : ''}`
+      : user?.nombres || user?.usuario || 'Alumno';
+  } else {
+    displayName = user?.nombres && user?.apellidos 
+      ? `${user.nombres} ${user.apellidos}` 
+      : user?.nombres || user?.usuario || 'Usuario';
+  }
   const initials = getInitials(displayName);
   const role = user?.tipo || 'USUARIO';
+  
+  // Construir URL de la foto del usuario
+  // La foto debería venir como URL completa del backend, pero manejamos todos los casos por compatibilidad
+  const userFotoUrl = useMemo(() => {
+    if (!user?.foto) return null;
+    
+    // Si ya es una URL completa (http/https), usarla directamente
+    if (user.foto.startsWith('http')) {
+      return user.foto;
+    }
+    
+    // Si es una ruta relativa que empieza con /, construir URL completa
+    if (user.foto.startsWith('/')) {
+      return `${window.location.protocol}//${window.location.hostname}:5000${user.foto}`;
+    }
+    
+    // Si solo tenemos el nombre del archivo (caso legacy o localStorage antiguo)
+    // Para alumnos usar /uploads/alumnos/, para docentes /uploads/personal/
+    const fotoNombre = user.foto_nombre || user.foto;
+    const uploadPath = role === 'ALUMNO' ? 'uploads/alumnos' : 'uploads/personal';
+    return `${window.location.protocol}//${window.location.hostname}:5000/${uploadPath}/${fotoNombre}`;
+  }, [user?.foto, user?.foto_nombre, role]);
 
   return (
     <div className="dashboard-layout">
@@ -46,7 +81,7 @@ export default function DashboardLayout({ children }) {
 
       <aside className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-logo" role="button" tabIndex={0} onClick={() => navigate('/dashboard')}>
+          <div className="sidebar-logo" role="button" tabIndex={0} onClick={() => navigate(role === 'DOCENTE' ? '/docente/dashboard' : role === 'ALUMNO' ? '/alumno/dashboard' : '/dashboard')}>
             {logoUrl ? (
               <img className="sidebar-logo-image" src={logoUrl} alt="Logo" />
             ) : (
@@ -61,26 +96,185 @@ export default function DashboardLayout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="sidebar-item">
-            <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/dashboard" end>
-              <span className="sidebar-icon">📊</span>
-              <span className="sidebar-label">Dashboard</span>
-            </NavLink>
-          </div>
+          {role === 'DOCENTE' ? (
+            <>
+              {/* MENÚ PRINCIPAL */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">MENÚ PRINCIPAL</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/dashboard" end>
+                    <span className="sidebar-icon">📊</span>
+                    <span className="sidebar-label">Dashboard</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/perfil">
+                    <span className="sidebar-icon">👤</span>
+                    <span className="sidebar-label">Mi Perfil</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/grupos">
+                    <span className="sidebar-icon">👥</span>
+                    <span className="sidebar-label">Grupos Asignados</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/cursos">
+                    <span className="sidebar-icon">📚</span>
+                    <span className="sidebar-label">Cursos Asignados</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/horario">
+                    <span className="sidebar-icon">📅</span>
+                    <span className="sidebar-label">Mi Horario</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/tutoria">
+                    <span className="sidebar-icon">🎯</span>
+                    <span className="sidebar-label">Tutoría</span>
+                  </NavLink>
+                </div>
+              </div>
 
-          <div className="sidebar-item">
-            <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/aula">
-              <span className="sidebar-icon">🎓</span>
-              <span className="sidebar-label">Aula Virtual</span>
-            </NavLink>
-          </div>
+              {/* COMUNICADOS */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">COMUNICADOS</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/comunicados">
+                    <span className="sidebar-icon">📢</span>
+                    <span className="sidebar-label">Comunicados</span>
+                  </NavLink>
+                </div>
+              </div>
 
-          <div className="sidebar-item">
-            <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/auditoria">
-              <span className="sidebar-icon">🧾</span>
-              <span className="sidebar-label">Auditoría</span>
-            </NavLink>
-          </div>
+              {/* CALENDARIO */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">CALENDARIO</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/actividades">
+                    <span className="sidebar-icon">📆</span>
+                    <span className="sidebar-label">Actividades</span>
+                  </NavLink>
+                </div>
+              </div>
+
+              {/* MENSAJERÍA */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">MENSAJERÍA</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/docente/mensajes">
+                    <span className="sidebar-icon">✉️</span>
+                    <span className="sidebar-label">Mensajes</span>
+                  </NavLink>
+                </div>
+              </div>
+            </>
+          ) : role === 'ALUMNO' ? (
+            <>
+              {/* MENÚ PRINCIPAL */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">MENÚ PRINCIPAL</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/dashboard" end>
+                    <span className="sidebar-icon">📊</span>
+                    <span className="sidebar-label">Dashboard</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/perfil">
+                    <span className="sidebar-icon">👤</span>
+                    <span className="sidebar-label">Mi Perfil</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/cursos">
+                    <span className="sidebar-icon">📚</span>
+                    <span className="sidebar-label">Mis Cursos</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/calificaciones">
+                    <span className="sidebar-icon">📊</span>
+                    <span className="sidebar-label">Calificaciones</span>
+                  </NavLink>
+                </div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/horario">
+                    <span className="sidebar-icon">📅</span>
+                    <span className="sidebar-label">Mi Horario</span>
+                  </NavLink>
+                </div>
+              </div>
+
+              {/* AULA VIRTUAL */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">AULA VIRTUAL</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/aula-virtual">
+                    <span className="sidebar-icon">🌍</span>
+                    <span className="sidebar-label">Mundos</span>
+                  </NavLink>
+                </div>
+              </div>
+
+              {/* COMUNICADOS */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">COMUNICADOS</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/comunicados">
+                    <span className="sidebar-icon">📢</span>
+                    <span className="sidebar-label">Comunicados</span>
+                  </NavLink>
+                </div>
+              </div>
+
+              {/* CALENDARIO */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">CALENDARIO</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/actividades">
+                    <span className="sidebar-icon">📆</span>
+                    <span className="sidebar-label">Actividades</span>
+                  </NavLink>
+                </div>
+              </div>
+
+              {/* MENSAJERÍA */}
+              <div className="sidebar-section">
+                <div className="sidebar-section-title">MENSAJERÍA</div>
+                <div className="sidebar-item">
+                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/alumno/mensajes">
+                    <span className="sidebar-icon">✉️</span>
+                    <span className="sidebar-label">Mensajes</span>
+                  </NavLink>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/dashboard" end>
+                  <span className="sidebar-icon">📊</span>
+                  <span className="sidebar-label">Dashboard</span>
+                </NavLink>
+              </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/aula">
+                  <span className="sidebar-icon">🎓</span>
+                  <span className="sidebar-label">Aula Virtual</span>
+                </NavLink>
+              </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/auditoria">
+                  <span className="sidebar-icon">🧾</span>
+                  <span className="sidebar-label">Auditoría</span>
+                </NavLink>
+              </div>
+            </>
+          )}
 
           <div className="sidebar-item">
             <button className="sidebar-link sidebar-link-button" type="button" onClick={logout}>
@@ -99,7 +293,20 @@ export default function DashboardLayout({ children }) {
 
           <div className="header-left">
             <div className="header-user">
-              <div className="user-avatar">{initials}</div>
+              <div className="user-avatar">
+                {userFotoUrl ? (
+                  <img 
+                    src={userFotoUrl} 
+                    alt={displayName}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const span = e.target.parentElement.querySelector('span');
+                      if (span) span.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span style={{ display: userFotoUrl ? 'none' : 'flex' }}>{initials}</span>
+              </div>
               <div className="user-info">
                 <div className="user-name">{displayName}</div>
                 <div className="user-role">{role}</div>
@@ -108,12 +315,9 @@ export default function DashboardLayout({ children }) {
           </div>
 
           <div className="header-actions">
-            <button className="header-btn" type="button" title="Notificaciones">
-              🔔
-              <span className="notification-badge">3</span>
-            </button>
-            <button className="header-btn" type="button" title="Ir al Dashboard" onClick={() => navigate('/dashboard')}>
-              🏠
+            {(role === 'DOCENTE' || role === 'ALUMNO') && <NotificacionesWidget />}
+            <button className="header-btn" type="button" title="Mi Perfil" onClick={() => navigate(role === 'DOCENTE' ? '/docente/perfil' : role === 'ALUMNO' ? '/alumno/perfil' : '/perfil')}>
+              👤
             </button>
             <button className="header-btn header-btn-logout" type="button" title="Cerrar sesión" onClick={logout}>
               <svg className="logout-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -124,7 +328,16 @@ export default function DashboardLayout({ children }) {
           </div>
         </header>
 
-        <main className="dashboard-main">{children}</main>
+        <div className="dashboard-main-wrapper">
+          <main className="dashboard-main">{children}</main>
+          
+          {(role === 'DOCENTE' || role === 'ALUMNO') && (
+            <aside className="dashboard-sidebar-right">
+              <CalendarioWidget />
+              {role === 'DOCENTE' && <PublicacionesWidget />}
+            </aside>
+          )}
+        </div>
       </div>
     </div>
   );

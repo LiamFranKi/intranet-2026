@@ -1,0 +1,461 @@
+.docente-grupos {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.docente-grupos-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.page-header p {
+  color: #6b7280;
+  margin: 0;
+}
+
+.grupos-container {
+  display: block;
+}
+
+.grupos-list-section {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.12);
+  border: 1px solid rgba(74, 131, 193, 0.1);
+}
+
+.section-controls {
+  margin-bottom: 1.5rem;
+}
+
+.filter-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.filter-container label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.filter-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #4a83c1;
+  box-shadow: 0 0 0 3px rgba(74, 131, 193, 0.1);
+}
+
+.grupos-table-container {
+  overflow-x: auto;
+}
+
+.grupos-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grupos-table thead {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+}
+
+.grupos-table th {
+  padding: 1rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.grupos-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.grupos-table tbody tr:nth-child(even) {
+  background: rgba(215, 234, 254, 0.4);
+}
+
+.grupos-table tbody tr:nth-child(odd) {
+  background: white;
+}
+
+.grupos-table tbody tr:hover {
+  background: rgba(74, 131, 193, 0.2) !important;
+  transform: scale(1.01);
+  transition: all 0.2s ease;
+}
+
+.btn-ver-lista {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(74, 131, 193, 0.25);
+}
+
+.btn-ver-lista:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(74, 131, 193, 0.4);
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+}
+
+.btn-ver-lista .btn-icon {
+  font-size: 1.1rem;
+  display: inline-block;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+/* Alumnos Panel - Modal centrado */
+.alumnos-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.alumnos-panel-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.alumnos-section {
+  position: relative;
+  width: 85%;
+  max-width: 1200px;
+  max-height: 90vh;
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 1001;
+  animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid rgba(74, 131, 193, 0.2);
+}
+
+.btn-regresar {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(74, 131, 193, 0.25);
+}
+
+.btn-regresar:hover {
+  transform: translateX(-3px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.4);
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+}
+
+.btn-regresar .btn-icon {
+  font-size: 1.2rem;
+  display: inline-block;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  flex: 1;
+}
+
+.loading-alumnos {
+  text-align: center;
+  padding: 2rem;
+  color: #4a83c1;
+}
+
+.alumnos-table-container {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 0.5rem;
+}
+
+/* Scrollbar personalizado para el panel de alumnos - delgado y color blanco */
+.alumnos-table-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.alumnos-table-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.alumnos-table-container::-webkit-scrollbar-thumb {
+  background: #ffffff;
+  border-radius: 10px;
+}
+
+.alumnos-table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Scrollbar para la sección completa */
+.alumnos-section::-webkit-scrollbar {
+  width: 4px;
+}
+
+.alumnos-section::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.alumnos-section::-webkit-scrollbar-thumb {
+  background: #ffffff;
+  border-radius: 10px;
+}
+
+.alumnos-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.alumnos-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.alumnos-table thead {
+  background: rgba(74, 131, 193, 0.1);
+  position: sticky;
+  top: 0;
+}
+
+.alumnos-table th {
+  padding: 1rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  background: #4a83c1;
+  color: white;
+}
+
+.alumnos-table th:nth-child(1) {
+  min-width: 300px;
+  width: 40%;
+}
+
+.alumnos-table td:nth-child(1) {
+  text-align: left;
+  padding-left: 1.5rem;
+}
+
+.alumnos-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.alumnos-table tbody tr:nth-child(even) {
+  background: rgba(215, 234, 254, 0.4);
+}
+
+.alumnos-table tbody tr:nth-child(odd) {
+  background: white;
+}
+
+.alumnos-table tbody tr:hover {
+  background: rgba(74, 131, 193, 0.2) !important;
+  transform: scale(1.01);
+  transition: all 0.2s ease;
+}
+
+.estado-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.estado-badge.regular {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.estado-badge.inactivo {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.alumno-options {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.btn-action {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-action .btn-icon {
+  font-size: 1rem;
+  display: inline-block;
+}
+
+.btn-recomendacion {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+}
+
+.btn-recomendacion:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.4);
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+}
+
+.btn-info {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+}
+
+.btn-info:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.4);
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+}
+
+@media (max-width: 1024px) {
+  .grupos-container {
+    grid-template-columns: 1fr;
+  }
+
+  .alumnos-section {
+    width: 90%;
+    max-width: 1000px;
+  }
+}
+
+@media (max-width: 768px) {
+  .docente-grupos {
+    padding: 1rem;
+  }
+
+  .grupos-table-container,
+  .alumnos-table-container {
+    overflow-x: auto;
+  }
+
+  .alumno-options {
+    flex-direction: column;
+  }
+
+  .alumnos-section {
+    width: 95%;
+    max-width: 100%;
+  }
+
+  .grupos-table th,
+  .grupos-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .btn-ver-lista {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
+

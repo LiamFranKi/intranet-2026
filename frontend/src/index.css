@@ -56,6 +56,13 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-full: 9999px;
+
+  /* Variantes de botones */
+  --btn-primary-bg: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  --btn-secondary-bg: #f3f4f6;
+  --btn-secondary-color: #4a83c1;
+  --btn-outline-border: #4a83c1;
+  --btn-outline-color: #4a83c1;
 }
 
 body {
@@ -74,22 +81,190 @@ code {
     monospace;
 }
 
-/* Scrollbar Personalizado */
+/* Scrollbar Personalizado - casi invisible, delgada y del color del menú */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--light);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gray-light);
-  border-radius: 9999px;
+  background: rgba(55, 91, 129, 0.3);
+  border-radius: 2px;
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gray);
+  background: rgba(55, 91, 129, 0.5);
+}
+
+/* Para Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(55, 91, 129, 0.3) transparent;
+}
+
+/* ============================================
+   VARIANTES DE BOTONES (Estilo DataCole)
+   ============================================ */
+
+/* Botón Primario (ya existe, mejorado) */
+.btn-primary,
+button.btn-primary {
+  background: var(--btn-primary-bg);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(74, 131, 193, 0.2);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Botón Secundario */
+.btn-secondary,
+button.btn-secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-color);
+  border: 2px solid rgba(74, 131, 193, 0.2);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+  background: rgba(74, 131, 193, 0.1);
+  border-color: rgba(74, 131, 193, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.15);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Botón Outline */
+.btn-outline,
+button.btn-outline {
+  background: transparent;
+  color: var(--btn-outline-color);
+  border: 2px solid var(--btn-outline-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-outline:hover {
+  background: rgba(74, 131, 193, 0.05);
+  border-color: #4a83c1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.2);
+}
+
+.btn-outline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Botón Ghost (sin fondo ni borde) */
+.btn-ghost,
+button.btn-ghost {
+  background: transparent;
+  color: var(--btn-secondary-color);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-ghost:hover {
+  background: rgba(74, 131, 193, 0.1);
+  transform: translateY(-2px);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Iconos en botones */
+.btn-primary .btn-icon,
+.btn-secondary .btn-icon,
+.btn-outline .btn-icon,
+.btn-ghost .btn-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Tamaños de botones */
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.btn-sm .btn-icon {
+  font-size: 1rem;
+}
+
+.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+}
+
+.btn-lg .btn-icon {
+  font-size: 1.4rem;
+}
+
+/* Botones con ancho completo */
+.btn-block {
+  width: 100%;
+  justify-content: center;
 }
 

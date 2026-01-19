@@ -42,6 +42,17 @@ async function query(sql, params = []) {
   }
 }
 
+// Función para ejecutar consultas de escritura (INSERT, UPDATE, DELETE)
+async function execute(sql, params = []) {
+  try {
+    const [result] = await mysqlReadPool.execute(sql, params);
+    return result;
+  } catch (error) {
+    console.error('MySQL Execute Error:', error);
+    throw error;
+  }
+}
+
 async function getAnioActivo(colegioId) {
   try {
     const [rows] = await mysqlReadPool.execute(
@@ -55,5 +66,5 @@ async function getAnioActivo(colegioId) {
   }
 }
 
-module.exports = { query, mysqlReadPool, getAnioActivo };
+module.exports = { query, execute, mysqlReadPool, getAnioActivo };
 
