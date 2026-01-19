@@ -141,7 +141,7 @@ router.get('/dashboard', async (req, res) => {
       [docente.id, colegio_id, anio_activo]
     );
 
-    // Próximos exámenes (próximos 7 días)
+    // Próximos exámenes (todos los futuros, sin límite de días)
     // asignaturas_examenes tiene fecha_desde, fecha_hasta, hora_desde, hora_hasta (NO tiene fecha_inicio)
     // asignaturas_examenes SÍ tiene asignatura_id y titulo (NO tiene descripcion)
     const proximosExamenes = await query(
@@ -150,32 +150,46 @@ router.get('/dashboard', async (req, res) => {
               c.nombre as asignatura_nombre, 
               g.grado, 
               g.seccion, 
-              n.nombre as nivel_nombre
+              n.nombre as nivel_nombre,
+              ae.fecha_desde as fecha_evento
        FROM asignaturas_examenes ae
        INNER JOIN asignaturas a ON a.id = ae.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
        WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND ae.fecha_desde >= CURDATE() AND ae.fecha_desde <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-       ORDER BY ae.fecha_desde ASC
-       LIMIT 5`,
+       AND ae.fecha_desde >= CURDATE()
+       ORDER BY ae.fecha_desde ASC`,
       [docente.id, colegio_id, anio_activo]
     );
 
-    // Próximas tareas
+    // Próximas tareas (todas las futuras, sin límite de días)
     // asignaturas_actividades tiene fecha_inicio y fecha_fin (NO tiene fecha_limite)
     const proximasTareas = await query(
-      `SELECT aa.*, c.nombre as asignatura_nombre, g.grado, g.seccion
+      `SELECT aa.*, 
+              c.nombre as asignatura_nombre, 
+              g.grado, 
+              g.seccion,
+              aa.fecha_fin as fecha_evento
        FROM asignaturas_actividades aa
        INNER JOIN asignaturas a ON a.id = aa.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN cursos c ON c.id = a.curso_id
        WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND aa.fecha_fin >= CURDATE() AND aa.fecha_fin <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-       ORDER BY aa.fecha_fin ASC
-       LIMIT 5`,
+       AND aa.fecha_fin >= CURDATE()
+       ORDER BY aa.fecha_fin ASC`,
       [docente.id, colegio_id, anio_activo]
+    );
+
+    // Actividades próximas (solo futuras, no pasadas)
+    const actividades = await query(
+      `SELECT a.*,
+              a.fecha_inicio as fecha_evento
+       FROM actividades a
+       WHERE a.colegio_id = ?
+       AND DATE(a.fecha_inicio) >= CURDATE()
+       ORDER BY a.fecha_inicio ASC`,
+      [colegio_id]
     );
 
     // Construir nombre completo
@@ -205,7 +219,8 @@ router.get('/dashboard', async (req, res) => {
         estudiantes: estudiantes[0]?.total || 0
       },
       proximosExamenes: proximosExamenes || [],
-      proximasTareas: proximasTareas || []
+      proximasTareas: proximasTareas || [],
+      actividades: actividades || []
     });
   } catch (error) {
     console.error('Error en dashboard docente:', error);
