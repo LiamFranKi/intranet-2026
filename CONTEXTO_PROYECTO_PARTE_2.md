@@ -145,12 +145,21 @@
 
 **Funcionalidades:**
 - ✅ Lista de grupos asignados al docente
-- ✅ Ver estudiantes por grupo
-- ✅ Información: Nivel, Grado, Sección
+- ✅ Dropdown "Opciones" con fondo degradado azul e icono ⚙️
+- ✅ Dropdown contiene: "Lista de Alumnos" (📋) y "Enviar Mensaje" (✉️)
+- ✅ Modal "Lista de Alumnos" con tabla completa de estudiantes
+- ✅ Botones de acción en modal: "Mensaje" (✉️) y "Ver Info" (ℹ️) - pequeños con iconos
+- ✅ Información: Nivel, Grado, Sección, Turno, Año Académico
+- ✅ Tabla de alumnos: Apellidos y Nombres, Fecha de Nacimiento, Teléfono
+- ✅ Teléfono muestra el del alumno o del apoderado si el alumno no tiene
+- ✅ Diseño: Títulos y subtítulos en azul (#4a83c1)
+- ✅ Filas alternadas con color pastel azul claro
+- ✅ Filtro de búsqueda elegante
+- ✅ Cabeceras de tabla sin texto "Opciones" (columna vacía)
 
 **Endpoints:**
 - `GET /api/docente/grupos` - Lista de grupos
-- `GET /api/docente/grupos/:grupoId/alumnos` - Estudiantes del grupo
+- `GET /api/docente/grupos/:grupoId/alumnos` - Estudiantes del grupo (incluye fecha_nacimiento y telefono)
 
 ---
 
@@ -481,7 +490,72 @@
 
 ---
 
+---
+
+## 📅 ACTUALIZACIONES RECIENTES (Enero 2026)
+
+### Módulo Perfil Docente (`DocentePerfil.jsx`)
+
+**Cambios Implementados:**
+- ✅ Icono 💾 agregado al botón "Guardar Cambios"
+- ✅ Icono ❌ agregado al botón "Cancelar"
+- ✅ Botón "Cancelar" mejorado con fondo blanco, borde gris y hover con sombra
+- ✅ Botones con flexbox para alineación correcta de iconos y texto
+- ✅ Estilos aplicados también en formulario de cambio de contraseña
+
+### Módulo Dashboard Docente (`DocenteDashboard.jsx`)
+
+**Cambios Implementados:**
+- ✅ Nueva card "Grupos Asignados" 🎓 agregada (primera posición)
+- ✅ Dashboard ahora muestra 4 cards en una fila en desktop:
+  1. Grupos Asignados 🎓
+  2. Cursos Asignados 📚
+  3. Estudiantes 👥
+  4. Tardanzas ⏰
+- ✅ Grid responsive: 4 columnas (desktop), 2 (tablet), 1 (móvil)
+- ✅ Cards más compactas para que las 4 quepan en una fila
+- ✅ Iconos reducidos de 96px a 72px
+- ✅ Backend actualizado para incluir conteo de grupos asignados
+
+**Backend:**
+- Agregada consulta para contar grupos distintos donde el docente tiene asignaturas
+- Campo `gruposAsignados` agregado a las estadísticas del dashboard
+
+### Módulo Grupos Asignados (`DocenteGrupos.jsx`)
+
+**Cambios Implementados:**
+- ✅ Columna "AÑO ACADÉMICO" reemplazada por "ALUMNOS"
+- ✅ Muestra cantidad de alumnos matriculados por grupo (estado 0 o 4)
+- ✅ Lista de alumnos ahora se muestra en la misma página (no en modal)
+- ✅ Botón "Volver" agregado en header de lista de alumnos
+- ✅ Header compacto con botón a un lado e información centrada
+- ✅ Información del grupo (grado, sección, nivel, turno) centrada
+- ✅ Scroll automático al inicio cuando se abre lista de alumnos
+- ✅ Dropdown "Opciones" en cada alumno con menú desplegable
+- ✅ Dropdown de alumnos usa React Portal para evitar problemas de z-index
+- ✅ Opciones del dropdown: "Enviar Mensaje" (✉️) y "Ver Información" (ℹ️)
+
+**Backend:**
+- Consulta actualizada para contar alumnos: `COUNT(*)` con filtro `(estado = 0 OR estado = 4)`
+- Igual que el sistema anterior PHP (método `getMatriculas()`)
+
+**Mejoras Técnicas:**
+- Eliminado modal, ahora es vista en la misma página
+- React Portal implementado para dropdowns de alumnos
+- Z-index optimizado (99999 para dropdowns)
+- Event listeners mejorados (mousedown en lugar de click)
+- Posicionamiento inteligente de dropdowns (arriba si no hay espacio abajo)
+
+**Estilos CSS:**
+- `.alumnos-container` - Contenedor principal de vista de alumnos
+- `.alumnos-header-section` - Header compacto con botón volver
+- `.alumnos-list-section` - Sección de lista de alumnos
+- `.dropdown-menu-alumno` - Estilos específicos para dropdowns de alumnos
+- `.btn-regresar` - Botón de volver con icono ←
+
+---
+
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.0 - Parte 2  
+**Versión del Documento:** 1.0.2 - Parte 2  
 **Mantenido por:** Equipo de Desarrollo
 

@@ -469,20 +469,27 @@ react-aula-virtual/
 **Funcionalidades Implementadas:**
 
 #### Dashboard
-- Estadísticas: Cursos asignados, Estudiantes
+- Estadísticas: 4 cards en una fila (Grupos Asignados, Cursos Asignados, Estudiantes, Tardanzas)
 - Próximos exámenes (con fecha_desde y titulo)
 - Próximas tareas (con fecha_fin y descripcion)
+- Sección unificada "Próximos Eventos" con paginación (8 por página)
 - Widgets: Calendario, Publicaciones, Notificaciones
 
 #### Perfil
 - Ver y editar datos personales
 - Subir/actualizar foto de perfil
 - Visualización de foto con URL completa
+- Botones con iconos: 💾 Guardar, ❌ Cancelar
+- Botón Cancelar mejorado con fondo blanco y borde gris
 
 #### Grupos
 - Lista de grupos asignados al docente
-- Ver estudiantes por grupo
-- Información: Nivel, Grado, Sección
+- Columna "ALUMNOS" muestra cantidad de alumnos matriculados (estado 0 o 4)
+- Vista de lista de alumnos en la misma página (no modal)
+- Botón "Volver" en header de lista de alumnos
+- Header compacto con información centrada
+- Dropdown "Opciones" en cada alumno (Enviar Mensaje, Ver Información)
+- Scroll automático al inicio al abrir lista de alumnos
 
 #### Cursos
 - Lista de cursos asignados
@@ -768,7 +775,7 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 - `PUT /perfil` - Actualizar perfil (incluyendo foto)
 
 #### Grupos
-- `GET /grupos` - Lista de grupos asignados
+- `GET /grupos` - Lista de grupos asignados (incluye `total_alumnos` por grupo)
 - `GET /grupos/:grupoId/alumnos` - Estudiantes de un grupo
 
 #### Cursos
