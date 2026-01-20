@@ -91,6 +91,7 @@ Sistema integral de gestión educativa (Aula Virtual) desarrollado en **React + 
 - **Pool de Conexiones:** 10 conexiones simultáneas
 - **Solo Lectura:** Usuario `react_readonly` (desarrollo)
 - **Lectura/Escritura:** Usuario con permisos completos (producción)
+- **Nota sobre Zona Horaria:** Se eliminó la configuración de zona horaria en el pool MySQL para evitar conflictos. Las consultas SQL usan funciones nativas de MySQL (`DATE()`, `NOW()`) que respetan la zona horaria del servidor.
 
 ---
 
