@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
@@ -12,16 +13,31 @@ function DocenteAulaVirtual() {
   
   const [loading, setLoading] = useState(true);
   const [curso, setCurso] = useState(null);
-  const [seccionActiva, setSeccionActiva] = useState('temas'); // temas, tareas, examenes
-  const [temas, setTemas] = useState([]);
+  const [totalNotas, setTotalNotas] = useState(4); // Número de bimestres por defecto
+  
+  // Estados para cada sección con su ciclo activo (bimestre)
+  const [cicloArchivos, setCicloArchivos] = useState(1);
+  const [cicloTareas, setCicloTareas] = useState(1);
+  const [cicloExamenes, setCicloExamenes] = useState(1);
+  const [cicloVideos, setCicloVideos] = useState(1);
+  const [cicloEnlaces, setCicloEnlaces] = useState(1);
   const [tareas, setTareas] = useState([]);
   const [examenes, setExamenes] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [enlaces, setEnlaces] = useState([]);
+  const [temas, setTemas] = useState([]);
+  const [archivos, setArchivos] = useState([]);
 
   // Estados para modales/formularios
   const [mostrarFormTema, setMostrarFormTema] = useState(false);
   const [mostrarFormTarea, setMostrarFormTarea] = useState(false);
   const [mostrarFormExamen, setMostrarFormExamen] = useState(false);
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
+  
+  // Estados para dropdowns con portal
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState(null);
+  const buttonRef = useRef({});
 
   // Formulario de tema
   const [formTema, setFormTema] = useState({
@@ -63,85 +79,182 @@ function DocenteAulaVirtual() {
       const response = await api.get('/docente/cursos');
       const cursoEncontrado = response.data.cursos.find(c => c.id === asignaturaId);
       setCurso(cursoEncontrado || null);
+      
+      // Obtener configuración (total_notas)
+      const configResponse = await api.get('/docente/aula-virtual/config');
+      setTotalNotas(configResponse.data.total_notas || 4);
     } catch (error) {
       console.error('Error cargando curso:', error);
     }
   }, [asignaturaId]);
 
-  const cargarTemas = useCallback(async () => {
+  const cargarArchivos = useCallback(async (ciclo) => {
     try {
-      setLoading(true);
+      const response = await api.get('/docente/aula-virtual/archivos', {
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloArchivos }
+      });
+      setArchivos(response.data.archivos || []);
+    } catch (error) {
+      console.error('Error cargando archivos:', error);
+    }
+  }, [asignaturaId, cicloArchivos]);
+
+  const cargarTemas = useCallback(async (ciclo) => {
+    try {
       const response = await api.get('/docente/aula-virtual/temas', {
-        params: { asignatura_id: asignaturaId }
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || 1 }
       });
       setTemas(response.data.temas || []);
     } catch (error) {
       console.error('Error cargando temas:', error);
-    } finally {
-      setLoading(false);
     }
   }, [asignaturaId]);
 
-  const cargarTareas = useCallback(async () => {
+  const cargarTareas = useCallback(async (ciclo) => {
     try {
-      setLoading(true);
       const response = await api.get('/docente/aula-virtual/tareas', {
-        params: { asignatura_id: asignaturaId }
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloTareas }
       });
       setTareas(response.data.tareas || []);
     } catch (error) {
       console.error('Error cargando tareas:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [asignaturaId]);
+  }, [asignaturaId, cicloTareas]);
 
-  const cargarExamenes = useCallback(async () => {
+  const cargarExamenes = useCallback(async (ciclo) => {
     try {
-      setLoading(true);
       const response = await api.get('/docente/aula-virtual/examenes', {
-        params: { asignatura_id: asignaturaId },
-        timeout: 60000 // Aumentar timeout a 60 segundos para exámenes grandes
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloExamenes },
+        timeout: 60000
       });
       setExamenes(response.data.examenes || []);
     } catch (error) {
       console.error('Error cargando exámenes:', error);
-      if (error.code === 'ECONNABORTED') {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Tiempo de espera agotado',
-          text: 'El examen es muy grande. Intenta recargar la página.',
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 5000
-        });
-      }
-    } finally {
-      setLoading(false);
     }
-  }, [asignaturaId]);
+  }, [asignaturaId, cicloExamenes]);
 
-  // Cargar datos del curso solo una vez cuando cambia asignaturaId
+  const cargarVideos = useCallback(async (ciclo) => {
+    try {
+      const response = await api.get('/docente/aula-virtual/videos', {
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloVideos }
+      });
+      setVideos(response.data.videos || []);
+    } catch (error) {
+      console.error('Error cargando videos:', error);
+    }
+  }, [asignaturaId, cicloVideos]);
+
+  const cargarEnlaces = useCallback(async (ciclo) => {
+    try {
+      const response = await api.get('/docente/aula-virtual/enlaces', {
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloEnlaces }
+      });
+      setEnlaces(response.data.enlaces || []);
+    } catch (error) {
+      console.error('Error cargando enlaces:', error);
+    }
+  }, [asignaturaId, cicloEnlaces]);
+
+  // Cargar datos del curso y configuración
   useEffect(() => {
     if (asignaturaId) {
-      cargarDatosCurso();
+      setLoading(true);
+      cargarDatosCurso().finally(() => setLoading(false));
     }
   }, [asignaturaId, cargarDatosCurso]);
 
-  // Cargar datos según la sección activa
+  // Cargar todos los datos inicialmente con ciclo 1
+  useEffect(() => {
+    if (!asignaturaId || loading) return;
+    
+    cargarArchivos(1);
+    cargarTareas(1);
+    cargarExamenes(1);
+    cargarVideos(1);
+    cargarEnlaces(1);
+    cargarTemas(1);
+  }, [asignaturaId, loading]);
+
+  // Cargar datos cuando cambia el ciclo de cada sección
   useEffect(() => {
     if (!asignaturaId) return;
-    
-    // Cargar solo los datos de la sección activa
-    if (seccionActiva === 'temas') {
-      cargarTemas();
-    } else if (seccionActiva === 'tareas') {
-      cargarTareas();
-    } else if (seccionActiva === 'examenes') {
-      cargarExamenes();
+    cargarArchivos(cicloArchivos);
+  }, [cicloArchivos, asignaturaId, cargarArchivos]);
+
+  useEffect(() => {
+    if (!asignaturaId) return;
+    cargarTareas(cicloTareas);
+  }, [cicloTareas, asignaturaId, cargarTareas]);
+
+  useEffect(() => {
+    if (!asignaturaId) return;
+    cargarExamenes(cicloExamenes);
+  }, [cicloExamenes, asignaturaId, cargarExamenes]);
+
+  useEffect(() => {
+    if (!asignaturaId) return;
+    cargarVideos(cicloVideos);
+  }, [cicloVideos, asignaturaId, cargarVideos]);
+
+  useEffect(() => {
+    if (!asignaturaId) return;
+    cargarEnlaces(cicloEnlaces);
+  }, [cicloEnlaces, asignaturaId, cargarEnlaces]);
+
+  // Cerrar dropdowns al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Solo cerrar si es click del botón izquierdo (button === 0)
+      // Ignorar botón del medio (wheel, button === 1) y botón derecho (button === 2)
+      if (event.button !== 0) return;
+      
+      if (openDropdown !== null) {
+        const dropdownElement = document.querySelector('.dropdown-menu-portal-aula');
+        const buttonElement = buttonRef.current[openDropdown];
+        
+        // Verificar si el click fue fuera del dropdown y del botón
+        if (
+          dropdownElement && 
+          !dropdownElement.contains(event.target) &&
+          buttonElement &&
+          !buttonElement.contains(event.target)
+        ) {
+          setOpenDropdown(null);
+          setDropdownPosition(null);
+        }
+      }
+    };
+
+    if (openDropdown !== null) {
+      // Usar mousedown en lugar de click para mejor control
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
     }
-  }, [asignaturaId, seccionActiva, cargarTemas, cargarTareas, cargarExamenes]);
+  }, [openDropdown]);
+
+  // Función para toggle dropdown
+  const toggleDropdown = (itemId, event, tipo) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (openDropdown === `${tipo}-${itemId}`) {
+      setOpenDropdown(null);
+      setDropdownPosition(null);
+    } else {
+      const button = event.currentTarget;
+      const rect = button.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+        width: rect.width > 200 ? rect.width : 200
+      });
+      setOpenDropdown(`${tipo}-${itemId}`);
+    }
+  };
 
   const handleCrearTema = async (e) => {
     e.preventDefault();
@@ -303,127 +416,123 @@ function DocenteAulaVirtual() {
           <p>{curso?.curso_nombre || 'Curso'} - {curso?.grado}° {curso?.seccion} - {curso?.anio}</p>
         </div>
 
-        {/* Tabs de sección */}
-        <div className="aula-tabs">
-          <button 
-            className={`tab-btn ${seccionActiva === 'temas' ? 'active' : ''}`}
-            onClick={() => setSeccionActiva('temas')}
-          >
-            📚 Temas
-          </button>
-          <button 
-            className={`tab-btn ${seccionActiva === 'tareas' ? 'active' : ''}`}
-            onClick={() => setSeccionActiva('tareas')}
-          >
-            📝 Tareas
-          </button>
-          <button 
-            className={`tab-btn ${seccionActiva === 'examenes' ? 'active' : ''}`}
-            onClick={() => setSeccionActiva('examenes')}
-          >
-            ✏️ Exámenes
-          </button>
-        </div>
-
-        {/* TEMAS */}
-        {seccionActiva === 'temas' && (
-          <div className="aula-seccion mundo-card">
-            <div className="aula-seccion-header">
-              <h2>Temas</h2>
-              <button className="btn-agregar" onClick={() => setMostrarFormTema(true)}>
-                + Agregar Tema
-              </button>
+        {/* Sección: TEMAS INTERACTIVOS */}
+        <div className="aula-seccion-v">
+          <div className="aula-seccion-header-v header-temas">
+            <h3>TEMAS INTERACTIVOS</h3>
+            <div className="bimestre-tabs">
+              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                <button
+                  key={bim}
+                  className={`bim-tab ${cicloArchivos === bim ? 'active' : ''}`}
+                  onClick={() => setCicloArchivos(bim)}
+                >
+                  Bim. {bim}
+                </button>
+              ))}
             </div>
-
-            {mostrarFormTema && (
-              <div className="form-modal">
-                <h3>Crear Nuevo Tema</h3>
-                <form onSubmit={handleCrearTema}>
-                  <div className="form-group">
-                    <label>Tema *</label>
-                    <input
-                      type="text"
-                      value={formTema.tema}
-                      onChange={(e) => setFormTema({ ...formTema, tema: e.target.value })}
-                      required
-                      placeholder="Nombre del tema"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Contenido (Opcional - Editor HTML)</label>
-                    <textarea
-                      value={formTema.contenido_html}
-                      onChange={(e) => setFormTema({ ...formTema, contenido_html: e.target.value })}
-                      rows="10"
-                      placeholder="Escribe el contenido del tema aquí o sube un archivo PDF"
-                    />
-                    <small>Puedes crear contenido directo con HTML o subir un archivo PDF</small>
-                  </div>
-                  <div className="form-group">
-                    <label>O subir archivo (PDF, Word) - Opcional</label>
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={(e) => setFormTema({ ...formTema, archivo: e.target.files[0] })}
-                    />
-                  </div>
-                  <div className="form-actions">
-                    <button type="button" onClick={() => {
-                      setMostrarFormTema(false);
-                      setFormTema({ tema: '', contenido_html: '', archivo: null });
-                    }}>
-                      Cancelar
-                    </button>
-                    <button type="submit">Crear Tema</button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            <div className="temas-list">
-              {temas.length > 0 ? (
-                temas.map((tema) => (
-                  <div key={tema.id} className="tema-item mundo-card">
-                    <div className="tema-fecha">
-                      {new Date(tema.fecha).toLocaleDateString('es-PE')}
-                    </div>
-                    <h3>{tema.tema}</h3>
-                    {tema.archivos && tema.archivos.length > 0 && (
-                      <div className="tema-archivos">
-                        {tema.archivos.map((archivo, idx) => (
-                          <a 
-                            key={idx} 
-                            href={`${api.defaults.baseURL.replace('/api', '')}/uploads/temas/${archivo.archivo}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="archivo-link"
-                          >
-                            📎 {archivo.nombre}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <p>No hay temas registrados</p>
-                </div>
-              )}
+            <div className="header-actions">
+              <button className="btn-registrar-nuevo" onClick={() => setMostrarFormTema(true)}>
+                📝 Registrar Nuevo
+              </button>
             </div>
           </div>
-        )}
+          <div className="aula-seccion-body-v">
+            {loading ? (
+              <div className="empty-state">
+                <p>Cargando temas interactivos...</p>
+              </div>
+            ) : archivos.length > 0 ? (
+              <table className="temas-table">
+                <thead>
+                  <tr>
+                    <th>NOMBRE</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivos.map((archivo) => (
+                    <tr key={archivo.id}>
+                      <td>{archivo.nombre}</td>
+                      <td className="text-center">
+                        <div className="btn-group-opciones">
+                          <button 
+                            className="btn-opciones"
+                            ref={(el) => (buttonRef.current[`archivo-${archivo.id}`] = el)}
+                            onClick={(e) => toggleDropdown(archivo.id, e, 'archivo')}
+                          >
+                            Opciones {openDropdown === `archivo-${archivo.id}` ? '▲' : '▼'}
+                          </button>
+                          {openDropdown === `archivo-${archivo.id}` && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu-portal-aula"
+                              style={{
+                                position: 'fixed',
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`,
+                                width: `${dropdownPosition.width}px`,
+                                zIndex: 10000
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="dropdown-menu-opciones">
+                                {archivo.archivo_url && (
+                                  <a href={archivo.archivo_url} target="_blank" rel="noopener noreferrer">
+                                    📄 Ver Archivo
+                                  </a>
+                                )}
+                                {archivo.enlace_url && (
+                                  <a href={archivo.enlace_url} target="_blank" rel="noopener noreferrer">
+                                    🔗 Abrir URL
+                                  </a>
+                                )}
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tema */ }}>
+                                  ✏️ Editar Tema
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tema */ }}>
+                                  🗑️ Borrar Tema
+                                </a>
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <p>No se encontraron resultados</p>
+              </div>
+            )}
+          </div>
+        </div>
 
-        {/* TAREAS */}
-        {seccionActiva === 'tareas' && (
-          <div className="aula-seccion mundo-card">
-            <div className="aula-seccion-header">
-              <h2>Tareas</h2>
-              <button className="btn-agregar" onClick={() => setMostrarFormTarea(true)}>
-                + Agregar Tarea
+        {/* Sección: TAREAS VIRTUALES */}
+        <div className="aula-seccion-v">
+          <div className="aula-seccion-header-v header-tareas">
+            <h3>TAREAS VIRTUALES</h3>
+            <div className="bimestre-tabs">
+              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                <button
+                  key={bim}
+                  className={`bim-tab ${cicloTareas === bim ? 'active' : ''}`}
+                  onClick={() => setCicloTareas(bim)}
+                >
+                  Bim. {bim}
+                </button>
+              ))}
+            </div>
+            <div className="header-actions">
+              <button className="btn-registrar-nuevo" onClick={() => setMostrarFormTarea(true)}>
+                📝 Registrar Nuevo
               </button>
             </div>
-
+          </div>
+          <div className="aula-seccion-body-v">
             {mostrarFormTarea && (
               <div className="form-modal">
                 <h3>Crear Nueva Tarea</h3>
@@ -476,113 +585,100 @@ function DocenteAulaVirtual() {
               </div>
             )}
 
-            <div className="tareas-list">
-              {tareas.length > 0 ? (
-                tareas.map((tarea) => (
-                  <div key={tarea.id} className="tarea-item mundo-card">
-                    <div className="tarea-header">
-                      <h3>{tarea.titulo}</h3>
-                      <button 
-                        className="btn-ver-entregas"
-                        onClick={() => handleVerEntregas(tarea)}
-                      >
-                        Ver Entregas ({tarea.entregas?.length || 0})
-                      </button>
-                    </div>
-                    <p>{tarea.descripcion}</p>
-                    <div className="tarea-info">
-                      <span>📅 Entrega: {new Date(tarea.fecha_entrega).toLocaleDateString('es-PE')}</span>
-                      {tarea.archivos && tarea.archivos.length > 0 && (
-                        <div className="tarea-archivos">
-                          {tarea.archivos.map((archivo, idx) => (
-                            <a 
-                              key={idx} 
-                              href={`${api.defaults.baseURL.replace('/api', '')}/uploads/tareas/${archivo.archivo}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+            {tareas.length > 0 ? (
+              <table className="tareas-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Fecha de Registro</th>
+                    <th>Fecha de Entrega</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tareas.map((tarea) => (
+                    <tr key={tarea.id}>
+                      <td>{tarea.titulo}</td>
+                      <td className="text-center">{new Date(tarea.fecha_hora).toLocaleDateString('es-PE')}</td>
+                      <td className="text-center">{new Date(tarea.fecha_entrega).toLocaleDateString('es-PE')}</td>
+                      <td className="text-center">
+                        <div className="btn-group-opciones">
+                          <button 
+                            className="btn-opciones"
+                            ref={(el) => (buttonRef.current[`tarea-${tarea.id}`] = el)}
+                            onClick={(e) => toggleDropdown(tarea.id, e, 'tarea')}
+                          >
+                            Opciones {openDropdown === `tarea-${tarea.id}` ? '▲' : '▼'}
+                          </button>
+                          {openDropdown === `tarea-${tarea.id}` && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu-portal-aula"
+                              style={{
+                                position: 'fixed',
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`,
+                                width: `${dropdownPosition.width}px`,
+                                zIndex: 10000
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              📎 {archivo.nombre}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Modal de entregas */}
-                    {tareaSeleccionada?.id === tarea.id && (
-                      <div className="entregas-modal">
-                        <h4>Entregas de Alumnos</h4>
-                        <button className="btn-cerrar" onClick={() => setTareaSeleccionada(null)}>
-                          ✕
-                        </button>
-                        {tarea.entregas && tarea.entregas.length > 0 ? (
-                          <div className="entregas-list">
-                            {tarea.entregas.map((entrega) => (
-                              <div key={entrega.id} className="entrega-item">
-                                <div className="entrega-info">
-                                  <strong>{entrega.apellido_paterno} {entrega.apellido_materno}, {entrega.nombres}</strong>
-                                  <span>{new Date(entrega.fecha_hora).toLocaleString('es-PE')}</span>
-                                </div>
-                                <div className="entrega-contenido">
-                                  {entrega.mensaje && <p>{entrega.mensaje}</p>}
-                                  {entrega.url && (
-                                    <a 
-                                      href={entrega.url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="drive-link"
-                                    >
-                                      🔗 Link de Drive: {entrega.url}
-                                    </a>
-                                  )}
-                                  {entrega.mensaje && <p className="entrega-mensaje">{entrega.mensaje}</p>}
-                                </div>
-                                <div className="entrega-calificar">
-                                  <label>Nota:</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="20"
-                                    step="0.1"
-                                    placeholder={entrega.nota ? entrega.nota : "0.0"}
-                                    defaultValue={entrega.nota || ''}
-                                    onBlur={(e) => {
-                                      if (e.target.value && parseFloat(e.target.value) !== parseFloat(entrega.nota || 0)) {
-                                        handleCalificarTarea(entrega.id, e.target.value);
-                                      }
-                                    }}
-                                  />
-                                </div>
+                              <div className="dropdown-menu-opciones">
+                                <a href="#" onClick={(e) => { e.preventDefault(); handleVerEntregas(tarea); setOpenDropdown(null); }}>
+                                  ℹ️ Ver Detalles
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Marcar entregas */ }}>
+                                  ✓ Marcar Entregas
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
+                                  📋 Asignar a Registro
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tarea */ }}>
+                                  ✏️ Editar Tarea
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tarea */ }}>
+                                  🗑️ Borrar Tarea
+                                </a>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="empty-state">
-                            <p>No hay entregas aún</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <p>No hay tareas registradas</p>
-                </div>
-              )}
-            </div>
+                            </div>,
+                            document.body
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <p>No se encontraron resultados</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* EXÁMENES */}
-        {seccionActiva === 'examenes' && (
-          <div className="aula-seccion mundo-card">
-            <div className="aula-seccion-header">
-              <h2>Exámenes</h2>
-              <button className="btn-agregar" onClick={() => setMostrarFormExamen(true)}>
-                + Agregar Examen
+        {/* Sección: EXÁMENES */}
+        <div className="aula-seccion-v">
+          <div className="aula-seccion-header-v header-examenes">
+            <h3>EXÁMENES</h3>
+            <div className="bimestre-tabs">
+              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                <button
+                  key={bim}
+                  className={`bim-tab ${cicloExamenes === bim ? 'active' : ''}`}
+                  onClick={() => setCicloExamenes(bim)}
+                >
+                  Bim. {bim}
+                </button>
+              ))}
+            </div>
+            <div className="header-actions">
+              <button className="btn-registrar-nuevo" onClick={() => setMostrarFormExamen(true)}>
+                📝 Registrar Nuevo
               </button>
             </div>
+          </div>
+          <div className="aula-seccion-body-v">
 
             {mostrarFormExamen && (
               <ExamenForm
@@ -616,72 +712,259 @@ function DocenteAulaVirtual() {
               />
             )}
 
-            <div className="examenes-list">
-              {examenes.length > 0 ? (
-                examenes.map((examen) => (
-                  <div key={examen.id} className="examen-item mundo-card">
-                    <div className="examen-header">
-                      <h3>{examen.titulo}</h3>
-                      <span className={`estado-badge ${examen.estado?.toLowerCase()}`}>
-                        {examen.estado}
-                      </span>
-                    </div>
-                    <div className="examen-info">
-                      <div className="info-item">
-                        <span className="info-label">Fecha:</span>
-                        <span>{new Date(examen.fecha_desde).toLocaleDateString('es-PE')} - {new Date(examen.fecha_hasta).toLocaleDateString('es-PE')}</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Hora:</span>
-                        <span>{examen.hora_desde} - {examen.hora_hasta}</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Tiempo:</span>
-                        <span>{examen.tiempo} minutos</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Preguntas:</span>
-                        <span>{examen.preguntas?.length || 0}</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Puntos por respuesta correcta:</span>
-                        <span>{examen.puntos_correcta}</span>
-                      </div>
-                    </div>
-                    {examen.preguntas && examen.preguntas.length > 0 && (
-                      <div className="examen-preguntas-preview">
-                        <details>
-                          <summary>Ver Preguntas ({examen.preguntas.length})</summary>
-                          <div className="preguntas-list">
-                            {examen.preguntas.map((pregunta, idx) => (
-                              <div key={pregunta.id} className="pregunta-preview">
-                                <strong>Pregunta {idx + 1} ({pregunta.puntos} pts)</strong>
-                                <div dangerouslySetInnerHTML={{ __html: pregunta.descripcion }} />
-                                {pregunta.tipo === 'ALTERNATIVAS' && pregunta.alternativas && (
-                                  <ul>
-                                    {pregunta.alternativas.map((alt, altIdx) => (
-                                      <li key={altIdx}>
-                                        {alt.descripcion} {alt.correcta === 'SI' && '✓'}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
+            {examenes.length > 0 ? (
+              <table className="examenes-table">
+                <thead>
+                  <tr>
+                    <th>EXAMEN</th>
+                    <th>TIEMPO (MIN.)</th>
+                    <th>PREGUNTAS</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {examenes.map((examen) => (
+                    <tr key={examen.id}>
+                      <td>{examen.titulo}</td>
+                      <td className="text-center">{examen.tiempo === 0 || !examen.tiempo ? 'ILIMITADO' : examen.tiempo}</td>
+                      <td className="text-center">{examen.preguntas?.length || 0}</td>
+                      <td className="text-center">
+                        <span className={`estado-badge ${examen.estado?.toLowerCase() || 'inactivo'}`}>
+                          {examen.estado || 'INACTIVO'}
+                        </span>
+                      </td>
+                      <td className="text-center">
+                        <div className="btn-group-opciones">
+                          <button 
+                            className="btn-opciones"
+                            ref={(el) => (buttonRef.current[`examen-${examen.id}`] = el)}
+                            onClick={(e) => toggleDropdown(examen.id, e, 'examen')}
+                          >
+                            Opciones {openDropdown === `examen-${examen.id}` ? '▲' : '▼'}
+                          </button>
+                          {openDropdown === `examen-${examen.id}` && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu-portal-aula"
+                              style={{
+                                position: 'fixed',
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`,
+                                width: `${dropdownPosition.width}px`,
+                                zIndex: 10000
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="dropdown-menu-opciones">
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Preguntas/Alternativas */ }}>
+                                  📝 Preguntas / Alternativas
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
+                                  📊 Ver Resultados
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
+                                  📋 Asignar a Registro
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Habilitar/Deshabilitar */ }}>
+                                  🔒 Habilitar / Deshabilitar
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar examen */ }}>
+                                  ✏️ Editar Examen
+                                </a>
                               </div>
-                            ))}
-                          </div>
-                        </details>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <p>No hay exámenes registrados</p>
-                </div>
-              )}
+                            </div>,
+                            document.body
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <p>No se encontraron resultados</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sección: VIDEOTECA */}
+        <div className="aula-seccion-v">
+          <div className="aula-seccion-header-v header-videos">
+            <h3>VIDEOTECA</h3>
+            <div className="bimestre-tabs">
+              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                <button
+                  key={bim}
+                  className={`bim-tab ${cicloVideos === bim ? 'active' : ''}`}
+                  onClick={() => setCicloVideos(bim)}
+                >
+                  Bim. {bim}
+                </button>
+              ))}
+            </div>
+            <div className="header-actions">
+              <button className="btn-registrar-nuevo">
+                📝 Registrar Nuevo
+              </button>
             </div>
           </div>
-        )}
+          <div className="aula-seccion-body-v">
+            {videos.length > 0 ? (
+              <table className="videos-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {videos.map((video) => (
+                    <tr key={video.id}>
+                      <td>{video.descripcion}</td>
+                      <td>{new Date(video.fecha_hora).toLocaleString('es-PE')}</td>
+                      <td className="text-center">
+                        <div className="btn-group-opciones">
+                          <button 
+                            className="btn-opciones"
+                            ref={(el) => (buttonRef.current[`video-${video.id}`] = el)}
+                            onClick={(e) => toggleDropdown(video.id, e, 'video')}
+                          >
+                            Opciones {openDropdown === `video-${video.id}` ? '▲' : '▼'}
+                          </button>
+                          {openDropdown === `video-${video.id}` && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu-portal-aula"
+                              style={{
+                                position: 'fixed',
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`,
+                                width: `${dropdownPosition.width}px`,
+                                zIndex: 10000
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="dropdown-menu-opciones">
+                                {video.enlace && (
+                                  <a href={video.enlace} target="_blank" rel="noopener noreferrer">
+                                    🎥 Ver Video
+                                  </a>
+                                )}
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar video */ }}>
+                                  ✏️ Editar Video
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar video */ }}>
+                                  🗑️ Borrar Video
+                                </a>
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <p>No se encontraron resultados</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sección: ENLACES DE AYUDA */}
+        <div className="aula-seccion-v">
+          <div className="aula-seccion-header-v header-enlaces">
+            <h3>ENLACES DE AYUDA</h3>
+            <div className="bimestre-tabs">
+              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                <button
+                  key={bim}
+                  className={`bim-tab ${cicloEnlaces === bim ? 'active' : ''}`}
+                  onClick={() => setCicloEnlaces(bim)}
+                >
+                  Bim. {bim}
+                </button>
+              ))}
+            </div>
+            <div className="header-actions">
+              <button className="btn-registrar-nuevo">
+                📝 Registrar Nuevo
+              </button>
+            </div>
+          </div>
+          <div className="aula-seccion-body-v">
+            {enlaces.length > 0 ? (
+              <table className="enlaces-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enlaces.map((enlace) => (
+                    <tr key={enlace.id}>
+                      <td>{enlace.descripcion}</td>
+                      <td>{new Date(enlace.fecha_hora).toLocaleString('es-PE')}</td>
+                      <td className="text-center">
+                        <div className="btn-group-opciones">
+                          <button 
+                            className="btn-opciones"
+                            ref={(el) => (buttonRef.current[`enlace-${enlace.id}`] = el)}
+                            onClick={(e) => toggleDropdown(enlace.id, e, 'enlace')}
+                          >
+                            Opciones {openDropdown === `enlace-${enlace.id}` ? '▲' : '▼'}
+                          </button>
+                          {openDropdown === `enlace-${enlace.id}` && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu-portal-aula"
+                              style={{
+                                position: 'fixed',
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`,
+                                width: `${dropdownPosition.width}px`,
+                                zIndex: 10000
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="dropdown-menu-opciones">
+                                {enlace.enlace && (
+                                  <a href={enlace.enlace} target="_blank" rel="noopener noreferrer">
+                                    🔗 Visitar Enlace
+                                  </a>
+                                )}
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar enlace */ }}>
+                                  ✏️ Editar Enlace
+                                </a>
+                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar enlace */ }}>
+                                  🗑️ Borrar Enlace
+                                </a>
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <p>No se encontraron resultados</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

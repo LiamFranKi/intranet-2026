@@ -720,7 +720,8 @@ router.get('/cursos', async (req, res) => {
     // Obtener cursos asignados
     // asignaturas tiene grupo_id directamente, no area_curso_id
     const cursos = await query(
-      `SELECT a.*, c.nombre as curso_nombre, g.grado, g.seccion, g.anio, 
+      `SELECT a.*, c.nombre as curso_nombre, c.imagen as curso_imagen, 
+              g.grado, g.seccion, g.anio, 
               n.nombre as nivel_nombre, t.nombre as turno_nombre
        FROM asignaturas a
        INNER JOIN grupos g ON g.id = a.grupo_id
@@ -732,7 +733,40 @@ router.get('/cursos', async (req, res) => {
       [personalId, colegio_id, anio_activo]
     );
 
-    res.json({ cursos: cursos || [] });
+    // Construir URLs completas para las imágenes de cursos
+    // Según el modelo anterior, las imágenes están en /Static/Archivos/
+    const cursosConImagenes = cursos.map(curso => {
+      let cursoImagenUrl = null;
+      if (curso.curso_imagen && curso.curso_imagen !== '') {
+        const isProduction = process.env.NODE_ENV === 'production';
+        
+        // Si ya es una URL completa, usarla directamente
+        if (curso.curso_imagen.startsWith('http')) {
+          cursoImagenUrl = curso.curso_imagen;
+        } else if (curso.curso_imagen.startsWith('/Static/')) {
+          // Ruta del sistema anterior
+          if (isProduction) {
+            cursoImagenUrl = `https://vanguardschools.edu.pe${curso.curso_imagen}`;
+          } else {
+            cursoImagenUrl = `http://localhost:5000${curso.curso_imagen}`;
+          }
+        } else {
+          // Solo el nombre del archivo, construir ruta completa en /Static/Archivos/
+          if (isProduction) {
+            cursoImagenUrl = `https://vanguardschools.edu.pe/Static/Archivos/${curso.curso_imagen}`;
+          } else {
+            cursoImagenUrl = `http://localhost:5000/Static/Archivos/${curso.curso_imagen}`;
+          }
+        }
+      }
+      
+      return {
+        ...curso,
+        curso_imagen_url: cursoImagenUrl
+      };
+    });
+
+    res.json({ cursos: cursosConImagenes || [] });
   } catch (error) {
     console.error('Error obteniendo cursos:', error);
     res.status(500).json({ error: 'Error al obtener cursos asignados' });
@@ -1327,6 +1361,327 @@ router.delete('/publicaciones/:publicacionId', async (req, res) => {
   } catch (error) {
     console.error('Error eliminando publicación:', error);
     res.status(500).json({ error: 'Error al eliminar publicación' });
+  }
+});
+
+/**
+ * ============================================
+ * AULA VIRTUAL - ENDPOINTS
+ * ============================================
+ */
+
+/**
+ * GET /api/docente/aula-virtual/config
+ * Obtener configuración del aula virtual (total_notas del colegio)
+ */
+router.get('/aula-virtual/config', async (req, res) => {
+  try {
+    const { colegio_id } = req.user;
+    
+    const colegio = await query(
+      `SELECT total_notas FROM colegios WHERE id = ?`,
+      [colegio_id]
+    );
+
+    if (colegio.length === 0) {
+      return res.status(404).json({ error: 'Colegio no encontrado' });
+    }
+
+    res.json({ 
+      total_notas: colegio[0].total_notas || 4 // Por defecto 4 bimestres
+    });
+  } catch (error) {
+    console.error('Error obteniendo configuración:', error);
+    res.status(500).json({ error: 'Error al obtener configuración' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/temas
+ * Obtener temas de una asignatura (filtrados por ciclo/bimestre)
+ */
+router.get('/aula-virtual/temas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { asignatura_id, ciclo } = req.query;
+
+    if (!asignatura_id) {
+      return res.status(400).json({ error: 'asignatura_id es requerido' });
+    }
+
+    // Si no se proporciona ciclo, usar 1 por defecto
+    const cicloFiltro = ciclo ? parseInt(ciclo) : 1;
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, req.user.personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener temas de la asignatura (asignaturas_temas NO tiene ciclo, se muestra todos)
+    const temas = await query(
+      `SELECT * FROM asignaturas_temas
+       WHERE asignatura_id = ?
+       ORDER BY fecha DESC, id DESC`,
+      [asignatura_id]
+    );
+
+    res.json({ temas: temas || [] });
+  } catch (error) {
+    console.error('Error obteniendo temas:', error);
+    res.status(500).json({ error: 'Error al obtener temas' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/tareas
+ * Obtener tareas de una asignatura (filtradas por ciclo/bimestre)
+ */
+router.get('/aula-virtual/tareas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { asignatura_id, ciclo } = req.query;
+
+    if (!asignatura_id) {
+      return res.status(400).json({ error: 'asignatura_id es requerido' });
+    }
+
+    // Si no se proporciona ciclo, usar 1 por defecto
+    const cicloFiltro = ciclo ? parseInt(ciclo) : 1;
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, req.user.personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener tareas de la asignatura filtradas por ciclo
+    const tareas = await query(
+      `SELECT * FROM asignaturas_tareas
+       WHERE asignatura_id = ? AND ciclo = ?
+       ORDER BY fecha_entrega DESC, fecha_hora DESC`,
+      [asignatura_id, cicloFiltro]
+    );
+
+    res.json({ tareas: tareas || [] });
+  } catch (error) {
+    console.error('Error obteniendo tareas:', error);
+    res.status(500).json({ error: 'Error al obtener tareas' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/examenes
+ * Obtener exámenes de una asignatura (filtrados por ciclo/bimestre)
+ */
+router.get('/aula-virtual/examenes', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { asignatura_id, ciclo } = req.query;
+
+    if (!asignatura_id) {
+      return res.status(400).json({ error: 'asignatura_id es requerido' });
+    }
+
+    // Si no se proporciona ciclo, usar 1 por defecto
+    const cicloFiltro = ciclo ? parseInt(ciclo) : 1;
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, req.user.personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener exámenes de la asignatura filtrados por ciclo
+    const examenes = await query(
+      `SELECT * FROM asignaturas_examenes
+       WHERE asignatura_id = ? AND ciclo = ?
+       ORDER BY fecha_desde DESC`,
+      [asignatura_id, cicloFiltro]
+    );
+
+    res.json({ examenes: examenes || [] });
+  } catch (error) {
+    console.error('Error obteniendo exámenes:', error);
+    res.status(500).json({ error: 'Error al obtener exámenes' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/archivos
+ * Obtener archivos/temas interactivos de una asignatura (filtrados por ciclo/bimestre)
+ */
+router.get('/aula-virtual/archivos', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { asignatura_id, ciclo } = req.query;
+
+    if (!asignatura_id) {
+      return res.status(400).json({ error: 'asignatura_id es requerido' });
+    }
+
+    // Si no se proporciona ciclo, usar 1 por defecto
+    const cicloFiltro = ciclo ? parseInt(ciclo) : 1;
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, req.user.personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener archivos de la asignatura filtrados por ciclo
+    const archivos = await query(
+      `SELECT * FROM asignaturas_archivos
+       WHERE asignatura_id = ? AND ciclo = ?
+       ORDER BY orden ASC, fecha_hora DESC`,
+      [asignatura_id, cicloFiltro]
+    );
+
+    // Construir URLs completas para los archivos
+    const isProduction = process.env.NODE_ENV === 'production';
+    const archivosConUrls = archivos.map(archivo => {
+      let archivoUrl = null;
+      let enlaceUrl = null;
+
+      if (archivo.archivo && archivo.archivo !== '') {
+        if (archivo.archivo.startsWith('http')) {
+          archivoUrl = archivo.archivo;
+        } else if (archivo.archivo.startsWith('/Static/')) {
+          archivoUrl = isProduction 
+            ? `https://vanguardschools.edu.pe${archivo.archivo}`
+            : `http://localhost:5000${archivo.archivo}`;
+        } else {
+          archivoUrl = isProduction
+            ? `https://vanguardschools.edu.pe/Static/Archivos/${archivo.archivo}`
+            : `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
+        }
+      }
+
+      if (archivo.enlace && archivo.enlace !== '') {
+        enlaceUrl = archivo.enlace;
+      }
+
+      return {
+        ...archivo,
+        archivo_url: archivoUrl,
+        enlace_url: enlaceUrl
+      };
+    });
+
+    res.json({ archivos: archivosConUrls || [] });
+  } catch (error) {
+    console.error('Error obteniendo archivos:', error);
+    res.status(500).json({ error: 'Error al obtener archivos' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/videos
+ * Obtener videos de una asignatura (filtrados por ciclo/bimestre)
+ */
+router.get('/aula-virtual/videos', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { asignatura_id, ciclo } = req.query;
+
+    if (!asignatura_id) {
+      return res.status(400).json({ error: 'asignatura_id es requerido' });
+    }
+
+    // Si no se proporciona ciclo, usar 1 por defecto
+    const cicloFiltro = ciclo ? parseInt(ciclo) : 1;
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, req.user.personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener videos de la asignatura filtrados por ciclo
+    const videos = await query(
+      `SELECT * FROM asignaturas_videos
+       WHERE asignatura_id = ? AND ciclo = ?
+       ORDER BY fecha_hora DESC`,
+      [asignatura_id, cicloFiltro]
+    );
+
+    res.json({ videos: videos || [] });
+  } catch (error) {
+    console.error('Error obteniendo videos:', error);
+    res.status(500).json({ error: 'Error al obtener videos' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/enlaces
+ * Obtener enlaces de ayuda de una asignatura (filtrados por ciclo/bimestre)
+ */
+router.get('/aula-virtual/enlaces', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { asignatura_id, ciclo } = req.query;
+
+    if (!asignatura_id) {
+      return res.status(400).json({ error: 'asignatura_id es requerido' });
+    }
+
+    // Si no se proporciona ciclo, usar 1 por defecto
+    const cicloFiltro = ciclo ? parseInt(ciclo) : 1;
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, req.user.personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener enlaces de la asignatura filtrados por ciclo
+    const enlaces = await query(
+      `SELECT * FROM asignaturas_enlaces
+       WHERE asignatura_id = ? AND ciclo = ?
+       ORDER BY fecha_hora DESC`,
+      [asignatura_id, cicloFiltro]
+    );
+
+    res.json({ enlaces: enlaces || [] });
+  } catch (error) {
+    console.error('Error obteniendo enlaces:', error);
+    res.status(500).json({ error: 'Error al obtener enlaces' });
   }
 });
 

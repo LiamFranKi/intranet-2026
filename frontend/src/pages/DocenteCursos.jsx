@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
@@ -9,10 +10,49 @@ function DocenteCursos() {
   const [loading, setLoading] = useState(true);
   const [cursos, setCursos] = useState([]);
   const [selectedCurso, setSelectedCurso] = useState(null);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState(null);
+  const dropdownRef = useRef({});
+  const buttonRef = useRef({});
 
   useEffect(() => {
     cargarCursos();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Solo cerrar si es click del botón izquierdo (button === 0)
+      // Ignorar botón del medio (wheel, button === 1) y botón derecho (button === 2)
+      if (event.button !== 0) return;
+      
+      if (openDropdown !== null) {
+        const dropdownElement = document.querySelector('.dropdown-menu-portal');
+        const buttonElement = buttonRef.current[openDropdown];
+        
+        // Verificar si el click fue fuera del dropdown y del botón
+        if (
+          dropdownElement && 
+          !dropdownElement.contains(event.target) &&
+          buttonElement &&
+          !buttonElement.contains(event.target)
+        ) {
+          setOpenDropdown(null);
+          setDropdownPosition(null);
+        }
+      }
+    };
+
+    if (openDropdown !== null) {
+      // Usar mousedown en lugar de click para mejor control
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [openDropdown]);
 
   const cargarCursos = async () => {
     try {
@@ -27,6 +67,8 @@ function DocenteCursos() {
   };
 
   const handleCursoAction = (curso, action) => {
+    setOpenDropdown(null); // Cerrar dropdown al seleccionar una opción
+    setDropdownPosition(null);
     switch (action) {
       case 'aula':
         navigate(`/docente/cursos/${curso.id}/aula`);
@@ -40,8 +82,31 @@ function DocenteCursos() {
       case 'asistencia':
         navigate(`/docente/cursos/${curso.id}/asistencia`);
         break;
+      case 'enlaces':
+        navigate(`/docente/cursos/${curso.id}/enlaces`);
+        break;
+      case 'copiar':
+        // TODO: Implementar funcionalidad de copiar contenido
+        console.log('Copiar contenido del curso:', curso.id);
+        break;
       default:
         break;
+    }
+  };
+
+  const toggleDropdown = (cursoId, event) => {
+    if (openDropdown === cursoId) {
+      setOpenDropdown(null);
+      setDropdownPosition(null);
+    } else {
+      const button = event.currentTarget;
+      const rect = button.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width
+      });
+      setOpenDropdown(cursoId);
     }
   };
 
@@ -68,27 +133,33 @@ function DocenteCursos() {
             {cursos.map((curso) => (
               <div key={curso.id} className="curso-card mundo-card">
                 <div className="curso-header">
-                  <div className="curso-icon">📚</div>
-                  <h3 className="curso-nombre">{curso.nombre}</h3>
+                  <div className="curso-icon">
+                    {curso.curso_imagen_url ? (
+                      <img 
+                        src={curso.curso_imagen_url} 
+                        alt={curso.curso_nombre}
+                        className="curso-imagen"
+                        onError={(e) => {
+                          // Si la imagen falla al cargar, mostrar el emoji
+                          e.target.style.display = 'none';
+                          if (e.target.nextSibling) {
+                            e.target.nextSibling.style.display = 'flex';
+                          }
+                        }}
+                      />
+                    ) : null}
+                    {!curso.curso_imagen_url && <span className="curso-emoji">📚</span>}
+                    {curso.curso_imagen_url && (
+                      <span className="curso-emoji" style={{ display: 'none' }}>📚</span>
+                    )}
+                  </div>
+                  <h3 className="curso-nombre">{curso.curso_nombre}</h3>
                 </div>
                 
-                <div className="curso-info">
-                  <div className="info-item">
-                    <span className="info-label">Nivel:</span>
-                    <span className="info-value">{curso.nivel_nombre}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Grado:</span>
-                    <span className="info-value">{curso.grado}° {curso.seccion}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Turno:</span>
-                    <span className="info-value">{curso.turno_nombre}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Año:</span>
-                    <span className="info-value">{curso.anio}</span>
-                  </div>
+                <div className="curso-info-compact">
+                  <span className="info-compact-text">
+                    {curso.nivel_nombre} - {curso.grado}° {curso.seccion} - {curso.turno_nombre}
+                  </span>
                 </div>
 
                 <div className="curso-actions">
@@ -98,22 +169,56 @@ function DocenteCursos() {
                   >
                     🎓 Aula Virtual
                   </button>
-                  <div className="dropdown-options">
-                    <button className="btn-options-toggle">Opciones ▼</button>
-                    <div className="dropdown-menu">
-                      <button onClick={() => handleCursoAction(curso, 'alumnos')}>
-                        👥 Lista de Alumnos
-                      </button>
-                      <button onClick={() => handleCursoAction(curso, 'notas')}>
-                        📝 Registrar Notas
-                      </button>
-                      <button onClick={() => handleCursoAction(curso, 'asistencia')}>
-                        ✅ Registrar Asistencia
-                      </button>
-                      <button onClick={() => handleCursoAction(curso, 'horario')}>
-                        📅 Ver Horario
-                      </button>
-                    </div>
+                  <div 
+                    className="dropdown-options"
+                    ref={(el) => (dropdownRef.current[curso.id] = el)}
+                  >
+                    <button 
+                      ref={(el) => (buttonRef.current[curso.id] = el)}
+                      className="btn-options-toggle"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleDropdown(curso.id, e);
+                      }}
+                    >
+                      Opciones {openDropdown === curso.id ? '▲' : '▼'}
+                    </button>
+                    {openDropdown === curso.id && dropdownPosition && createPortal(
+                      <div 
+                        className="dropdown-menu-portal"
+                        style={{
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          left: `${dropdownPosition.left}px`,
+                          width: `${dropdownPosition.width}px`,
+                          zIndex: 10000
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="dropdown-menu">
+                          <button onClick={() => handleCursoAction(curso, 'alumnos')}>
+                            👥 Lista de Alumnos
+                          </button>
+                          <button onClick={() => handleCursoAction(curso, 'notas')}>
+                            📝 Registrar Notas
+                          </button>
+                          <button onClick={() => handleCursoAction(curso, 'asistencia')}>
+                            ✅ Registrar Asistencia
+                          </button>
+                          <button onClick={() => handleCursoAction(curso, 'horario')}>
+                            📅 Ver Horario
+                          </button>
+                          <button onClick={() => handleCursoAction(curso, 'enlaces')}>
+                            🔗 Link Aula Virtual
+                          </button>
+                          <button onClick={() => handleCursoAction(curso, 'copiar')}>
+                            📋 Copiar Contenido
+                          </button>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
                   </div>
                 </div>
               </div>
