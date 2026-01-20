@@ -16,6 +16,17 @@ function DocenteDashboard() {
       setLoading(true);
       const response = await api.get('/docente/dashboard');
       console.log('📊 Dashboard data recibida:', response.data);
+      // Debug: Log de eventos recibidos
+      if (response.data.actividades) {
+        console.log('📅 Actividades recibidas:', response.data.actividades.length);
+        console.log('📅 Primeras actividades:', response.data.actividades.slice(0, 3));
+      }
+      if (response.data.proximosExamenes) {
+        console.log('📝 Exámenes recibidos:', response.data.proximosExamenes.length);
+      }
+      if (response.data.proximasTareas) {
+        console.log('📋 Tareas recibidas:', response.data.proximasTareas.length);
+      }
       setDashboardData(response.data);
     } catch (error) {
       console.error('❌ Error cargando dashboard:', error);
@@ -40,63 +51,124 @@ function DocenteDashboard() {
   ];
   const mesActual = meses[new Date().getMonth()];
 
-  // Combinar y ordenar todos los eventos (solo próximos, no pasados)
-  // IMPORTANTE: Este hook debe ejecutarse SIEMPRE, incluso si dashboardData es null
+  // Función auxiliar para crear fecha desde string (ignora zona horaria, solo usa fecha)
+  // SOLO para usar en "Próximos Eventos" del dashboard
+  const crearFechaLima = (fechaString) => {
+    if (!fechaString) return null;
+    
+    // Si es un objeto Date, extraer solo año, mes, día
+    if (fechaString instanceof Date) {
+      const year = fechaString.getFullYear();
+      const month = fechaString.getMonth();
+      const day = fechaString.getDate();
+      const fecha = new Date(year, month, day);
+      fecha.setHours(0, 0, 0, 0);
+      return fecha;
+    }
+    
+    // Si viene como string "YYYY-MM-DD" o "YYYY-MM-DD HH:MM:SS"
+    // Extraer solo la parte de la fecha (YYYY-MM-DD)
+    const fechaPart = fechaString.toString().split('T')[0].split(' ')[0];
+    if (!fechaPart || fechaPart === '') return null;
+    
+    const [year, month, day] = fechaPart.split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+    
+    // Crear fecha local (sin considerar zona horaria para comparación)
+    const fecha = new Date(year, month - 1, day);
+    fecha.setHours(0, 0, 0, 0);
+    return fecha;
+  };
+
+  // Función auxiliar para obtener hoy en Lima (UTC-5)
+  // SOLO para usar en "Próximos Eventos" del dashboard
+  const getHoyLima = () => {
+    try {
+      // Obtener la fecha actual en zona horaria de Lima como string YYYY-MM-DD
+      const ahora = new Date();
+      const hoyLimaString = ahora.toLocaleDateString('en-CA', { 
+        timeZone: 'America/Lima'
+      });
+      
+      // Parsear la fecha en formato YYYY-MM-DD
+      const [year, month, day] = hoyLimaString.split('-').map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        throw new Error('Error parseando fecha de Lima');
+      }
+      
+      const hoyLima = new Date(year, month - 1, day);
+      hoyLima.setHours(0, 0, 0, 0);
+      
+      // Log para debug
+      console.log('🗓️ Fecha de hoy en Lima:', hoyLimaString, '->', hoyLima.toISOString());
+      
+      return hoyLima;
+    } catch (error) {
+      console.error('Error obteniendo fecha de Lima:', error);
+      // Fallback: usar fecha actual local
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      console.log('🗓️ Usando fecha local como fallback:', hoy.toISOString());
+      return hoy;
+    }
+  };
+  
+  // Función auxiliar para comparar solo fechas (sin horas) - SOLO para dashboard
+  const compararSoloFechas = (fecha1, fecha2) => {
+    if (!fecha1 || !fecha2) return false;
+    const d1 = new Date(fecha1.getFullYear(), fecha1.getMonth(), fecha1.getDate());
+    const d2 = new Date(fecha2.getFullYear(), fecha2.getMonth(), fecha2.getDate());
+    return d1.getTime() - d2.getTime();
+  };
+
+  // Combinar y ordenar todos los eventos
+  // IMPORTANTE: NO filtramos aquí - el backend ya filtra con SQL (DATE >= CURDATE())
+  // Solo mostramos TODO lo que viene del backend sin restricciones adicionales
   const todosEventos = useMemo(() => {
     const eventos = [];
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // Normalizar a inicio del día
 
-    // Agregar exámenes (ya vienen filtrados del backend como futuros)
+    // Agregar exámenes (vienen ya filtrados del backend con SQL)
     if (proximosExamenes && Array.isArray(proximosExamenes)) {
       proximosExamenes.forEach(examen => {
-        const fechaExamen = examen.fecha_desde ? new Date(examen.fecha_desde) : null;
+        // Usar fecha_desde o fecha_evento si está disponible
+        const fechaExamen = crearFechaLima(examen.fecha_desde || examen.fecha_evento);
         if (fechaExamen) {
-          fechaExamen.setHours(0, 0, 0, 0);
-          // Solo agregar si es hoy o futuro
-          if (fechaExamen >= hoy) {
-            eventos.push({
-              ...examen,
-              tipo: 'examen',
-              fecha: fechaExamen
-            });
-          }
+          eventos.push({
+            ...examen,
+            tipo: 'examen',
+            fecha: fechaExamen
+          });
         }
       });
     }
 
-    // Agregar tareas (ya vienen filtradas del backend como futuras)
+    // Agregar tareas (vienen ya filtradas del backend con SQL)
     if (proximasTareas && Array.isArray(proximasTareas)) {
       proximasTareas.forEach(tarea => {
-        const fechaTarea = tarea.fecha_fin ? new Date(tarea.fecha_fin) : null;
+        // Usar fecha_fin o fecha_evento si está disponible
+        const fechaTarea = crearFechaLima(tarea.fecha_fin || tarea.fecha_evento);
         if (fechaTarea) {
-          fechaTarea.setHours(0, 0, 0, 0);
-          // Solo agregar si es hoy o futuro
-          if (fechaTarea >= hoy) {
-            eventos.push({
-              ...tarea,
-              tipo: 'tarea',
-              fecha: fechaTarea
-            });
-          }
+          eventos.push({
+            ...tarea,
+            tipo: 'tarea',
+            fecha: fechaTarea
+          });
         }
       });
     }
 
-    // Agregar actividades (solo próximas, no pasadas)
+    // Agregar actividades (vienen ya filtradas del backend con SQL)
+    // NO filtramos aquí - mostramos TODO lo que viene del backend
     if (actividades && Array.isArray(actividades)) {
       actividades.forEach(actividad => {
-        const fechaActividad = actividad.fecha_inicio ? new Date(actividad.fecha_inicio) : null;
+        // Usar fecha_inicio o fecha_evento si está disponible
+        const fechaActividad = crearFechaLima(actividad.fecha_inicio || actividad.fecha_evento);
         if (fechaActividad) {
-          fechaActividad.setHours(0, 0, 0, 0);
-          // Solo agregar si es hoy o futuro
-          if (fechaActividad >= hoy) {
-            eventos.push({
-              ...actividad,
-              tipo: 'actividad',
-              fecha: fechaActividad
-            });
-          }
+          eventos.push({
+            ...actividad,
+            tipo: 'actividad',
+            fecha: fechaActividad
+          });
         }
       });
     }

@@ -643,3 +643,458 @@
   }
 }
 
+/* Modal de Información del Alumno */
+.alumno-info-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.alumno-info-modal {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.alumno-info-header {
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  color: white;
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.alumno-info-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.alumno-info-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.alumno-info-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.alumno-info-content {
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.alumno-info-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 1.1rem;
+  color: #4a83c1;
+}
+
+.alumno-info-main {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.alumno-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.alumno-foto-container {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 3px solid #e0f2fe;
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.15);
+}
+
+.alumno-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.alumno-foto-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #6ba3d4 0%, #4a83c1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
+}
+
+.alumno-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+}
+
+.alumno-qr-label {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a83c1;
+  text-align: center;
+}
+
+.alumno-qr-code {
+  padding: 0.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.alumno-info-right {
+  flex: 1;
+}
+
+.alumno-info-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.alumno-info-table th {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #1f2937;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid #dbeafe;
+  width: 200px;
+}
+
+.alumno-info-table td {
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.alumno-info-table tr:nth-child(even) td {
+  background: #f9fafb;
+}
+
+.alumno-matriculas-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.alumno-matriculas-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #4a83c1;
+  margin: 0 0 1.5rem 0;
+}
+
+.alumno-matriculas-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.alumno-nivel-group {
+  background: linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 2px solid #bae6fd;
+}
+
+.alumno-nivel-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+  text-transform: uppercase;
+}
+
+.alumno-matriculas-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.alumno-matricula-badge {
+  background: white;
+  color: #4a83c1;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 6px rgba(74, 131, 193, 0.15);
+  border: 2px solid #bae6fd;
+  transition: all 0.2s;
+}
+
+.alumno-matricula-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.25);
+  border-color: #4a83c1;
+}
+
+/* Avatar del Alumno */
+.alumno-avatar-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.alumno-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #f9fafb;
+  border-radius: 12px;
+}
+
+.alumno-avatar-level-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+}
+
+.alumno-avatar-info {
+  padding: 1rem;
+  background: linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  border: 2px solid #bae6fd;
+  text-align: center;
+}
+
+.alumno-avatar-name {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.alumno-avatar-description {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.alumno-estrellas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid #fbbf24;
+}
+
+.alumno-estrellas-icon {
+  font-size: 1.25rem;
+}
+
+.alumno-estrellas-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #d97706;
+}
+
+.alumno-nivel-actual {
+  padding: 1rem;
+  background: linear-gradient(145deg, #ede9fe 0%, #ddd6fe 100%);
+  border-radius: 12px;
+  border: 2px solid #c4b5fd;
+  text-align: center;
+}
+
+.alumno-nivel-actual-label {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.alumno-nivel-actual-value {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+/* Apoderados */
+.alumno-apoderados-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.alumno-apoderados-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #4a83c1;
+  margin: 0 0 1.5rem 0;
+}
+
+.alumno-apoderados-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.alumno-apoderado-card {
+  background: linear-gradient(145deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 2px solid #fbbf24;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);
+}
+
+.alumno-apoderado-tipo {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #92400e;
+  text-align: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #fbbf24;
+}
+
+.alumno-apoderado-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.alumno-apoderado-table th {
+  background: rgba(255, 255, 255, 0.6);
+  color: #1f2937;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.8rem;
+  border: 1px solid #fbbf24;
+  width: 150px;
+}
+
+.alumno-apoderado-table td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #fbbf24;
+  color: #374151;
+  font-size: 0.85rem;
+  background: white;
+}
+
+.alumno-apoderado-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+@media (max-width: 768px) {
+  .alumno-info-modal {
+    max-width: 100%;
+    max-height: 95vh;
+    border-radius: 16px 16px 0 0;
+    margin-top: auto;
+  }
+
+  .alumno-info-main {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .alumno-info-left {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+
+  .alumno-info-table {
+    font-size: 0.85rem;
+  }
+
+  .alumno-info-table th {
+    width: 150px;
+    padding: 0.5rem;
+  }
+
+  .alumno-info-table td {
+    padding: 0.5rem;
+  }
+
+  .alumno-apoderados-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alumno-apoderado-table {
+    font-size: 0.75rem;
+  }
+
+  .alumno-apoderado-table th {
+    width: 120px;
+    padding: 0.4rem;
+  }
+
+  .alumno-apoderado-table td {
+    padding: 0.4rem;
+  }
+}
+

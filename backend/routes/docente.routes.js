@@ -153,6 +153,8 @@ router.get('/dashboard', async (req, res) => {
     // Próximos exámenes (todos los futuros, sin límite de días)
     // asignaturas_examenes tiene fecha_desde, fecha_hasta, hora_desde, hora_hasta (NO tiene fecha_inicio)
     // asignaturas_examenes SÍ tiene asignatura_id y titulo (NO tiene descripcion)
+    // IMPORTANTE: Comparar solo fechas (sin hora) para incluir eventos de hoy
+    // Usar DATE() en ambos lados para comparar solo fechas
     const proximosExamenes = await query(
       `SELECT ae.*, 
               COALESCE(ae.titulo, 'Examen') as titulo,
@@ -160,43 +162,47 @@ router.get('/dashboard', async (req, res) => {
               g.grado, 
               g.seccion, 
               n.nombre as nivel_nombre,
-              ae.fecha_desde as fecha_evento
+              DATE(ae.fecha_desde) as fecha_evento
        FROM asignaturas_examenes ae
        INNER JOIN asignaturas a ON a.id = ae.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
        WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND ae.fecha_desde >= CURDATE()
+       AND DATE(ae.fecha_desde) >= DATE(NOW())
        ORDER BY ae.fecha_desde ASC`,
       [docente.id, colegio_id, anio_activo]
     );
 
     // Próximas tareas (todas las futuras, sin límite de días)
     // asignaturas_actividades tiene fecha_inicio y fecha_fin (NO tiene fecha_limite)
+    // IMPORTANTE: Comparar solo fechas (sin hora) para incluir eventos de hoy
+    // Usar DATE() en ambos lados para comparar solo fechas
     const proximasTareas = await query(
       `SELECT aa.*, 
               c.nombre as asignatura_nombre, 
               g.grado, 
               g.seccion,
-              aa.fecha_fin as fecha_evento
+              DATE(aa.fecha_fin) as fecha_evento
        FROM asignaturas_actividades aa
        INNER JOIN asignaturas a ON a.id = aa.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN cursos c ON c.id = a.curso_id
        WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND aa.fecha_fin >= CURDATE()
+       AND DATE(aa.fecha_fin) >= DATE(NOW())
        ORDER BY aa.fecha_fin ASC`,
       [docente.id, colegio_id, anio_activo]
     );
 
     // Actividades próximas (solo futuras, no pasadas)
+    // IMPORTANTE: Comparar solo fechas (sin hora) para incluir eventos de hoy
+    // Usar DATE() en ambos lados para comparar solo fechas
     const actividades = await query(
       `SELECT a.*,
-              a.fecha_inicio as fecha_evento
+              DATE(a.fecha_inicio) as fecha_evento
        FROM actividades a
        WHERE a.colegio_id = ?
-       AND DATE(a.fecha_inicio) >= CURDATE()
+       AND DATE(a.fecha_inicio) >= DATE(NOW())
        ORDER BY a.fecha_inicio ASC`,
       [colegio_id]
     );
@@ -406,6 +412,17 @@ router.get('/grupos/:grupoId/alumnos', async (req, res) => {
     const { grupoId } = req.params;
     const { colegio_id, anio_activo } = req.user;
 
+    // Validar parámetros
+    if (!grupoId) {
+      return res.status(400).json({ error: 'ID de grupo es requerido' });
+    }
+    if (!colegio_id) {
+      return res.status(400).json({ error: 'ID de colegio es requerido' });
+    }
+    if (!anio_activo) {
+      return res.status(400).json({ error: 'Año académico es requerido' });
+    }
+
     // Verificar que el docente tiene acceso a este grupo
     const personalId = req.user.personal_id;
     
@@ -429,6 +446,7 @@ router.get('/grupos/:grupoId/alumnos', async (req, res) => {
     // Los alumnos se relacionan con apoderados a través de la tabla familias
     const alumnos = await query(
       `SELECT a.*, 
+              m.id as matricula_id,
               m.fecha_registro, 
               m.estado as estado_matricula,
               a.fecha_nacimiento,
@@ -449,7 +467,207 @@ router.get('/grupos/:grupoId/alumnos', async (req, res) => {
     res.json({ alumnos: alumnos || [] });
   } catch (error) {
     console.error('Error obteniendo alumnos:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: 'Error al obtener lista de alumnos' });
+  }
+});
+
+/**
+ * GET /api/docente/alumnos/:alumnoId/info
+ * Obtener información completa del alumno con historial de matrículas
+ */
+router.get('/alumnos/:alumnoId/info', async (req, res) => {
+  try {
+    const { alumnoId } = req.params;
+    const { colegio_id, anio_activo } = req.user;
+
+    // Obtener información del alumno
+    const alumno = await query(
+      `SELECT a.*, 
+              p.nombre as pais_nacimiento_nombre
+       FROM alumnos a
+       LEFT JOIN paises p ON p.id = a.pais_nacimiento_id
+       WHERE a.id = ? AND a.colegio_id = ?`,
+      [alumnoId, colegio_id]
+    );
+
+    if (!alumno || alumno.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    // Obtener apoderados (padre y madre)
+    const apoderados = await query(
+      `SELECT ap.*, 
+              f.alumno_id,
+              CASE 
+                WHEN ap.parentesco = 0 THEN 'Padre'
+                WHEN ap.parentesco = 1 THEN 'Madre'
+                ELSE 'Otro'
+              END as parentesco_nombre
+       FROM apoderados ap
+       INNER JOIN familias f ON f.apoderado_id = ap.id
+       WHERE f.alumno_id = ? AND ap.colegio_id = ?
+       AND ap.parentesco IN (0, 1)
+       ORDER BY ap.parentesco ASC`,
+      [alumnoId, colegio_id]
+    );
+
+    // Separar padre y madre
+    const padre = apoderados.find(a => a.parentesco === 0) || null;
+    const madre = apoderados.find(a => a.parentesco === 1) || null;
+
+    // Obtener avatar actual del alumno (el más reciente o con mayor nivel)
+    const avatarAlumno = await query(
+      `SELECT asi.*, 
+              ass.created_at as fecha_compra,
+              ass.student_id
+       FROM avatar_shop_sales ass
+       INNER JOIN avatar_shop_items asi ON asi.id = ass.item_id
+       WHERE ass.student_id = ?
+       ORDER BY asi.level DESC, ass.created_at DESC
+       LIMIT 1`,
+      [alumnoId]
+    );
+
+    // Obtener nivel actual del alumno (desde la matrícula actual)
+    const nivelActual = await query(
+      `SELECT n.id as nivel_id, 
+              n.nombre as nivel_nombre,
+              g.grado,
+              g.seccion
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ? 
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumnoId, colegio_id, anio_activo]
+    );
+
+    // Obtener historial de matrículas agrupado por nivel
+    const matriculas = await query(
+      `SELECT m.id, m.grupo_id, m.fecha_registro, m.estado,
+              g.grado, g.seccion, g.anio,
+              n.id as nivel_id, n.nombre as nivel_nombre,
+              t.nombre as turno_nombre
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       LEFT JOIN turnos t ON t.id = g.turno_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ?
+       ORDER BY n.id, g.anio DESC, g.grado, g.seccion`,
+      [alumnoId, colegio_id]
+    );
+
+    // Obtener la matrícula actual del año activo (si existe) para el QR
+    const matriculaActual = await query(
+      `SELECT m.id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ? AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumnoId, colegio_id, anio_activo]
+    );
+
+    // Agrupar matrículas por nivel
+    const matriculasPorNivel = {};
+    matriculas.forEach(matricula => {
+      if (!matriculasPorNivel[matricula.nivel_id]) {
+        matriculasPorNivel[matricula.nivel_id] = {
+          nivel_id: matricula.nivel_id,
+          nivel_nombre: matricula.nivel_nombre,
+          matriculas: []
+        };
+      }
+      matriculasPorNivel[matricula.nivel_id].matriculas.push({
+        id: matricula.id,
+        grado: matricula.grado,
+        seccion: matricula.seccion,
+        anio: matricula.anio,
+        turno_nombre: matricula.turno_nombre,
+        fecha_registro: matricula.fecha_registro,
+        estado: matricula.estado
+      });
+    });
+
+    // Construir URL de la foto del alumno
+    let fotoUrl = null;
+    if (alumno[0].foto) {
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      fotoUrl = `${baseUrl}/Static/Image/Fotos/${alumno[0].foto}`;
+    }
+
+    // Construir URL del avatar del alumno
+    let avatarUrl = null;
+    if (avatarAlumno && avatarAlumno.length > 0) {
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      avatarUrl = avatarAlumno[0].image 
+        ? `${baseUrl}/Static/Image/Avatars/${avatarAlumno[0].image}`
+        : null;
+    }
+
+    // Generar hash SHA1 del matricula_id para el QR (igual que sistema anterior)
+    const crypto = require('crypto');
+    const matriculaId = matriculaActual && matriculaActual.length > 0 ? matriculaActual[0].id : null;
+    const qrCode = matriculaId ? crypto.createHash('sha1').update(String(matriculaId)).digest('hex') : null;
+
+    // Contar estrellas del alumno (sumar niveles de todos los avatares comprados)
+    const estrellasTotal = avatarAlumno && avatarAlumno.length > 0 
+      ? avatarAlumno[0].level || 0 
+      : 0;
+
+    res.json({
+      alumno: {
+        ...alumno[0],
+        foto_url: fotoUrl,
+        avatar: avatarAlumno && avatarAlumno.length > 0 ? {
+          id: avatarAlumno[0].id,
+          name: avatarAlumno[0].name,
+          description: avatarAlumno[0].description,
+          level: avatarAlumno[0].level,
+          image: avatarAlumno[0].image,
+          image_url: avatarUrl,
+          fecha_compra: avatarAlumno[0].fecha_compra
+        } : null,
+        nivel_actual: nivelActual && nivelActual.length > 0 ? {
+          nivel_id: nivelActual[0].nivel_id,
+          nivel_nombre: nivelActual[0].nivel_nombre,
+          grado: nivelActual[0].grado,
+          seccion: nivelActual[0].seccion
+        } : null,
+        estrellas: estrellasTotal
+      },
+      apoderados: {
+        padre: padre ? {
+          nombres: padre.nombres,
+          apellido_paterno: padre.apellido_paterno,
+          apellido_materno: padre.apellido_materno,
+          telefono_fijo: padre.telefono_fijo,
+          telefono_celular: padre.telefono_celular,
+          email: padre.email,
+          direccion: padre.direccion,
+          ocupacion: padre.ocupacion,
+          centro_trabajo_direccion: padre.centro_trabajo_direccion
+        } : null,
+        madre: madre ? {
+          nombres: madre.nombres,
+          apellido_paterno: madre.apellido_paterno,
+          apellido_materno: madre.apellido_materno,
+          telefono_fijo: madre.telefono_fijo,
+          telefono_celular: madre.telefono_celular,
+          email: madre.email,
+          direccion: madre.direccion,
+          ocupacion: madre.ocupacion,
+          centro_trabajo_direccion: madre.centro_trabajo_direccion
+        } : null
+      },
+      matriculas_por_nivel: Object.values(matriculasPorNivel),
+      matricula_actual_id: matriculaId,
+      qr_code: qrCode
+    });
+  } catch (error) {
+    console.error('Error obteniendo información del alumno:', error);
+    res.status(500).json({ error: 'Error al obtener información del alumno' });
   }
 });
 

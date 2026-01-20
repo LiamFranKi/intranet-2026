@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import './DocenteGrupos.css';
@@ -16,6 +17,8 @@ function DocenteGrupos() {
   const [loadingAlumnos, setLoadingAlumnos] = useState(false);
   const [openDropdownGrupo, setOpenDropdownGrupo] = useState(null); // { id, top, left } o null
   const [openDropdownAlumno, setOpenDropdownAlumno] = useState(null); // { id, top, left } o null
+  const [alumnoInfo, setAlumnoInfo] = useState(null); // Información completa del alumno seleccionado
+  const [loadingAlumnoInfo, setLoadingAlumnoInfo] = useState(false);
 
   useEffect(() => {
     cargarGrupos();
@@ -38,20 +41,23 @@ function DocenteGrupos() {
       const isInsideDropdown = isDropdownMenu || isDropdownButton || isDropdownItem || isDropdownContainer;
       
       // Solo cerrar si el clic NO está dentro del dropdown
+      // Usar un delay para permitir que los eventos de los items se procesen primero
       if (!isInsideDropdown) {
-        // Usar setTimeout para permitir que otros eventos se procesen primero
         setTimeout(() => {
           setOpenDropdownGrupo(null);
           setOpenDropdownAlumno(null);
-        }, 0);
+        }, 100);
       }
     };
     
-    // Agregar el listener con capture phase para capturarlo antes que otros handlers
-    document.addEventListener('mousedown', handleClickOutside, true);
+    // Agregar listener con un pequeño delay para permitir que clicks en items se procesen
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside, false);
+    }, 50);
     
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside, true);
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside, false);
     };
   }, [openDropdownGrupo, openDropdownAlumno]);
 
@@ -68,14 +74,20 @@ function DocenteGrupos() {
   };
 
   const cargarAlumnos = async (grupoId) => {
+    console.log('cargarAlumnos llamado con grupoId:', grupoId);
     try {
       setLoadingAlumnos(true);
       const response = await api.get(`/docente/grupos/${grupoId}/alumnos`);
+      console.log('Alumnos recibidos:', response.data.alumnos);
       setAlumnos(response.data.alumnos || []);
-      setSelectedGrupo(grupoId);
-      // Guardar información del grupo seleccionado
+      console.log('Estableciendo selectedGrupo a:', grupoId);
+      // Guardar información del grupo seleccionado primero
       const grupo = grupos.find(g => g.id === grupoId);
+      console.log('Grupo encontrado:', grupo);
       setGrupoInfo(grupo);
+      // Luego establecer el grupo seleccionado para que renderice la vista de alumnos
+      setSelectedGrupo(grupoId);
+      console.log('selectedGrupo establecido, debería renderizar lista de alumnos');
       
       // Hacer scroll al inicio de la página cuando se carga la lista de alumnos
       setTimeout(() => {
@@ -91,6 +103,23 @@ function DocenteGrupos() {
     } finally {
       setLoadingAlumnos(false);
     }
+  };
+
+  const cargarInfoAlumno = async (alumnoId) => {
+    setLoadingAlumnoInfo(true);
+    try {
+      const response = await api.get(`/docente/alumnos/${alumnoId}/info`);
+      setAlumnoInfo(response.data);
+    } catch (error) {
+      console.error('Error cargando información del alumno:', error);
+      setAlumnoInfo(null);
+    } finally {
+      setLoadingAlumnoInfo(false);
+    }
+  };
+
+  const cerrarModalAlumno = () => {
+    setAlumnoInfo(null);
   };
 
   const volverAGrupos = () => {
@@ -130,6 +159,7 @@ function DocenteGrupos() {
 
         {!selectedGrupo ? (
           <div className="grupos-container">
+            {/* Debug: selectedGrupo = {String(selectedGrupo)} */}
             <div className="grupos-list-section">
             <div className="section-controls">
               <div className="filter-container">
@@ -201,40 +231,53 @@ function DocenteGrupos() {
                               <span className="btn-opciones-icon">⚙️</span>
                               Opciones {openDropdownGrupo?.id === grupo.id ? '▲' : '▼'}
                             </button>
-                            {openDropdownGrupo?.id === grupo.id && openDropdownGrupo?.top && (
-                              <div 
-                                className="dropdown-menu dropdown-menu-grupo"
-                                style={{
-                                  top: `${openDropdownGrupo.top}px`,
-                                  left: `${openDropdownGrupo.left}px`,
-                                  position: 'fixed',
-                                  zIndex: 10001
-                                }}
-                              >
-                                <button
-                                  className="dropdown-item"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    cargarAlumnos(grupo.id);
-                                    setOpenDropdownGrupo(null);
+                            {openDropdownGrupo?.id === grupo.id && openDropdownGrupo?.top && 
+                              createPortal(
+                                <div 
+                                  className="dropdown-menu dropdown-menu-grupo"
+                                  style={{
+                                    top: `${openDropdownGrupo.top}px`,
+                                    left: `${openDropdownGrupo.left}px`,
+                                    position: 'fixed',
+                                    zIndex: 10001,
+                                    transform: 'translateZ(0)',
+                                    willChange: 'transform',
                                   }}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  <span className="dropdown-icon">📋</span>
-                                  <span>Lista de Alumnos</span>
-                                </button>
-                                <button
-                                  className="dropdown-item"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    // TODO: Implementar envío de mensaje
-                                    setOpenDropdownGrupo(null);
-                                  }}
-                                >
-                                  <span className="dropdown-icon">✉️</span>
-                                  <span>Enviar Mensaje</span>
-                                </button>
-                              </div>
-                            )}
+                                  <button
+                                    className="dropdown-item"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      console.log('✅ Click en Lista de Alumnos, grupo.id:', grupo.id);
+                                      const grupoId = grupo.id;
+                                      // Cerrar dropdown primero
+                                      setOpenDropdownGrupo(null);
+                                      // Cargar alumnos inmediatamente
+                                      cargarAlumnos(grupoId);
+                                    }}
+                                  >
+                                    <span className="dropdown-icon">📋</span>
+                                    <span>Lista de Alumnos</span>
+                                  </button>
+                                  <button
+                                    className="dropdown-item"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      // TODO: Implementar envío de mensaje
+                                      setOpenDropdownGrupo(null);
+                                    }}
+                                  >
+                                    <span className="dropdown-icon">✉️</span>
+                                    <span>Enviar Mensaje</span>
+                                  </button>
+                                </div>,
+                                document.body
+                              )
+                            }
                           </div>
                         </td>
                       </tr>
@@ -253,6 +296,7 @@ function DocenteGrupos() {
           </div>
         ) : (
           <div className="alumnos-container">
+            {/* Debug: Mostrando lista de alumnos para grupo {selectedGrupo} */}
             <div className="alumnos-header-section mundo-card">
               <button className="btn-regresar" onClick={volverAGrupos}>
                 <span className="btn-icon">←</span>
@@ -372,7 +416,7 @@ function DocenteGrupos() {
                                         className="dropdown-item"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          // TODO: Implementar ver información
+                                          cargarInfoAlumno(alumno.id);
                                           setOpenDropdownAlumno(null);
                                         }}
                                       >
@@ -402,6 +446,295 @@ function DocenteGrupos() {
           </div>
         )}
       </div>
+
+      {/* Modal de Información del Alumno */}
+      {alumnoInfo && (
+        <div className="alumno-info-modal-overlay" onClick={cerrarModalAlumno}>
+          <div className="alumno-info-modal" onClick={(e) => e.stopPropagation()}>
+            {loadingAlumnoInfo ? (
+              <div className="alumno-info-loading">
+                <div className="loading-spinner">Cargando información...</div>
+              </div>
+            ) : (
+              <>
+                <div className="alumno-info-header">
+                  <h2 className="alumno-info-title">Información del Alumno</h2>
+                  <button className="alumno-info-close" onClick={cerrarModalAlumno}>✕</button>
+                </div>
+                
+                <div className="alumno-info-content">
+                  <div className="alumno-info-main">
+                    {/* Foto y QR */}
+                    <div className="alumno-info-left">
+                      {/* Avatar del alumno */}
+                      <div className="alumno-foto-container">
+                        {alumnoInfo.alumno.avatar?.image_url ? (
+                          <div className="alumno-avatar-wrapper">
+                            <img 
+                              src={alumnoInfo.alumno.avatar.image_url} 
+                              alt={alumnoInfo.alumno.avatar.name || "Avatar del alumno"}
+                              className="alumno-avatar"
+                              title={alumnoInfo.alumno.avatar.name || ''}
+                            />
+                            {alumnoInfo.alumno.avatar.level > 0 && (
+                              <div className="alumno-avatar-level-badge">
+                                Nivel {alumnoInfo.alumno.avatar.level}
+                              </div>
+                            )}
+                          </div>
+                        ) : alumnoInfo.alumno.foto_url ? (
+                          <img 
+                            src={alumnoInfo.alumno.foto_url} 
+                            alt="Foto del alumno"
+                            className="alumno-foto"
+                          />
+                        ) : (
+                          <div className="alumno-foto-placeholder">
+                            {alumnoInfo.alumno.nombres?.charAt(0)?.toUpperCase() || 'A'}
+                            {alumnoInfo.alumno.apellido_paterno?.charAt(0)?.toUpperCase() || 'A'}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Información del Avatar y Estrellas */}
+                      {alumnoInfo.alumno.avatar && (
+                        <div className="alumno-avatar-info">
+                          <h4 className="alumno-avatar-name">{alumnoInfo.alumno.avatar.name}</h4>
+                          {alumnoInfo.alumno.avatar.description && (
+                            <p className="alumno-avatar-description">{alumnoInfo.alumno.avatar.description}</p>
+                          )}
+                          <div className="alumno-estrellas">
+                            <span className="alumno-estrellas-icon">⭐</span>
+                            <span className="alumno-estrellas-count">{alumnoInfo.alumno.estrellas || 0} Estrellas</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Nivel Actual */}
+                      {alumnoInfo.alumno.nivel_actual && (
+                        <div className="alumno-nivel-actual">
+                          <p className="alumno-nivel-actual-label">Nivel Actual</p>
+                          <p className="alumno-nivel-actual-value">
+                            {alumnoInfo.alumno.nivel_actual.nivel_nombre} - 
+                            {alumnoInfo.alumno.nivel_actual.grado}° {alumnoInfo.alumno.nivel_actual.seccion}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {alumnoInfo.qr_code && (
+                        <div className="alumno-qr-container">
+                          <p className="alumno-qr-label">Código QR</p>
+                          <div className="alumno-qr-code">
+                            <QRCodeSVG 
+                              value={alumnoInfo.qr_code}
+                              size={150}
+                              level="H"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Información del Alumno */}
+                    <div className="alumno-info-right">
+                      <table className="alumno-info-table">
+                        <tbody>
+                          <tr>
+                            <th>APELLIDOS Y NOMBRES</th>
+                            <td>{alumnoInfo.alumno.apellido_paterno} {alumnoInfo.alumno.apellido_materno}, {alumnoInfo.alumno.nombres}</td>
+                          </tr>
+                          <tr>
+                            <th>FECHA DE NACIMIENTO</th>
+                            <td>
+                              {alumnoInfo.alumno.fecha_nacimiento 
+                                ? new Date(alumnoInfo.alumno.fecha_nacimiento).toLocaleDateString('es-PE')
+                                : 'N/A'}
+                            </td>
+                          </tr>
+                          {alumnoInfo.alumno.pais_nacimiento_nombre && (
+                            <tr>
+                              <th>LUGAR DE NACIMIENTO</th>
+                              <td>{alumnoInfo.alumno.pais_nacimiento_nombre}</td>
+                            </tr>
+                          )}
+                          <tr>
+                            <th>TIPO DE DOCUMENTO</th>
+                            <td>{alumnoInfo.alumno.tipo_documento || 'N/A'}</td>
+                          </tr>
+                          <tr>
+                            <th>Nº DE DOCUMENTO</th>
+                            <td>{alumnoInfo.alumno.nro_documento || 'N/A'}</td>
+                          </tr>
+                          <tr>
+                            <th>SEXO</th>
+                            <td>{alumnoInfo.alumno.sexo || 'N/A'}</td>
+                          </tr>
+                          {alumnoInfo.alumno.email && (
+                            <tr>
+                              <th>EMAIL</th>
+                              <td>{alumnoInfo.alumno.email}</td>
+                            </tr>
+                          )}
+                          {alumnoInfo.alumno.estado_civil && (
+                            <tr>
+                              <th>ESTADO CIVIL</th>
+                              <td>{alumnoInfo.alumno.estado_civil}</td>
+                            </tr>
+                          )}
+                          {alumnoInfo.alumno.religion && (
+                            <tr>
+                              <th>RELIGIÓN</th>
+                              <td>{alumnoInfo.alumno.religion}</td>
+                            </tr>
+                          )}
+                          {alumnoInfo.alumno.fecha_inscripcion && (
+                            <tr>
+                              <th>FECHA DE INSCRIPCIÓN</th>
+                              <td>
+                                {new Date(alumnoInfo.alumno.fecha_inscripcion).toLocaleDateString('es-PE')}
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Datos de Apoderados */}
+                  {(alumnoInfo.apoderados?.padre || alumnoInfo.apoderados?.madre) && (
+                    <div className="alumno-apoderados-section">
+                      <h3 className="alumno-apoderados-title">Datos de Apoderados</h3>
+                      <div className="alumno-apoderados-grid">
+                        {alumnoInfo.apoderados.padre && (
+                          <div className="alumno-apoderado-card">
+                            <h4 className="alumno-apoderado-tipo">👨 Padre</h4>
+                            <table className="alumno-apoderado-table">
+                              <tbody>
+                                <tr>
+                                  <th>NOMBRES COMPLETOS</th>
+                                  <td>{alumnoInfo.apoderados.padre.nombres} {alumnoInfo.apoderados.padre.apellido_paterno} {alumnoInfo.apoderados.padre.apellido_materno}</td>
+                                </tr>
+                                {alumnoInfo.apoderados.padre.telefono_celular && (
+                                  <tr>
+                                    <th>TELÉFONO CELULAR</th>
+                                    <td>{alumnoInfo.apoderados.padre.telefono_celular}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.padre.telefono_fijo && (
+                                  <tr>
+                                    <th>TELÉFONO FIJO</th>
+                                    <td>{alumnoInfo.apoderados.padre.telefono_fijo}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.padre.email && (
+                                  <tr>
+                                    <th>EMAIL</th>
+                                    <td>{alumnoInfo.apoderados.padre.email}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.padre.direccion && (
+                                  <tr>
+                                    <th>DIRECCIÓN</th>
+                                    <td>{alumnoInfo.apoderados.padre.direccion}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.padre.ocupacion && (
+                                  <tr>
+                                    <th>OCUPACIÓN</th>
+                                    <td>{alumnoInfo.apoderados.padre.ocupacion}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.padre.centro_trabajo_direccion && (
+                                  <tr>
+                                    <th>CENTRO DE TRABAJO</th>
+                                    <td>{alumnoInfo.apoderados.padre.centro_trabajo_direccion}</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        
+                        {alumnoInfo.apoderados.madre && (
+                          <div className="alumno-apoderado-card">
+                            <h4 className="alumno-apoderado-tipo">👩 Madre</h4>
+                            <table className="alumno-apoderado-table">
+                              <tbody>
+                                <tr>
+                                  <th>NOMBRES COMPLETOS</th>
+                                  <td>{alumnoInfo.apoderados.madre.nombres} {alumnoInfo.apoderados.madre.apellido_paterno} {alumnoInfo.apoderados.madre.apellido_materno}</td>
+                                </tr>
+                                {alumnoInfo.apoderados.madre.telefono_celular && (
+                                  <tr>
+                                    <th>TELÉFONO CELULAR</th>
+                                    <td>{alumnoInfo.apoderados.madre.telefono_celular}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.madre.telefono_fijo && (
+                                  <tr>
+                                    <th>TELÉFONO FIJO</th>
+                                    <td>{alumnoInfo.apoderados.madre.telefono_fijo}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.madre.email && (
+                                  <tr>
+                                    <th>EMAIL</th>
+                                    <td>{alumnoInfo.apoderados.madre.email}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.madre.direccion && (
+                                  <tr>
+                                    <th>DIRECCIÓN</th>
+                                    <td>{alumnoInfo.apoderados.madre.direccion}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.madre.ocupacion && (
+                                  <tr>
+                                    <th>OCUPACIÓN</th>
+                                    <td>{alumnoInfo.apoderados.madre.ocupacion}</td>
+                                  </tr>
+                                )}
+                                {alumnoInfo.apoderados.madre.centro_trabajo_direccion && (
+                                  <tr>
+                                    <th>CENTRO DE TRABAJO</th>
+                                    <td>{alumnoInfo.apoderados.madre.centro_trabajo_direccion}</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Historial de Matrículas */}
+                  {alumnoInfo.matriculas_por_nivel && alumnoInfo.matriculas_por_nivel.length > 0 && (
+                    <div className="alumno-matriculas-section">
+                      <h3 className="alumno-matriculas-title">Historial de Matrículas</h3>
+                      <div className="alumno-matriculas-grid">
+                        {alumnoInfo.matriculas_por_nivel.map((nivel) => (
+                          <div key={nivel.nivel_id} className="alumno-nivel-group">
+                            <h4 className="alumno-nivel-name">{nivel.nivel_nombre}</h4>
+                            <div className="alumno-matriculas-list">
+                              {nivel.matriculas.map((matricula) => (
+                                <div key={matricula.id} className="alumno-matricula-badge">
+                                  {matricula.grado}° {matricula.seccion} ({matricula.anio})
+                                  {matricula.turno_nombre && ` - ${matricula.turno_nombre}`}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

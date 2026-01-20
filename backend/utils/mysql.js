@@ -26,6 +26,8 @@ const mysqlReadPool = mysql.createPool({
   reconnect: true,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0
+  // Nota: La zona horaria se manejará en las consultas SQL usando DATE() y CURDATE()
+  // o configurándola directamente en las consultas cuando sea necesario
 });
 
 async function query(sql, params = []) {
@@ -34,10 +36,14 @@ async function query(sql, params = []) {
     if (!sqlUpper.startsWith('SELECT')) {
       throw new Error('Solo se permiten consultas SELECT. Modificación de datos no permitida.');
     }
-    const [rows] = await mysqlReadPool.execute(sql, params);
+    // Asegurar que params es un array válido
+    const queryParams = Array.isArray(params) ? params : [];
+    const [rows] = await mysqlReadPool.execute(sql, queryParams);
     return rows;
   } catch (error) {
     console.error('MySQL Error:', error);
+    console.error('SQL:', sql);
+    console.error('Params:', params);
     throw error;
   }
 }
