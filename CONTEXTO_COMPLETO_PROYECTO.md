@@ -562,6 +562,7 @@ react-aula-virtual/
 - Texto Principal: `#1f2937`
 - Texto Secundario: `#6b7280`
 - Fondo: `#f5f5f5`
+- Títulos de secciones (Dashboard, Mi Perfil, Grupos, etc.): `#4a83c1` para mantener coherencia visual
 
 **Variables CSS (index.css):**
 ```css

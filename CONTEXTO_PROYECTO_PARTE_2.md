@@ -147,15 +147,25 @@
 - ✅ Lista de grupos asignados al docente
 - ✅ Dropdown "Opciones" con fondo degradado azul e icono ⚙️
 - ✅ Dropdown contiene: "Lista de Alumnos" (📋) y "Enviar Mensaje" (✉️)
-- ✅ Modal "Lista de Alumnos" con tabla completa de estudiantes
-- ✅ Botones de acción en modal: "Mensaje" (✉️) y "Ver Info" (ℹ️) - pequeños con iconos
-- ✅ Información: Nivel, Grado, Sección, Turno, Año Académico
+- ✅ Vista de "Lista de Alumnos" en la **misma página** (ya no modal), con botón **Volver** y encabezado centrado con Grado / Nivel / Turno
 - ✅ Tabla de alumnos: Apellidos y Nombres, Fecha de Nacimiento, Teléfono
 - ✅ Teléfono muestra el del alumno o del apoderado si el alumno no tiene
-- ✅ Diseño: Títulos y subtítulos en azul (#4a83c1)
-- ✅ Filas alternadas con color pastel azul claro
 - ✅ Filtro de búsqueda elegante
 - ✅ Cabeceras de tabla sin texto "Opciones" (columna vacía)
+- ✅ Estándar visual de títulos en azul `#4a83c1` (se reutiliza en otros módulos como Dashboard y Mi Perfil)
+- ✅ Modal compacto de **Información del Alumno** con:
+  - Card de datos personales (similar a la card de apoderados) que muestra solo:
+    - Apellidos y Nombres
+    - Fecha de Nacimiento
+    - N° de Documento
+    - Sexo (Masculino / Femenino)
+    - Nivel Actual
+    - Avatar / Nivel (formato `Nivel 01`)
+    - Descripción del Avatar
+    - Estrellas
+  - Debajo, 3 círculos medianos horizontales: **Foto** (o iniciales), **Avatar** (con badge de nivel) y **Código QR**
+- ✅ Se ocultan valores “basura” como `0` o `00` en datos opcionales (email, estado civil, religión, etc.)
+- ✅ En la sección de apoderados se agrega el campo **N° de Documento** tanto para Padre como para Madre
 
 **Endpoints:**
 - `GET /api/docente/grupos` - Lista de grupos

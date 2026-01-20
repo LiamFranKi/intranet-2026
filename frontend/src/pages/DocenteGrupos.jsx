@@ -463,141 +463,133 @@ function DocenteGrupos() {
                 </div>
                 
                 <div className="alumno-info-content">
-                  <div className="alumno-info-main">
-                    {/* Foto y QR */}
-                    <div className="alumno-info-left">
-                      {/* Avatar del alumno */}
-                      <div className="alumno-foto-container">
-                        {alumnoInfo.alumno.avatar?.image_url ? (
-                          <div className="alumno-avatar-wrapper">
-                            <img 
-                              src={alumnoInfo.alumno.avatar.image_url} 
-                              alt={alumnoInfo.alumno.avatar.name || "Avatar del alumno"}
-                              className="alumno-avatar"
-                              title={alumnoInfo.alumno.avatar.name || ''}
-                            />
-                            {alumnoInfo.alumno.avatar.level > 0 && (
-                              <div className="alumno-avatar-level-badge">
-                                Nivel {alumnoInfo.alumno.avatar.level}
-                              </div>
+                  {/* Card de Datos Personales del Alumno - Similar a apoderados */}
+                  <div className="alumno-datos-personales-card alumno-apoderado-card">
+                    <h3 className="alumno-apoderado-tipo">📋 Datos del Alumno</h3>
+                    <table className="alumno-apoderado-table">
+                      <tbody>
+                        <tr>
+                          <th>APELLIDOS Y NOMBRES</th>
+                          <td>{alumnoInfo.alumno.apellido_paterno} {alumnoInfo.alumno.apellido_materno}, {alumnoInfo.alumno.nombres}</td>
+                        </tr>
+                        <tr>
+                          <th>FECHA DE NACIMIENTO</th>
+                          <td>
+                            {alumnoInfo.alumno.fecha_nacimiento 
+                              ? new Date(alumnoInfo.alumno.fecha_nacimiento).toLocaleDateString('es-PE')
+                              : 'N/A'}
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Nº DE DOCUMENTO</th>
+                          <td>{alumnoInfo.alumno.nro_documento || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                          <th>SEXO</th>
+                          <td>
+                            {alumnoInfo.alumno.sexo === 0 || alumnoInfo.alumno.sexo === '0' ? 'Masculino' : 
+                             alumnoInfo.alumno.sexo === 1 || alumnoInfo.alumno.sexo === '1' ? 'Femenino' : 'N/A'}
+                          </td>
+                        </tr>
+                        {alumnoInfo.alumno.nivel_actual && (
+                          <tr>
+                            <th>NIVEL ACTUAL</th>
+                            <td>
+                              {alumnoInfo.alumno.nivel_actual.nivel_nombre} - {alumnoInfo.alumno.nivel_actual.grado}° {alumnoInfo.alumno.nivel_actual.seccion}
+                            </td>
+                          </tr>
+                        )}
+                        {alumnoInfo.alumno.avatar && (
+                          <>
+                            <tr>
+                              <th>AVATAR / NIVEL</th>
+                              <td>
+                                {alumnoInfo.alumno.avatar.name || 'N/A'}
+                                {alumnoInfo.alumno.avatar.level !== undefined && alumnoInfo.alumno.avatar.level !== null && ` - Nivel ${String(alumnoInfo.alumno.avatar.level).padStart(2, '0')}`}
+                              </td>
+                            </tr>
+                            {alumnoInfo.alumno.avatar.description && (
+                              <tr>
+                                <th>DESCRIPCIÓN AVATAR</th>
+                                <td>{alumnoInfo.alumno.avatar.description}</td>
+                              </tr>
                             )}
-                          </div>
-                        ) : alumnoInfo.alumno.foto_url ? (
+                            {alumnoInfo.alumno.estrellas !== undefined && (
+                              <tr>
+                                <th>ESTRELLAS</th>
+                                <td>⭐ {alumnoInfo.alumno.estrellas || 0}</td>
+                              </tr>
+                            )}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 3 Círculos medianos: Foto, Avatar y QR horizontalmente */}
+                  <div className="alumno-medios-container">
+                    {/* Foto del alumno */}
+                    <div className="alumno-medio-circle">
+                      {alumnoInfo.alumno.foto_url ? (
+                        <>
                           <img 
                             src={alumnoInfo.alumno.foto_url} 
                             alt="Foto del alumno"
-                            className="alumno-foto"
+                            className="alumno-medio-img"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const placeholder = e.target.parentElement.querySelector('.alumno-medio-placeholder-fallback');
+                              if (placeholder) {
+                                placeholder.style.display = 'flex';
+                              }
+                            }}
                           />
-                        ) : (
-                          <div className="alumno-foto-placeholder">
+                          <div className="alumno-medio-placeholder alumno-medio-placeholder-fallback" style={{display: 'none'}}>
                             {alumnoInfo.alumno.nombres?.charAt(0)?.toUpperCase() || 'A'}
                             {alumnoInfo.alumno.apellido_paterno?.charAt(0)?.toUpperCase() || 'A'}
                           </div>
-                        )}
+                        </>
+                      ) : (
+                        <div className="alumno-medio-placeholder">
+                          {alumnoInfo.alumno.nombres?.charAt(0)?.toUpperCase() || 'A'}
+                          {alumnoInfo.alumno.apellido_paterno?.charAt(0)?.toUpperCase() || 'A'}
+                        </div>
+                      )}
+                      <p className="alumno-medio-label">Foto</p>
+                    </div>
+
+                    {/* Avatar del alumno */}
+                    {alumnoInfo.alumno.avatar?.image_url ? (
+                      <div className="alumno-medio-circle">
+                        <div className="alumno-medio-avatar-wrapper">
+                          <img 
+                            src={alumnoInfo.alumno.avatar.image_url} 
+                            alt={alumnoInfo.alumno.avatar.name || "Avatar del alumno"}
+                            className="alumno-medio-img"
+                          />
+                          {alumnoInfo.alumno.avatar.level > 0 && (
+                            <div className="alumno-medio-level-badge">
+                              Nv.{alumnoInfo.alumno.avatar.level}
+                            </div>
+                          )}
+                        </div>
+                        <p className="alumno-medio-label">Avatar</p>
                       </div>
+                    ) : null}
 
-                      {/* Información del Avatar y Estrellas */}
-                      {alumnoInfo.alumno.avatar && (
-                        <div className="alumno-avatar-info">
-                          <h4 className="alumno-avatar-name">{alumnoInfo.alumno.avatar.name}</h4>
-                          {alumnoInfo.alumno.avatar.description && (
-                            <p className="alumno-avatar-description">{alumnoInfo.alumno.avatar.description}</p>
-                          )}
-                          <div className="alumno-estrellas">
-                            <span className="alumno-estrellas-icon">⭐</span>
-                            <span className="alumno-estrellas-count">{alumnoInfo.alumno.estrellas || 0} Estrellas</span>
-                          </div>
+                    {/* QR Code */}
+                    {alumnoInfo.qr_code && (
+                      <div className="alumno-medio-circle">
+                        <div className="alumno-medio-qr">
+                          <QRCodeSVG 
+                            value={alumnoInfo.qr_code}
+                            size={120}
+                            level="H"
+                          />
                         </div>
-                      )}
-
-                      {/* Nivel Actual */}
-                      {alumnoInfo.alumno.nivel_actual && (
-                        <div className="alumno-nivel-actual">
-                          <p className="alumno-nivel-actual-label">Nivel Actual</p>
-                          <p className="alumno-nivel-actual-value">
-                            {alumnoInfo.alumno.nivel_actual.nivel_nombre} - 
-                            {alumnoInfo.alumno.nivel_actual.grado}° {alumnoInfo.alumno.nivel_actual.seccion}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {alumnoInfo.qr_code && (
-                        <div className="alumno-qr-container">
-                          <p className="alumno-qr-label">Código QR</p>
-                          <div className="alumno-qr-code">
-                            <QRCodeSVG 
-                              value={alumnoInfo.qr_code}
-                              size={150}
-                              level="H"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Información del Alumno */}
-                    <div className="alumno-info-right">
-                      <table className="alumno-info-table">
-                        <tbody>
-                          <tr>
-                            <th>APELLIDOS Y NOMBRES</th>
-                            <td>{alumnoInfo.alumno.apellido_paterno} {alumnoInfo.alumno.apellido_materno}, {alumnoInfo.alumno.nombres}</td>
-                          </tr>
-                          <tr>
-                            <th>FECHA DE NACIMIENTO</th>
-                            <td>
-                              {alumnoInfo.alumno.fecha_nacimiento 
-                                ? new Date(alumnoInfo.alumno.fecha_nacimiento).toLocaleDateString('es-PE')
-                                : 'N/A'}
-                            </td>
-                          </tr>
-                          {alumnoInfo.alumno.pais_nacimiento_nombre && (
-                            <tr>
-                              <th>LUGAR DE NACIMIENTO</th>
-                              <td>{alumnoInfo.alumno.pais_nacimiento_nombre}</td>
-                            </tr>
-                          )}
-                          <tr>
-                            <th>TIPO DE DOCUMENTO</th>
-                            <td>{alumnoInfo.alumno.tipo_documento || 'N/A'}</td>
-                          </tr>
-                          <tr>
-                            <th>Nº DE DOCUMENTO</th>
-                            <td>{alumnoInfo.alumno.nro_documento || 'N/A'}</td>
-                          </tr>
-                          <tr>
-                            <th>SEXO</th>
-                            <td>{alumnoInfo.alumno.sexo || 'N/A'}</td>
-                          </tr>
-                          {alumnoInfo.alumno.email && (
-                            <tr>
-                              <th>EMAIL</th>
-                              <td>{alumnoInfo.alumno.email}</td>
-                            </tr>
-                          )}
-                          {alumnoInfo.alumno.estado_civil && (
-                            <tr>
-                              <th>ESTADO CIVIL</th>
-                              <td>{alumnoInfo.alumno.estado_civil}</td>
-                            </tr>
-                          )}
-                          {alumnoInfo.alumno.religion && (
-                            <tr>
-                              <th>RELIGIÓN</th>
-                              <td>{alumnoInfo.alumno.religion}</td>
-                            </tr>
-                          )}
-                          {alumnoInfo.alumno.fecha_inscripcion && (
-                            <tr>
-                              <th>FECHA DE INSCRIPCIÓN</th>
-                              <td>
-                                {new Date(alumnoInfo.alumno.fecha_inscripcion).toLocaleDateString('es-PE')}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                        <p className="alumno-medio-label">Código QR</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Datos de Apoderados */}
@@ -614,6 +606,12 @@ function DocenteGrupos() {
                                   <th>NOMBRES COMPLETOS</th>
                                   <td>{alumnoInfo.apoderados.padre.nombres} {alumnoInfo.apoderados.padre.apellido_paterno} {alumnoInfo.apoderados.padre.apellido_materno}</td>
                                 </tr>
+                                {alumnoInfo.apoderados.padre.nro_documento && (
+                                  <tr>
+                                    <th>Nº DE DOCUMENTO</th>
+                                    <td>{alumnoInfo.apoderados.padre.nro_documento}</td>
+                                  </tr>
+                                )}
                                 {alumnoInfo.apoderados.padre.telefono_celular && (
                                   <tr>
                                     <th>TELÉFONO CELULAR</th>
@@ -664,6 +662,12 @@ function DocenteGrupos() {
                                   <th>NOMBRES COMPLETOS</th>
                                   <td>{alumnoInfo.apoderados.madre.nombres} {alumnoInfo.apoderados.madre.apellido_paterno} {alumnoInfo.apoderados.madre.apellido_materno}</td>
                                 </tr>
+                                {alumnoInfo.apoderados.madre.nro_documento && (
+                                  <tr>
+                                    <th>Nº DE DOCUMENTO</th>
+                                    <td>{alumnoInfo.apoderados.madre.nro_documento}</td>
+                                  </tr>
+                                )}
                                 {alumnoInfo.apoderados.madre.telefono_celular && (
                                   <tr>
                                     <th>TELÉFONO CELULAR</th>

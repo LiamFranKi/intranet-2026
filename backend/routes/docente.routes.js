@@ -516,19 +516,6 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
     const padre = apoderados.find(a => a.parentesco === 0) || null;
     const madre = apoderados.find(a => a.parentesco === 1) || null;
 
-    // Obtener avatar actual del alumno (el más reciente o con mayor nivel)
-    const avatarAlumno = await query(
-      `SELECT asi.*, 
-              ass.created_at as fecha_compra,
-              ass.student_id
-       FROM avatar_shop_sales ass
-       INNER JOIN avatar_shop_items asi ON asi.id = ass.item_id
-       WHERE ass.student_id = ?
-       ORDER BY asi.level DESC, ass.created_at DESC
-       LIMIT 1`,
-      [alumnoId]
-    );
-
     // Obtener nivel actual del alumno (desde la matrícula actual)
     const nivelActual = await query(
       `SELECT n.id as nivel_id, 
@@ -543,6 +530,48 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
        LIMIT 1`,
       [alumnoId, colegio_id, anio_activo]
     );
+
+    // Obtener avatar actual del alumno según su sexo y nivel
+    // IMPORTANTE: 
+    // - Alumnos: sexo = 0 es Masculino, sexo = 1 es Femenino
+    // - Avatares: sexo = 0 es Femenino, sexo = 1 es Masculino (opuesto)
+    // Si alumno es masculino (sexo=0), buscar avatar con sexo=1
+    // Si alumno es femenino (sexo=1), buscar avatar con sexo=0
+    const sexoAlumno = alumno[0].sexo;
+    const sexoAvatarBuscado = sexoAlumno === 0 ? 1 : (sexoAlumno === 1 ? 0 : null);
+    const nivelId = nivelActual && nivelActual.length > 0 ? nivelActual[0].nivel_id : null;
+    
+    // Buscar avatar del alumno con el sexo correcto
+    // IMPORTANTE: asi.level es el nivel del avatar (1, 2, 3...), no el nivel_id de la tabla niveles
+    let avatarAlumno = [];
+    if (sexoAvatarBuscado !== null) {
+      // Buscar avatar con sexo correcto del alumno
+      avatarAlumno = await query(
+        `SELECT asi.*, 
+                ass.created_at as fecha_compra,
+                ass.student_id
+         FROM avatar_shop_sales ass
+         INNER JOIN avatar_shop_items asi ON asi.id = ass.item_id
+         WHERE ass.student_id = ? 
+         AND (asi.sexo = ? OR asi.sexo IS NULL)
+         ORDER BY asi.level DESC, ass.created_at DESC
+         LIMIT 1`,
+        [alumnoId, sexoAvatarBuscado]
+      );
+    } else {
+      // Si no tiene sexo definido, buscar cualquier avatar
+      avatarAlumno = await query(
+        `SELECT asi.*, 
+                ass.created_at as fecha_compra,
+                ass.student_id
+         FROM avatar_shop_sales ass
+         INNER JOIN avatar_shop_items asi ON asi.id = ass.item_id
+         WHERE ass.student_id = ?
+         ORDER BY asi.level DESC, ass.created_at DESC
+         LIMIT 1`,
+        [alumnoId]
+      );
+    }
 
     // Obtener historial de matrículas agrupado por nivel
     const matriculas = await query(
@@ -642,6 +671,7 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
           nombres: padre.nombres,
           apellido_paterno: padre.apellido_paterno,
           apellido_materno: padre.apellido_materno,
+          nro_documento: padre.nro_documento,
           telefono_fijo: padre.telefono_fijo,
           telefono_celular: padre.telefono_celular,
           email: padre.email,
@@ -653,6 +683,7 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
           nombres: madre.nombres,
           apellido_paterno: madre.apellido_paterno,
           apellido_materno: madre.apellido_materno,
+          nro_documento: madre.nro_documento,
           telefono_fijo: madre.telefono_fijo,
           telefono_celular: madre.telefono_celular,
           email: madre.email,
