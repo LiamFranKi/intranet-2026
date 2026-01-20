@@ -456,6 +456,8 @@ react-aula-virtual/
 
 **Rutas:**
 - `/docente/dashboard` - Dashboard del docente
+  - Consultas SQL usan `DATE(fecha) >= DATE(NOW())` para filtrar eventos futuros
+  - Frontend muestra todos los eventos recibidos del backend sin filtrado adicional
 - `/docente/perfil` - Perfil y edición
 - `/docente/grupos` - Grupos asignados
 - `/docente/cursos` - Cursos asignados
@@ -474,6 +476,7 @@ react-aula-virtual/
 - Próximas tareas (con fecha_fin y descripcion)
 - Sección unificada "Próximos Eventos" con paginación (8 por página)
 - Widgets: Calendario, Publicaciones, Notificaciones
+- **Nota sobre Filtrado:** El backend filtra eventos usando `DATE(fecha) >= DATE(NOW())` en SQL. El frontend muestra todos los eventos que vienen del backend sin filtrado adicional. La zona horaria se maneja a nivel del servidor MySQL.
 
 #### Perfil
 - Ver y editar datos personales
@@ -769,6 +772,9 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 
 #### Dashboard
 - `GET /dashboard` - Estadísticas, próximos exámenes, próximas tareas
+  - Consultas SQL usan `DATE(fecha) >= DATE(NOW())` para filtrar eventos futuros
+  - Frontend muestra todos los eventos recibidos del backend sin filtrado adicional
+  - La zona horaria se maneja a nivel del servidor MySQL
 
 #### Perfil
 - `GET /perfil` - Obtener perfil del docente
