@@ -13,6 +13,7 @@
 
 .page-header {
   margin-bottom: 2rem;
+  text-align: left;
 }
 
 .page-header h1 {
@@ -20,13 +21,14 @@
   font-weight: 800;
   color: #4a83c1 !important;
   margin: 0 0 0.5rem 0;
+  text-align: left;
 }
 
 .page-header p,
 .page-subtitle {
-  color: #4a83c1;
+  color: #6b7280 !important;
   margin: 0;
-  font-weight: 500;
+  text-align: left;
 }
 
 .grupos-container {

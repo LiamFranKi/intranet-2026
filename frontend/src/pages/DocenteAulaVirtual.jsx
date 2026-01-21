@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import Swal from 'sweetalert2';
-import './DocenteAulaVirtual.css';
+import './DocenteAulaVirtual-gamificado.css';
 
 function DocenteAulaVirtual() {
   const { cursoId } = useParams(); // En realidad es asignatura_id
@@ -38,6 +38,10 @@ function DocenteAulaVirtual() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPosition, setDropdownPosition] = useState(null);
   const buttonRef = useRef({});
+  
+  // Estado para card expandido (versión gamificada)
+  const [expandedCard, setExpandedCard] = useState(null);
+  const [bimestreGlobal, setBimestreGlobal] = useState(1);
 
   // Formulario de tema
   const [formTema, setFormTema] = useState({
@@ -162,6 +166,15 @@ function DocenteAulaVirtual() {
       cargarDatosCurso().finally(() => setLoading(false));
     }
   }, [asignaturaId, cargarDatosCurso]);
+
+  // Sincronizar bimestre global con los ciclos individuales
+  useEffect(() => {
+    setCicloArchivos(bimestreGlobal);
+    setCicloTareas(bimestreGlobal);
+    setCicloExamenes(bimestreGlobal);
+    setCicloVideos(bimestreGlobal);
+    setCicloEnlaces(bimestreGlobal);
+  }, [bimestreGlobal]);
 
   // Cargar todos los datos inicialmente con ciclo 1
   useEffect(() => {
@@ -405,6 +418,480 @@ function DocenteAulaVirtual() {
     );
   }
 
+  const toggleCard = (cardName) => {
+    if (expandedCard === cardName) {
+      setExpandedCard(null);
+    } else {
+      setExpandedCard(cardName);
+    }
+  };
+
+  const renderCardContent = (cardName) => {
+    switch(cardName) {
+      case 'temas':
+        return renderTemasContent();
+      case 'tareas':
+        return renderTareasContent();
+      case 'examenes':
+        return renderExamenesContent();
+      case 'videos':
+        return renderVideosContent();
+      case 'enlaces':
+        return renderEnlacesContent();
+      default:
+        return null;
+    }
+  };
+
+  const renderTemasContent = () => (
+    <div className="card-content-expanded">
+      {loading ? (
+        <div className="empty-state">
+          <p>Cargando temas interactivos...</p>
+        </div>
+      ) : archivos.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>NOMBRE</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {archivos.map((archivo) => (
+              <tr key={archivo.id}>
+                <td>{archivo.nombre}</td>
+                <td className="text-center">
+                  <div className="btn-group-opciones">
+                    <button 
+                      className="btn-opciones"
+                      ref={(el) => (buttonRef.current[`archivo-${archivo.id}`] = el)}
+                      onClick={(e) => toggleDropdown(archivo.id, e, 'archivo')}
+                    >
+                      Opciones {openDropdown === `archivo-${archivo.id}` ? '▲' : '▼'}
+                    </button>
+                    {openDropdown === `archivo-${archivo.id}` && dropdownPosition && createPortal(
+                      <div 
+                        className="dropdown-menu-portal-aula"
+                        style={{
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          right: `${dropdownPosition.right}px`,
+                          width: `${dropdownPosition.width}px`,
+                          zIndex: 10000
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="dropdown-menu-opciones">
+                          {archivo.archivo_url && (
+                            <a href={archivo.archivo_url} target="_blank" rel="noopener noreferrer">
+                              📄 Ver Archivo
+                            </a>
+                          )}
+                          {archivo.enlace_url && (
+                            <a href={archivo.enlace_url} target="_blank" rel="noopener noreferrer">
+                              🔗 Abrir URL
+                            </a>
+                          )}
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tema */ }}>
+                            ✏️ Editar Tema
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tema */ }}>
+                            🗑️ Borrar Tema
+                          </a>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="empty-state">
+          <p>No hay temas interactivos para este bimestre</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderTareasContent = () => (
+    <div className="card-content-expanded">
+      {mostrarFormTarea && (
+        <div className="form-modal">
+          <h3>Crear Nueva Tarea</h3>
+          <form onSubmit={handleCrearTarea}>
+            <div className="form-group">
+              <label>Título *</label>
+              <input
+                type="text"
+                value={formTarea.titulo}
+                onChange={(e) => setFormTarea({ ...formTarea, titulo: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Descripción</label>
+              <textarea
+                value={formTarea.descripcion}
+                onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
+                rows="5"
+              />
+            </div>
+            <div className="form-group">
+              <label>Fecha de Entrega *</label>
+              <input
+                type="date"
+                value={formTarea.fecha_entrega}
+                onChange={(e) => setFormTarea({ ...formTarea, fecha_entrega: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Enlace (Opcional)</label>
+              <input
+                type="url"
+                value={formTarea.enlace}
+                onChange={(e) => setFormTarea({ ...formTarea, enlace: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="form-actions">
+              <button type="button" onClick={() => {
+                setMostrarFormTarea(false);
+                setFormTarea({ titulo: '', descripcion: '', fecha_entrega: '', enlace: '' });
+              }}>
+                Cancelar
+              </button>
+              <button type="submit">Crear Tarea</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {tareas.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Fecha de Registro</th>
+              <th>Fecha de Entrega</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {tareas.map((tarea) => (
+              <tr key={tarea.id}>
+                <td>{tarea.titulo}</td>
+                <td className="text-center">{new Date(tarea.fecha_hora).toLocaleDateString('es-PE')}</td>
+                <td className="text-center">{new Date(tarea.fecha_entrega).toLocaleDateString('es-PE')}</td>
+                <td className="text-center">
+                  <div className="btn-group-opciones">
+                    <button 
+                      className="btn-opciones"
+                      ref={(el) => (buttonRef.current[`tarea-${tarea.id}`] = el)}
+                      onClick={(e) => toggleDropdown(tarea.id, e, 'tarea')}
+                    >
+                      Opciones {openDropdown === `tarea-${tarea.id}` ? '▲' : '▼'}
+                    </button>
+                    {openDropdown === `tarea-${tarea.id}` && dropdownPosition && createPortal(
+                      <div 
+                        className="dropdown-menu-portal-aula"
+                        style={{
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          right: `${dropdownPosition.right}px`,
+                          width: `${dropdownPosition.width}px`,
+                          zIndex: 10000
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="dropdown-menu-opciones">
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleVerEntregas(tarea); setOpenDropdown(null); }}>
+                            ℹ️ Ver Detalles
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Marcar entregas */ }}>
+                            ✓ Marcar Entregas
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
+                            📋 Asignar a Registro
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tarea */ }}>
+                            ✏️ Editar Tarea
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tarea */ }}>
+                            🗑️ Borrar Tarea
+                          </a>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="empty-state">
+          <p>No hay tareas para este bimestre</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderExamenesContent = () => (
+    <div className="card-content-expanded">
+      {mostrarFormExamen && (
+        <ExamenForm
+          asignaturaId={asignaturaId}
+          formExamen={formExamen}
+          setFormExamen={setFormExamen}
+          onClose={() => {
+            setMostrarFormExamen(false);
+            setFormExamen({
+              titulo: '',
+              tipo_puntaje: 'INDIVIDUAL',
+              puntos_correcta: 1.0,
+              penalizar_incorrecta: 'NO',
+              penalizacion_incorrecta: 0.0,
+              tiempo: 60,
+              intentos: 1,
+              orden_preguntas: 'PREDETERMINADO',
+              fecha_desde: '',
+              fecha_hasta: '',
+              hora_desde: '08:00',
+              hora_hasta: '20:00',
+              preguntas_max: 10,
+              tipo: 'VIRTUAL',
+              preguntas: []
+            });
+          }}
+          onSuccess={() => {
+            setMostrarFormExamen(false);
+            cargarExamenes();
+          }}
+        />
+      )}
+
+      {examenes.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>EXAMEN</th>
+              <th>TIEMPO (MIN.)</th>
+              <th>PREGUNTAS</th>
+              <th>ESTADO</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {examenes.map((examen) => (
+              <tr key={examen.id}>
+                <td>{examen.titulo}</td>
+                <td className="text-center">{examen.tiempo === 0 || !examen.tiempo ? 'ILIMITADO' : examen.tiempo}</td>
+                <td className="text-center">{examen.preguntas?.length || 0}</td>
+                <td className="text-center">
+                  <span className={`estado-badge ${examen.estado?.toLowerCase() || 'inactivo'}`}>
+                    {examen.estado || 'INACTIVO'}
+                  </span>
+                </td>
+                <td className="text-center">
+                  <div className="btn-group-opciones">
+                    <button 
+                      className="btn-opciones"
+                      ref={(el) => (buttonRef.current[`examen-${examen.id}`] = el)}
+                      onClick={(e) => toggleDropdown(examen.id, e, 'examen')}
+                    >
+                      Opciones {openDropdown === `examen-${examen.id}` ? '▲' : '▼'}
+                    </button>
+                    {openDropdown === `examen-${examen.id}` && dropdownPosition && createPortal(
+                      <div 
+                        className="dropdown-menu-portal-aula"
+                        style={{
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          right: `${dropdownPosition.right}px`,
+                          width: `${dropdownPosition.width}px`,
+                          zIndex: 10000
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="dropdown-menu-opciones">
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Preguntas/Alternativas */ }}>
+                            📝 Preguntas / Alternativas
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
+                            📊 Ver Resultados
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
+                            📋 Asignar a Registro
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Habilitar/Deshabilitar */ }}>
+                            🔒 Habilitar / Deshabilitar
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar examen */ }}>
+                            ✏️ Editar Examen
+                          </a>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="empty-state">
+          <p>No hay exámenes para este bimestre</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderVideosContent = () => (
+    <div className="card-content-expanded">
+      {videos.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {videos.map((video) => (
+              <tr key={video.id}>
+                <td>{video.descripcion}</td>
+                <td>{new Date(video.fecha_hora).toLocaleString('es-PE')}</td>
+                <td className="text-center">
+                  <div className="btn-group-opciones">
+                    <button 
+                      className="btn-opciones"
+                      ref={(el) => (buttonRef.current[`video-${video.id}`] = el)}
+                      onClick={(e) => toggleDropdown(video.id, e, 'video')}
+                    >
+                      Opciones {openDropdown === `video-${video.id}` ? '▲' : '▼'}
+                    </button>
+                    {openDropdown === `video-${video.id}` && dropdownPosition && createPortal(
+                      <div 
+                        className="dropdown-menu-portal-aula"
+                        style={{
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          right: `${dropdownPosition.right}px`,
+                          width: `${dropdownPosition.width}px`,
+                          zIndex: 10000
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="dropdown-menu-opciones">
+                          {video.enlace && (
+                            <a href={video.enlace} target="_blank" rel="noopener noreferrer">
+                              🎥 Ver Video
+                            </a>
+                          )}
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar video */ }}>
+                            ✏️ Editar Video
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar video */ }}>
+                            🗑️ Borrar Video
+                          </a>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="empty-state">
+          <p>No hay videos para este bimestre</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderEnlacesContent = () => (
+    <div className="card-content-expanded">
+      {enlaces.length > 0 ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {enlaces.map((enlace) => (
+              <tr key={enlace.id}>
+                <td>{enlace.descripcion}</td>
+                <td>{new Date(enlace.fecha_hora).toLocaleString('es-PE')}</td>
+                <td className="text-center">
+                  <div className="btn-group-opciones">
+                    <button 
+                      className="btn-opciones"
+                      ref={(el) => (buttonRef.current[`enlace-${enlace.id}`] = el)}
+                      onClick={(e) => toggleDropdown(enlace.id, e, 'enlace')}
+                    >
+                      Opciones {openDropdown === `enlace-${enlace.id}` ? '▲' : '▼'}
+                    </button>
+                    {openDropdown === `enlace-${enlace.id}` && dropdownPosition && createPortal(
+                      <div 
+                        className="dropdown-menu-portal-aula"
+                        style={{
+                          position: 'fixed',
+                          top: `${dropdownPosition.top}px`,
+                          right: `${dropdownPosition.right}px`,
+                          width: `${dropdownPosition.width}px`,
+                          zIndex: 10000
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="dropdown-menu-opciones">
+                          {enlace.enlace && (
+                            <a href={enlace.enlace} target="_blank" rel="noopener noreferrer">
+                              🔗 Visitar Enlace
+                            </a>
+                          )}
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar enlace */ }}>
+                            ✏️ Editar Enlace
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar enlace */ }}>
+                            🗑️ Borrar Enlace
+                          </a>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="empty-state">
+          <p>No hay enlaces para este bimestre</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <DashboardLayout>
       <div className="docente-aula-virtual">
@@ -412,557 +899,133 @@ function DocenteAulaVirtual() {
           <button className="btn-back" onClick={() => navigate('/docente/cursos')}>
             ← Volver a Cursos
           </button>
-          <h1>Aula Virtual</h1>
+          <h1>🎓 Aula Virtual</h1>
           <p>{curso?.curso_nombre || 'Curso'} - {curso?.grado}° {curso?.seccion} - {curso?.anio}</p>
         </div>
 
-        {/* Sección: TEMAS INTERACTIVOS */}
-        <div className="aula-seccion-v">
-          <div className="aula-seccion-header-v header-temas">
-            <h3>TEMAS INTERACTIVOS</h3>
-            <div className="bimestre-tabs">
-              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
-                <button
-                  key={bim}
-                  className={`bim-tab ${cicloArchivos === bim ? 'active' : ''}`}
-                  onClick={() => setCicloArchivos(bim)}
-                >
-                  Bim. {bim}
-                </button>
-              ))}
-            </div>
-            <div className="header-actions">
-              <button className="btn-registrar-nuevo" onClick={() => setMostrarFormTema(true)}>
-                📝 Registrar Nuevo
-              </button>
-            </div>
-          </div>
-          <div className="aula-seccion-body-v">
-            {loading ? (
-              <div className="empty-state">
-                <p>Cargando temas interactivos...</p>
-              </div>
-            ) : archivos.length > 0 ? (
-              <table className="temas-table">
-                <thead>
-                  <tr>
-                    <th>NOMBRE</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {archivos.map((archivo) => (
-                    <tr key={archivo.id}>
-                      <td>{archivo.nombre}</td>
-                      <td className="text-center">
-                        <div className="btn-group-opciones">
-                          <button 
-                            className="btn-opciones"
-                            ref={(el) => (buttonRef.current[`archivo-${archivo.id}`] = el)}
-                            onClick={(e) => toggleDropdown(archivo.id, e, 'archivo')}
-                          >
-                            Opciones {openDropdown === `archivo-${archivo.id}` ? '▲' : '▼'}
-                          </button>
-                          {openDropdown === `archivo-${archivo.id}` && dropdownPosition && createPortal(
-                            <div 
-                              className="dropdown-menu-portal-aula"
-                              style={{
-                                position: 'fixed',
-                                top: `${dropdownPosition.top}px`,
-                                right: `${dropdownPosition.right}px`,
-                                width: `${dropdownPosition.width}px`,
-                                zIndex: 10000
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="dropdown-menu-opciones">
-                                {archivo.archivo_url && (
-                                  <a href={archivo.archivo_url} target="_blank" rel="noopener noreferrer">
-                                    📄 Ver Archivo
-                                  </a>
-                                )}
-                                {archivo.enlace_url && (
-                                  <a href={archivo.enlace_url} target="_blank" rel="noopener noreferrer">
-                                    🔗 Abrir URL
-                                  </a>
-                                )}
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tema */ }}>
-                                  ✏️ Editar Tema
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tema */ }}>
-                                  🗑️ Borrar Tema
-                                </a>
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="empty-state">
-                <p>No se encontraron resultados</p>
-              </div>
-            )}
-          </div>
+        {/* Selector Global de Bimestre */}
+        <div className="bimestre-selector-global">
+          {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+            <button
+              key={bim}
+              className={`bimestre-tab-global ${bimestreGlobal === bim ? 'active' : ''}`}
+              onClick={() => setBimestreGlobal(bim)}
+            >
+              Bimestre {bim}
+            </button>
+          ))}
         </div>
 
-        {/* Sección: TAREAS VIRTUALES */}
-        <div className="aula-seccion-v">
-          <div className="aula-seccion-header-v header-tareas">
-            <h3>TAREAS VIRTUALES</h3>
-            <div className="bimestre-tabs">
-              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
-                <button
-                  key={bim}
-                  className={`bim-tab ${cicloTareas === bim ? 'active' : ''}`}
-                  onClick={() => setCicloTareas(bim)}
-                >
-                  Bim. {bim}
-                </button>
-              ))}
-            </div>
-            <div className="header-actions">
-              <button className="btn-registrar-nuevo" onClick={() => setMostrarFormTarea(true)}>
-                📝 Registrar Nuevo
+        {/* Grid de Cards Gamificado */}
+        <div className="aula-dashboard-grid">
+          {/* Card: TEMAS */}
+          <div 
+            className={`aula-section-card temas-card ${expandedCard === 'temas' ? 'expanded' : ''}`}
+            onClick={() => expandedCard !== 'temas' && toggleCard('temas')}
+          >
+            <div className="card-header">
+              <div className="card-icon">📚</div>
+              <div className="card-info">
+                <h3 className="card-title">Temas Interactivos</h3>
+                <p className="card-count">{archivos.length}</p>
+                <p className="card-subtitle">Temas disponibles</p>
+              </div>
+              <button 
+                className="card-action-btn"
+                onClick={(e) => { e.stopPropagation(); setMostrarFormTema(true); }}
+              >
+                + Nuevo
               </button>
             </div>
+            {expandedCard === 'temas' && renderCardContent('temas')}
           </div>
-          <div className="aula-seccion-body-v">
-            {mostrarFormTarea && (
-              <div className="form-modal">
-                <h3>Crear Nueva Tarea</h3>
-                <form onSubmit={handleCrearTarea}>
-                  <div className="form-group">
-                    <label>Título *</label>
-                    <input
-                      type="text"
-                      value={formTarea.titulo}
-                      onChange={(e) => setFormTarea({ ...formTarea, titulo: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Descripción</label>
-                    <textarea
-                      value={formTarea.descripcion}
-                      onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
-                      rows="5"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Fecha de Entrega *</label>
-                    <input
-                      type="date"
-                      value={formTarea.fecha_entrega}
-                      onChange={(e) => setFormTarea({ ...formTarea, fecha_entrega: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Enlace (Opcional)</label>
-                    <input
-                      type="url"
-                      value={formTarea.enlace}
-                      onChange={(e) => setFormTarea({ ...formTarea, enlace: e.target.value })}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div className="form-actions">
-                    <button type="button" onClick={() => {
-                      setMostrarFormTarea(false);
-                      setFormTarea({ titulo: '', descripcion: '', fecha_entrega: '', enlace: '' });
-                    }}>
-                      Cancelar
-                    </button>
-                    <button type="submit">Crear Tarea</button>
-                  </div>
-                </form>
-              </div>
-            )}
 
-            {tareas.length > 0 ? (
-              <table className="tareas-table">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Fecha de Registro</th>
-                    <th>Fecha de Entrega</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tareas.map((tarea) => (
-                    <tr key={tarea.id}>
-                      <td>{tarea.titulo}</td>
-                      <td className="text-center">{new Date(tarea.fecha_hora).toLocaleDateString('es-PE')}</td>
-                      <td className="text-center">{new Date(tarea.fecha_entrega).toLocaleDateString('es-PE')}</td>
-                      <td className="text-center">
-                        <div className="btn-group-opciones">
-                          <button 
-                            className="btn-opciones"
-                            ref={(el) => (buttonRef.current[`tarea-${tarea.id}`] = el)}
-                            onClick={(e) => toggleDropdown(tarea.id, e, 'tarea')}
-                          >
-                            Opciones {openDropdown === `tarea-${tarea.id}` ? '▲' : '▼'}
-                          </button>
-                          {openDropdown === `tarea-${tarea.id}` && dropdownPosition && createPortal(
-                            <div 
-                              className="dropdown-menu-portal-aula"
-                              style={{
-                                position: 'fixed',
-                                top: `${dropdownPosition.top}px`,
-                                right: `${dropdownPosition.right}px`,
-                                width: `${dropdownPosition.width}px`,
-                                zIndex: 10000
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="dropdown-menu-opciones">
-                                <a href="#" onClick={(e) => { e.preventDefault(); handleVerEntregas(tarea); setOpenDropdown(null); }}>
-                                  ℹ️ Ver Detalles
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Marcar entregas */ }}>
-                                  ✓ Marcar Entregas
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
-                                  📋 Asignar a Registro
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tarea */ }}>
-                                  ✏️ Editar Tarea
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tarea */ }}>
-                                  🗑️ Borrar Tarea
-                                </a>
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="empty-state">
-                <p>No se encontraron resultados</p>
+          {/* Card: TAREAS */}
+          <div 
+            className={`aula-section-card tareas-card ${expandedCard === 'tareas' ? 'expanded' : ''}`}
+            onClick={() => expandedCard !== 'tareas' && toggleCard('tareas')}
+          >
+            <div className="card-header">
+              <div className="card-icon">📝</div>
+              <div className="card-info">
+                <h3 className="card-title">Tareas Virtuales</h3>
+                <p className="card-count">{tareas.length}</p>
+                <p className="card-subtitle">Tareas asignadas</p>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sección: EXÁMENES */}
-        <div className="aula-seccion-v">
-          <div className="aula-seccion-header-v header-examenes">
-            <h3>EXÁMENES</h3>
-            <div className="bimestre-tabs">
-              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
-                <button
-                  key={bim}
-                  className={`bim-tab ${cicloExamenes === bim ? 'active' : ''}`}
-                  onClick={() => setCicloExamenes(bim)}
-                >
-                  Bim. {bim}
-                </button>
-              ))}
-            </div>
-            <div className="header-actions">
-              <button className="btn-registrar-nuevo" onClick={() => setMostrarFormExamen(true)}>
-                📝 Registrar Nuevo
+              <button 
+                className="card-action-btn"
+                onClick={(e) => { e.stopPropagation(); setMostrarFormTarea(true); }}
+              >
+                + Nuevo
               </button>
             </div>
+            {expandedCard === 'tareas' && renderCardContent('tareas')}
           </div>
-          <div className="aula-seccion-body-v">
 
-            {mostrarFormExamen && (
-              <ExamenForm
-                asignaturaId={asignaturaId}
-                formExamen={formExamen}
-                setFormExamen={setFormExamen}
-                onClose={() => {
-                  setMostrarFormExamen(false);
-                  setFormExamen({
-                    titulo: '',
-                    tipo_puntaje: 'INDIVIDUAL',
-                    puntos_correcta: 1.0,
-                    penalizar_incorrecta: 'NO',
-                    penalizacion_incorrecta: 0.0,
-                    tiempo: 60,
-                    intentos: 1,
-                    orden_preguntas: 'PREDETERMINADO',
-                    fecha_desde: '',
-                    fecha_hasta: '',
-                    hora_desde: '08:00',
-                    hora_hasta: '20:00',
-                    preguntas_max: 10,
-                    tipo: 'VIRTUAL',
-                    preguntas: []
-                  });
-                }}
-                onSuccess={() => {
-                  setMostrarFormExamen(false);
-                  cargarExamenes();
-                }}
-              />
-            )}
-
-            {examenes.length > 0 ? (
-              <table className="examenes-table">
-                <thead>
-                  <tr>
-                    <th>EXAMEN</th>
-                    <th>TIEMPO (MIN.)</th>
-                    <th>PREGUNTAS</th>
-                    <th>ESTADO</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {examenes.map((examen) => (
-                    <tr key={examen.id}>
-                      <td>{examen.titulo}</td>
-                      <td className="text-center">{examen.tiempo === 0 || !examen.tiempo ? 'ILIMITADO' : examen.tiempo}</td>
-                      <td className="text-center">{examen.preguntas?.length || 0}</td>
-                      <td className="text-center">
-                        <span className={`estado-badge ${examen.estado?.toLowerCase() || 'inactivo'}`}>
-                          {examen.estado || 'INACTIVO'}
-                        </span>
-                      </td>
-                      <td className="text-center">
-                        <div className="btn-group-opciones">
-                          <button 
-                            className="btn-opciones"
-                            ref={(el) => (buttonRef.current[`examen-${examen.id}`] = el)}
-                            onClick={(e) => toggleDropdown(examen.id, e, 'examen')}
-                          >
-                            Opciones {openDropdown === `examen-${examen.id}` ? '▲' : '▼'}
-                          </button>
-                          {openDropdown === `examen-${examen.id}` && dropdownPosition && createPortal(
-                            <div 
-                              className="dropdown-menu-portal-aula"
-                              style={{
-                                position: 'fixed',
-                                top: `${dropdownPosition.top}px`,
-                                right: `${dropdownPosition.right}px`,
-                                width: `${dropdownPosition.width}px`,
-                                zIndex: 10000
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="dropdown-menu-opciones">
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Preguntas/Alternativas */ }}>
-                                  📝 Preguntas / Alternativas
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
-                                  📊 Ver Resultados
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
-                                  📋 Asignar a Registro
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Habilitar/Deshabilitar */ }}>
-                                  🔒 Habilitar / Deshabilitar
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar examen */ }}>
-                                  ✏️ Editar Examen
-                                </a>
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="empty-state">
-                <p>No se encontraron resultados</p>
+          {/* Card: EXÁMENES */}
+          <div 
+            className={`aula-section-card examenes-card ${expandedCard === 'examenes' ? 'expanded' : ''}`}
+            onClick={() => expandedCard !== 'examenes' && toggleCard('examenes')}
+          >
+            <div className="card-header">
+              <div className="card-icon">📊</div>
+              <div className="card-info">
+                <h3 className="card-title">Exámenes</h3>
+                <p className="card-count">{examenes.length}</p>
+                <p className="card-subtitle">Exámenes creados</p>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sección: VIDEOTECA */}
-        <div className="aula-seccion-v">
-          <div className="aula-seccion-header-v header-videos">
-            <h3>VIDEOTECA</h3>
-            <div className="bimestre-tabs">
-              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
-                <button
-                  key={bim}
-                  className={`bim-tab ${cicloVideos === bim ? 'active' : ''}`}
-                  onClick={() => setCicloVideos(bim)}
-                >
-                  Bim. {bim}
-                </button>
-              ))}
-            </div>
-            <div className="header-actions">
-              <button className="btn-registrar-nuevo">
-                📝 Registrar Nuevo
+              <button 
+                className="card-action-btn"
+                onClick={(e) => { e.stopPropagation(); setMostrarFormExamen(true); }}
+              >
+                + Nuevo
               </button>
             </div>
+            {expandedCard === 'examenes' && renderCardContent('examenes')}
           </div>
-          <div className="aula-seccion-body-v">
-            {videos.length > 0 ? (
-              <table className="videos-table">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {videos.map((video) => (
-                    <tr key={video.id}>
-                      <td>{video.descripcion}</td>
-                      <td>{new Date(video.fecha_hora).toLocaleString('es-PE')}</td>
-                      <td className="text-center">
-                        <div className="btn-group-opciones">
-                          <button 
-                            className="btn-opciones"
-                            ref={(el) => (buttonRef.current[`video-${video.id}`] = el)}
-                            onClick={(e) => toggleDropdown(video.id, e, 'video')}
-                          >
-                            Opciones {openDropdown === `video-${video.id}` ? '▲' : '▼'}
-                          </button>
-                          {openDropdown === `video-${video.id}` && dropdownPosition && createPortal(
-                            <div 
-                              className="dropdown-menu-portal-aula"
-                              style={{
-                                position: 'fixed',
-                                top: `${dropdownPosition.top}px`,
-                                right: `${dropdownPosition.right}px`,
-                                width: `${dropdownPosition.width}px`,
-                                zIndex: 10000
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="dropdown-menu-opciones">
-                                {video.enlace && (
-                                  <a href={video.enlace} target="_blank" rel="noopener noreferrer">
-                                    🎥 Ver Video
-                                  </a>
-                                )}
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar video */ }}>
-                                  ✏️ Editar Video
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar video */ }}>
-                                  🗑️ Borrar Video
-                                </a>
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="empty-state">
-                <p>No se encontraron resultados</p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Sección: ENLACES DE AYUDA */}
-        <div className="aula-seccion-v">
-          <div className="aula-seccion-header-v header-enlaces">
-            <h3>ENLACES DE AYUDA</h3>
-            <div className="bimestre-tabs">
-              {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
-                <button
-                  key={bim}
-                  className={`bim-tab ${cicloEnlaces === bim ? 'active' : ''}`}
-                  onClick={() => setCicloEnlaces(bim)}
-                >
-                  Bim. {bim}
-                </button>
-              ))}
-            </div>
-            <div className="header-actions">
-              <button className="btn-registrar-nuevo">
-                📝 Registrar Nuevo
+          {/* Card: VIDEOTECA */}
+          <div 
+            className={`aula-section-card videos-card ${expandedCard === 'videos' ? 'expanded' : ''}`}
+            onClick={() => expandedCard !== 'videos' && toggleCard('videos')}
+          >
+            <div className="card-header">
+              <div className="card-icon">🎥</div>
+              <div className="card-info">
+                <h3 className="card-title">Videoteca</h3>
+                <p className="card-count">{videos.length}</p>
+                <p className="card-subtitle">Videos disponibles</p>
+              </div>
+              <button 
+                className="card-action-btn"
+                onClick={(e) => { e.stopPropagation(); /* Registrar nuevo video */ }}
+              >
+                + Nuevo
               </button>
             </div>
+            {expandedCard === 'videos' && renderCardContent('videos')}
           </div>
-          <div className="aula-seccion-body-v">
-            {enlaces.length > 0 ? (
-              <table className="enlaces-table">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {enlaces.map((enlace) => (
-                    <tr key={enlace.id}>
-                      <td>{enlace.descripcion}</td>
-                      <td>{new Date(enlace.fecha_hora).toLocaleString('es-PE')}</td>
-                      <td className="text-center">
-                        <div className="btn-group-opciones">
-                          <button 
-                            className="btn-opciones"
-                            ref={(el) => (buttonRef.current[`enlace-${enlace.id}`] = el)}
-                            onClick={(e) => toggleDropdown(enlace.id, e, 'enlace')}
-                          >
-                            Opciones {openDropdown === `enlace-${enlace.id}` ? '▲' : '▼'}
-                          </button>
-                          {openDropdown === `enlace-${enlace.id}` && dropdownPosition && createPortal(
-                            <div 
-                              className="dropdown-menu-portal-aula"
-                              style={{
-                                position: 'fixed',
-                                top: `${dropdownPosition.top}px`,
-                                right: `${dropdownPosition.right}px`,
-                                width: `${dropdownPosition.width}px`,
-                                zIndex: 10000
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="dropdown-menu-opciones">
-                                {enlace.enlace && (
-                                  <a href={enlace.enlace} target="_blank" rel="noopener noreferrer">
-                                    🔗 Visitar Enlace
-                                  </a>
-                                )}
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Editar enlace */ }}>
-                                  ✏️ Editar Enlace
-                                </a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar enlace */ }}>
-                                  🗑️ Borrar Enlace
-                                </a>
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="empty-state">
-                <p>No se encontraron resultados</p>
+
+          {/* Card: ENLACES */}
+          <div 
+            className={`aula-section-card enlaces-card ${expandedCard === 'enlaces' ? 'expanded' : ''}`}
+            onClick={() => expandedCard !== 'enlaces' && toggleCard('enlaces')}
+          >
+            <div className="card-header">
+              <div className="card-icon">🔗</div>
+              <div className="card-info">
+                <h3 className="card-title">Enlaces de Ayuda</h3>
+                <p className="card-count">{enlaces.length}</p>
+                <p className="card-subtitle">Enlaces compartidos</p>
               </div>
-            )}
+              <button 
+                className="card-action-btn"
+                onClick={(e) => { e.stopPropagation(); /* Registrar nuevo enlace */ }}
+              >
+                + Nuevo
+              </button>
+            </div>
+            {expandedCard === 'enlaces' && renderCardContent('enlaces')}
           </div>
         </div>
       </div>

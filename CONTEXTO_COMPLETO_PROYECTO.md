@@ -497,8 +497,30 @@ react-aula-virtual/
 
 #### Cursos
 - Lista de cursos asignados
-- Información del curso
+- Información del curso (incluye imagen del curso desde la BD)
 - Relación con grupos
+- Cards compactos con imagen del curso o emoji por defecto
+- Dropdown "Opciones" con: "Link Aula Virtual", "Copiar Contenido"
+- Botones más compactos (Aula Virtual y Opciones)
+
+#### Aula Virtual
+- **Diseño Gamificado:** Nueva versión con diseño tipo dashboard gamificado
+- Fondo degradado púrpura/azul (`linear-gradient(135deg, #667eea 0%, #764ba2 100%)`)
+- Título y subtítulo en color blanco, centrados (estilo único)
+- Selector global de bimestre en la parte superior
+- Cards grandes e interactivos para cada sección (Temas, Tareas, Exámenes, Videos, Enlaces)
+- Cards expandibles: al hacer clic se expanden mostrando el contenido detallado
+- Cada card muestra: icono grande, contador de items, título y botón "+ Nuevo"
+- Secciones disponibles:
+  - **Temas Interactivos** (archivos/temas)
+  - **Tareas Virtuales**
+  - **Exámenes**
+  - **Videoteca** (videos)
+  - **Enlaces de Ayuda**
+- Tabs de bimestre independientes para cada sección (cada una mantiene su ciclo activo)
+- Dropdowns de opciones usando `createPortal` para evitar problemas de z-index
+- Los dropdowns solo se cierran con click izquierdo (no con rueda del mouse)
+- Versión anterior preservada: `DocenteAulaVirtual.css` se mantiene por si se necesita en el futuro
 
 #### Horario
 - Horario semanal del docente
@@ -563,6 +585,100 @@ react-aula-virtual/
 - Texto Secundario: `#6b7280`
 - Fondo: `#f5f5f5`
 - Títulos de secciones (Dashboard, Mi Perfil, Grupos, etc.): `#4a83c1` para mantener coherencia visual
+
+### Estilos de Títulos y Subtítulos (Estándar para Futuras Páginas)
+
+⚠️ **IMPORTANTE:** Estos son los estilos estándar que deben usarse en todas las páginas, excepto Aula Virtual que tiene su propio estilo gamificado.
+
+#### **Estilo Estándar** (Mi Perfil, Cursos Asignados, Grupos Asignados, etc.)
+
+**HTML Structure:**
+```jsx
+<div className="page-header">
+  <h1>Título de la Página</h1>
+  <p>Subtítulo o descripción de la página</p>
+</div>
+```
+
+**CSS (aplicar en el archivo `.css` de cada página):**
+```css
+.page-header {
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #4a83c1 !important;
+  margin: 0 0 0.5rem 0;
+  text-align: left;
+}
+
+.page-header p,
+.page-subtitle {
+  color: #6b7280 !important;
+  margin: 0;
+  text-align: left;
+}
+```
+
+**Características:**
+- **Título:** `2rem` (32px), `font-weight: 800`, color azul `#4a83c1 !important`, alineación izquierda
+- **Subtítulo:** Color gris `#6b7280 !important`, alineación izquierda
+- **Aplicable a:** Mi Perfil, Cursos Asignados, Grupos Asignados, y todas las páginas estándar futuras
+
+#### **Estilo Único de Aula Virtual** (Solo para Aula Virtual)
+
+**HTML Structure:**
+```jsx
+<div className="docente-aula-virtual">
+  <div className="page-header">
+    <h1>🎓 Aula Virtual</h1>
+    <p>Nombre del Curso - Grado° Sección - Año</p>
+  </div>
+</div>
+```
+
+**CSS (solo en `DocenteAulaVirtual-gamificado.css`):**
+```css
+/* Estilos específicos solo para Aula Virtual */
+.docente-aula-virtual .page-header {
+  margin-bottom: 2.5rem;
+  text-align: center;
+  color: white;
+}
+
+.docente-aula-virtual .page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: white !important;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+
+.docente-aula-virtual .page-header p {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: white !important;
+  margin: 0;
+  text-align: center;
+}
+```
+
+**Características:**
+- **Título:** Color blanco, centrado, con sombra de texto
+- **Subtítulo:** Color blanco, centrado
+- **NOTA:** Este estilo es ÚNICO y NO debe aplicarse a otras páginas. Usa selectores específicos `.docente-aula-virtual .page-header` para evitar conflictos.
+
+**Páginas donde se aplica:**
+- ✅ Mi Perfil: Estilo estándar (azul, izquierda)
+- ✅ Cursos Asignados: Estilo estándar (azul, izquierda)
+- ✅ Grupos Asignados: Estilo estándar (azul, izquierda)
+- ✅ Aula Virtual: Estilo único (blanco, centrado)
+- 🔄 Futuras páginas: Deben usar el estilo estándar por defecto
 
 **Variables CSS (index.css):**
 ```css

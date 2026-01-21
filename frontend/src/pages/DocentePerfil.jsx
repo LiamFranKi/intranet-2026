@@ -333,7 +333,7 @@ function DocentePerfil() {
   return (
     <DashboardLayout>
       <div className="docente-perfil">
-        <div className="perfil-header">
+        <div className="page-header">
           <h1>Mi Perfil</h1>
           <p>Gestiona tu información personal y foto de perfil</p>
         </div>

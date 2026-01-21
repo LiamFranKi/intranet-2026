@@ -16,20 +16,28 @@
   color: #4a83c1;
 }
 
-.perfil-header {
+/* Estilo estándar para títulos y subtítulos - igual que Grupos Asignados */
+.perfil-header,
+.page-header {
   margin-bottom: 2rem;
+  text-align: left;
 }
 
-.perfil-header h1 {
+.perfil-header h1,
+.page-header h1 {
   font-size: 2rem;
   font-weight: 800;
-  color: #4a83c1;
+  color: #4a83c1 !important;
   margin: 0 0 0.5rem 0;
+  text-align: left;
 }
 
-.perfil-header p {
-  color: #6b7280;
+.perfil-header p,
+.page-header p,
+.page-subtitle {
+  color: #6b7280 !important;
   margin: 0;
+  text-align: left;
 }
 
 .perfil-form {
