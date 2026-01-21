@@ -60,16 +60,32 @@ function DocenteHorario() {
     return normalizado;
   }, [horarioRaw]);
 
-  // Función para convertir hora en formato HH:MM:SS a HH:MM AM/PM
+  // Función para convertir hora a formato HH:MM AM/PM
+  // Maneja tanto formato 24h (HH:MM:SS) como formato 12h (HH:MM AM/PM)
   const formatearHora = (hora) => {
     if (!hora) return '';
-    const [h, m] = hora.split(':');
-    const horaNum = parseInt(h);
-    const minutos = m || '00';
-    if (horaNum === 0) return `12:${minutos} AM`;
-    if (horaNum < 12) return `${horaNum}:${minutos} AM`;
-    if (horaNum === 12) return `12:${minutos} PM`;
-    return `${horaNum - 12}:${minutos} PM`;
+    
+    // Si ya tiene AM o PM, retornar tal cual (solo limpiar espacios extra)
+    const horaUpper = hora.toUpperCase().trim();
+    if (horaUpper.includes('AM') || horaUpper.includes('PM')) {
+      // Ya tiene formato AM/PM, solo limpiar y retornar
+      return hora.trim();
+    }
+    
+    // Si no tiene AM/PM, convertir de formato 24h a 12h
+    const partes = hora.split(':');
+    if (partes.length < 2) return hora; // Formato desconocido, retornar tal cual
+    
+    const h = parseInt(partes[0], 10);
+    const m = partes[1] ? partes[1].split(' ')[0] : '00'; // Tomar solo los minutos, ignorar segundos si existen
+    const minutos = m.padStart(2, '0');
+    
+    if (isNaN(h)) return hora; // Si no es un número válido, retornar tal cual
+    
+    if (h === 0) return `12:${minutos} AM`;
+    if (h < 12) return `${h}:${minutos} AM`;
+    if (h === 12) return `12:${minutos} PM`;
+    return `${h - 12}:${minutos} PM`;
   };
 
   // Convertir hora HH:MM:SS a minutos para ordenar

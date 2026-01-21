@@ -525,7 +525,11 @@ react-aula-virtual/
 #### Horario
 - Horario semanal del docente en formato tabla
 - Tabla `grupos_horarios` (NO `personal_horario`)
-- Días y horas de clases
+- Días y horas de clases (Lunes a Viernes)
+- Formato de horas: 12h (AM/PM) sin duplicación
+- Tabla compacta con bordes azules en todas las celdas
+- Celdas vacías con fondo azul claro (`#E3F2FD`)
+- Sección "Detalle de Horario" con cards por curso
 - **Sistema de Colores para Horarios:**
   - **Paleta de 30 colores pastel:** Colores suaves y diferenciables visualmente
   - **Asignación determinística:** Cada curso tiene un color único y consistente basado en hash del nombre
@@ -706,6 +710,87 @@ react-aula-virtual/
 --btn-secondary-bg: #f3f4f6;
 --btn-outline-border: #4a83c1;
 ```
+
+### Sistema de Colores para Horarios
+
+⚠️ **IMPORTANTE:** Este sistema debe reutilizarse en todos los horarios del sistema (horario de docente, horario de grupos, horario de alumnos, etc.) para mantener consistencia visual.
+
+#### Componentes del Sistema
+
+**1. Paleta de Colores (`colorPalette`)**
+- Array de 30 colores pastel suaves y diferenciables
+- Definido en `DocenteHorario.jsx` como constante
+- Colores optimizados para legibilidad y diferenciación visual
+
+**2. Función Hash (`hashString`)**
+- Función hash determinística mejorada
+- Convierte el nombre del curso en un índice de color
+- Garantiza que el mismo curso siempre tenga el mismo color
+- Algoritmo optimizado para mejor distribución y menos colisiones
+
+**3. Función de Asignación (`getColorForCourse`)**
+```javascript
+const getColorForCourse = (titulo) => {
+  if (!titulo || !titulo.trim()) return null;
+  const tituloNormalizado = titulo.trim();
+  const hash = hashString(tituloNormalizado);
+  const index = hash % colorPalette.length;
+  return colorPalette[index];
+};
+```
+
+**4. Función de Aclarado (`aclararColor`)**
+```javascript
+const aclararColor = (colorHex, factor = 0.4) => {
+  // Mezcla el color con blanco según el factor
+  // factor 0 = color original, factor 1 = blanco puro
+  // Factor recomendado: 0.5 (50% más claro)
+};
+```
+
+#### Aplicación en Horarios
+
+**En la Tabla del Horario:**
+- Cada celda con clase tiene fondo de color aclarado (factor 0.5)
+- Celdas vacías tienen fondo azul muy claro (`#E3F2FD`)
+- Todos los bordes son azules (`#4a83c1`)
+
+**En el Detalle de Horario:**
+- Cada card tiene fondo del color del curso aclarado (factor 0.5)
+- Indicador circular con el color original del curso
+- Ordenamiento: Nivel → Grado → Título
+
+#### Ordenamiento del Detalle de Horario
+
+**Funciones de Extracción:**
+- `extraerGrado(grupoTexto)`: Extrae el número de grado (1°, 2°, etc.)
+- `extraerNivel(grupoTexto)`: Identifica el nivel (Inicial, Primaria, Secundaria)
+- `getOrdenNivel(nivel)`: Asigna orden numérico (Inicial=1, Primaria=2, Secundaria=3)
+
+**Orden de Prioridad:**
+1. Nivel educativo (Inicial → Primaria → Secundaria)
+2. Grado (1° → 2° → 3°...)
+3. Título del curso (alfabético)
+
+#### Reutilización en Otros Horarios
+
+**Para implementar en horarios de grupos o alumnos:**
+
+1. **Copiar las funciones:**
+   - `colorPalette`
+   - `hashString()`
+   - `getColorForCourse()`
+   - `aclararColor()`
+
+2. **Aplicar colores:**
+   - Usar `aclararColor(getColorForCourse(titulo), 0.5)` para fondos
+   - Usar `getColorForCourse(titulo)` para indicadores o elementos destacados
+
+3. **Mantener consistencia:**
+   - El mismo curso siempre tendrá el mismo color en todo el sistema
+   - Los colores son suaves y no interfieren con la legibilidad del texto
+
+**Archivo de Referencia:** `frontend/src/pages/DocenteHorario.jsx`
 
 ### Tipografía
 
@@ -930,7 +1015,21 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 - `GET /tutoria` - Grupos de tutoría
 
 #### Comunicados
-- `GET /comunicados` - Comunicados recibidos
+- `GET /comunicados` - Comunicados recibidos (con paginación y búsqueda)
+- **Funcionalidades:**
+  - Vista de cards con diseño moderno
+  - Paginación (12 por página)
+  - Búsqueda por descripción o contenido
+  - Sistema de lectura: Alumnos nuevos vs leídos
+  - Comunicados nuevos destacados con:
+    - Badge "NUEVO" animado (color naranja)
+    - Borde naranja en la card
+    - Fondo amarillo muy claro
+    - Título en negrita y color más oscuro
+  - Marca automáticamente como leído al abrir archivo
+  - Botón "Ver" para archivos PDF (abre en nueva ventana)
+  - URLs de archivos apuntan a `https://nuevo.vanguardschools.edu.pe/Static/Archivos/`
+  - **Configuración de URLs:** Centralizada en `frontend/src/config/staticFiles.js` para fácil cambio en producción
 
 #### Actividades
 - `GET /actividades` - Actividades del calendario
@@ -1028,6 +1127,30 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 - Express static middleware
 - Headers CORS configurados
 - Cache headers para optimización
+
+**Archivos del Sistema PHP (Remoto):**
+- URLs apuntan a: `https://nuevo.vanguardschools.edu.pe/Static/Archivos/`
+- Comunicados, documentos y otros archivos estáticos
+- Configuración centralizada en `frontend/src/config/staticFiles.js`
+- **NOTA:** El dominio puede cambiar cuando se suba al VPS (ver `RESPUESTA_ARQUITECTURA_VPS.md`)
+
+### Arquitectura VPS Recomendada
+
+**Documentación:** `RESPUESTA_ARQUITECTURA_VPS.md`
+
+**Recomendación:** Mismo VPS donde está MySQL, pero en carpetas separadas
+- `/public_html/` - Sistema PHP actual (no se modifica)
+- `/intranet/` - Nuevo sistema React/Node.js
+
+**Ventajas:**
+- Menor latencia (MySQL en localhost)
+- Mayor seguridad (MySQL no expuesto)
+- Más fácil de gestionar
+- Más económico
+
+**Configuración al subir al VPS:**
+- Cambiar `MYSQL_HOST` de remoto a `localhost` en backend `.env`
+- Ajustar `STATIC_FILES_DOMAIN` en `frontend/src/config/staticFiles.js` si es necesario
 
 ---
 

@@ -924,18 +924,89 @@ router.get('/tutoria', async (req, res) => {
 router.get('/comunicados', async (req, res) => {
   try {
     const { colegio_id } = req.user;
+    const { page = 1, limit = 12, search = '' } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    // Obtener comunicados para el docente
-    const comunicados = await query(
-      `SELECT c.*
-       FROM comunicados c
-       WHERE c.colegio_id = ? AND c.estado = 'ACTIVO'
-       ORDER BY c.fecha DESC
-       LIMIT 50`,
-      [colegio_id]
-    );
+    // Construir query base
+    let querySql = `
+      SELECT c.*
+      FROM comunicados c
+      WHERE c.colegio_id = ? AND c.estado = 'ACTIVO'
+    `;
+    const params = [colegio_id];
 
-    res.json({ comunicados: comunicados || [] });
+    // Agregar búsqueda si existe
+    if (search && search.trim() !== '') {
+      querySql += ` AND (c.descripcion LIKE ? OR c.contenido LIKE ?)`;
+      const searchPattern = `%${search.trim()}%`;
+      params.push(searchPattern, searchPattern);
+    }
+
+    // Obtener total para paginación
+    const countQuery = querySql.replace('SELECT c.*', 'SELECT COUNT(*) as total');
+    const countResult = await query(countQuery, params);
+    const total = countResult[0]?.total || 0;
+
+    // Agregar ordenamiento y límites
+    querySql += ` ORDER BY c.fecha_hora DESC LIMIT ? OFFSET ?`;
+    params.push(parseInt(limit), offset);
+
+    const comunicados = await query(querySql, params);
+
+    // Construir URLs de archivos
+    // Los archivos de comunicados están en el servidor PHP: /Static/Archivos/
+    // En desarrollo y producción usamos la URL del servidor PHP donde están los archivos
+    const comunicadosConUrls = (comunicados || []).map(com => {
+      let archivoUrl = null;
+      if (com.archivo && com.archivo.trim() !== '') {
+        let nombreArchivo = com.archivo.trim();
+        
+        // Usar el subdominio correcto: nuevo.vanguardschools.edu.pe
+        const dominioBase = 'https://nuevo.vanguardschools.edu.pe';
+        
+        // Si ya es una URL completa, validar y corregir si es necesario
+        if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
+          // Corregir errores comunes en URLs existentes
+          archivoUrl = nombreArchivo
+            .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, dominioBase)
+            .replace(/vanguardschools\.comstatic/gi, `${dominioBase}/Static`)
+            .replace(/vanguardschools\.com\/static/gi, `${dominioBase}/Static`)
+            .replace(/vanguardschools\.com\/Static/gi, `${dominioBase}/Static`)
+            .replace(/([^:]\/)\/+/g, '$1'); // Limpiar múltiples barras
+        }
+        // Si empieza con /Static/, construir URL completa
+        else if (nombreArchivo.startsWith('/Static/')) {
+          archivoUrl = `${dominioBase}${nombreArchivo}`;
+        }
+        // Si empieza con Static/ (sin barra inicial), agregar la barra
+        else if (nombreArchivo.startsWith('Static/')) {
+          archivoUrl = `${dominioBase}/${nombreArchivo}`;
+        }
+        // Si es solo el nombre del archivo, construir ruta completa
+        else {
+          // Limpiar barras iniciales y construir URL correcta
+          nombreArchivo = nombreArchivo.replace(/^\/+/, '');
+          archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
+        }
+        
+        console.log(`📄 Comunicado ID ${com.id}: ${com.archivo} -> ${archivoUrl}`);
+      }
+
+      return {
+        ...com,
+        archivo_url: archivoUrl
+      };
+    });
+
+    res.json({
+      comunicados: comunicadosConUrls,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
   } catch (error) {
     console.error('Error obteniendo comunicados:', error);
     res.status(500).json({ error: 'Error al obtener comunicados' });
