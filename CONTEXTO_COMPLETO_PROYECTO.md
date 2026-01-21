@@ -523,9 +523,27 @@ react-aula-virtual/
 - Versión anterior preservada: `DocenteAulaVirtual.css` se mantiene por si se necesita en el futuro
 
 #### Horario
-- Horario semanal del docente
+- Horario semanal del docente en formato tabla
 - Tabla `grupos_horarios` (NO `personal_horario`)
 - Días y horas de clases
+- **Sistema de Colores para Horarios:**
+  - **Paleta de 30 colores pastel:** Colores suaves y diferenciables visualmente
+  - **Asignación determinística:** Cada curso tiene un color único y consistente basado en hash del nombre
+  - **Colores aclarados:** Los colores se aplican con un factor de aclarado del 50% para mejor legibilidad
+  - **Funciones reutilizables:**
+    - `colorPalette`: Array de 30 colores pastel
+    - `hashString()`: Función hash determinística mejorada para asignar colores
+    - `getColorForCourse(titulo)`: Obtiene el color único para un curso
+    - `aclararColor(colorHex, factor)`: Aclara un color mezclándolo con blanco
+  - **Aplicación:** 
+    - Celdas del horario con fondo de color aclarado
+    - Cards del "Detalle de Horario" con fondo de color aclarado
+    - Indicador de color circular en cada card del detalle
+  - **Ordenamiento del Detalle:**
+    - Primero por nivel educativo (Inicial → Primaria → Secundaria)
+    - Luego por grado (1°, 2°, 3°...)
+    - Finalmente por título del curso
+  - **Reutilización:** Este sistema de colores debe usarse en todos los horarios futuros (horario de grupos, horario de alumnos, etc.) para mantener consistencia visual
 
 #### Publicaciones (Widget)
 - ✅ Crear publicaciones con texto

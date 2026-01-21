@@ -786,20 +786,98 @@ router.get('/horario', async (req, res) => {
       return res.status(404).json({ error: 'Docente no encontrado' });
     }
 
+    // =============================
     // Obtener horario del docente
-    // Usar grupos_horarios que tiene asignatura_id y personal_id
-    const horario = await query(
-      `SELECT gh.*, c.nombre as curso_nombre, g.grado, g.seccion
+    // Basado en la lógica de imprimir_horario_docente del sistema anterior,
+    // usando la tabla grupos_horarios + asignaturas + grupos + niveles + cursos
+    // =============================
+
+    const anioActivoInt = parseInt(anio_activo);
+
+    // Ver qué años de grupos_horarios hay para este docente
+    const aniosDisponibles = await query(
+      `SELECT DISTINCT gh.anio
        FROM grupos_horarios gh
-       INNER JOIN asignaturas a ON a.id = gh.asignatura_id
-       INNER JOIN grupos g ON g.id = a.grupo_id
-       INNER JOIN cursos c ON c.id = a.curso_id
-       WHERE gh.personal_id = ? AND g.colegio_id = ? AND g.anio = ?
-       ORDER BY gh.dia, gh.hora_inicio`,
-      [personalId, colegio_id, anio_activo]
+       LEFT JOIN asignaturas a ON a.id = gh.asignatura_id
+       LEFT JOIN grupos g ON g.id = a.grupo_id
+       WHERE (a.personal_id = ? OR gh.personal_id = ?)
+       ORDER BY gh.anio DESC`,
+      [personalId, personalId]
     );
 
-    res.json({ horario: horario || [] });
+    if (!aniosDisponibles || aniosDisponibles.length === 0) {
+      console.log('📅 No se encontraron registros en grupos_horarios para este docente.');
+      return res.json({ horario: [] });
+    }
+
+    // Usar primero el año activo si existe en grupos_horarios, si no, el más reciente disponible
+    let anioUsar = anioActivoInt;
+    const existeAnioActivo = aniosDisponibles.some((row) => parseInt(row.anio) === anioActivoInt);
+    if (!existeAnioActivo) {
+      anioUsar = parseInt(aniosDisponibles[0].anio);
+    }
+
+    console.log(
+      `📅 Años disponibles en grupos_horarios para este docente:`,
+      aniosDisponibles.map((a) => a.anio)
+    );
+    console.log(`📅 Usando año para horario docente: ${anioUsar}`);
+
+    // Traer todas las filas de horario con curso y grupo ya resueltos
+    const horarioCrudo = await query(
+      `SELECT 
+         gh.id,
+         gh.dia,
+         gh.hora_inicio,
+         gh.hora_final,
+         gh.anio,
+         c.nombre        AS curso_nombre,
+         gh.descripcion  AS descripcion,
+         g.grado,
+         g.seccion,
+         n.nombre        AS nivel_nombre
+       FROM grupos_horarios gh
+       LEFT JOIN asignaturas a ON a.id = gh.asignatura_id
+       LEFT JOIN grupos g      ON g.id = a.grupo_id
+       LEFT JOIN niveles n     ON n.id = g.nivel_id
+       LEFT JOIN cursos c      ON c.id = a.curso_id
+       WHERE gh.anio = ?
+         AND (a.personal_id = ? OR gh.personal_id = ?)
+       ORDER BY gh.dia, STR_TO_DATE(gh.hora_inicio, '%l:%i %p')`,
+      [anioUsar, personalId, personalId]
+    );
+
+    console.log(`📅 Filas de horario crudo encontradas: ${horarioCrudo ? horarioCrudo.length : 0}`);
+    if (horarioCrudo && horarioCrudo.length > 0) {
+      console.log('📅 Primera fila de horario crudo:', horarioCrudo[0]);
+    }
+
+    // Mapear a un formato estándar para el frontend
+    const horario = (horarioCrudo || []).map((row) => {
+      // Texto del grupo: NIVEL - X° SECCION - AÑO (igual al PDF)
+      let grupoTexto = '';
+      if (row.nivel_nombre || row.grado || row.seccion) {
+        const gradoTexto = row.grado ? `${row.grado}°` : '';
+        grupoTexto = `${row.nivel_nombre || ''} ${gradoTexto} ${row.seccion || ''}`.trim();
+        if (row.anio) {
+          grupoTexto = `${grupoTexto} - ${row.anio}`;
+        }
+      }
+
+      const titulo = row.curso_nombre || row.descripcion || '';
+
+      return {
+        id: row.id,
+        dia: typeof row.dia === 'number' ? row.dia : parseInt(row.dia || 0, 10),
+        inicio: row.hora_inicio,
+        fin: row.hora_final,
+        anio: row.anio,
+        titulo,
+        grupo: grupoTexto
+      };
+    });
+
+    res.json({ horario });
   } catch (error) {
     console.error('Error obteniendo horario:', error);
     res.status(500).json({ error: 'Error al obtener horario' });
