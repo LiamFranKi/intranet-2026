@@ -1056,6 +1056,29 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 #### Horario
 - `GET /horario` - Horario semanal (tabla `grupos_horarios`)
 
+#### Mensajes
+- `GET /docente/mensajes/recibidos` - Mensajes recibidos (filtrados por año activo)
+  - Parámetros: `page`, `limit`
+  - Incluye archivos adjuntos
+  - Incluye información completa del remitente
+- `GET /docente/mensajes/enviados` - Mensajes enviados (filtrados por año activo)
+  - Parámetros: `page`, `limit`
+  - Incluye archivos adjuntos
+  - Incluye información completa del destinatario
+- `GET /docente/mensajes/buscar-destinatarios` - Buscar destinatarios
+  - Parámetro: `q` (término de búsqueda)
+  - Busca en: alumnos, apoderados, personal, grupos
+  - Retorna: nombre completo, tipo, información adicional
+- `POST /docente/mensajes/subir-imagen` - Subir imagen desde el editor
+  - FormData: `imagen` (archivo)
+  - Retorna: URL de la imagen subida
+- `POST /docente/mensajes/enviar` - Enviar mensaje
+  - FormData: `destinatarios` (JSON array), `grupos` (JSON array), `asunto`, `mensaje` (HTML), `archivos` (múltiples)
+  - Soporta envío a múltiples destinatarios y grupos
+  - Crea mensajes individuales para cada destinatario
+  - Guarda archivos adjuntos en `mensajes_archivos`
+  - Registra en auditoría con información detallada
+
 #### Tutoria
 - `GET /tutoria` - Grupos de tutoría
 
@@ -1216,7 +1239,7 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
    - Publicaciones (crear, ver, eliminar)
    - Calendario de actividades
    - Notificaciones
-   - Mensajería (estructura)
+   - Mensajería completa con texto enriquecido, archivos adjuntos y envío masivo a grupos
 
 3. **Sistema de Auditoría**
    - Tabla `auditoria_logs` creada
