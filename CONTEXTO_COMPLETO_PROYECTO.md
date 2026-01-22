@@ -561,6 +561,51 @@ react-aula-virtual/
 - ✅ Foto del autor o placeholder con iniciales
 - ✅ Mostrar nombres de grupos en "Para"
 
+#### Mensajería
+- **Editor de Texto Enriquecido:** Implementado con React Quill
+  - Formato de texto: negrita, cursiva, subrayado, tachado
+  - Encabezados (H1, H2, H3)
+  - Listas ordenadas y con viñetas
+  - Colores de texto y fondo
+  - Alineación de texto
+  - Enlaces e imágenes
+  - Limpieza de formato
+- **Subida de Imágenes:** 
+  - Las imágenes insertadas en el editor se suben automáticamente al servidor
+  - Endpoint: `POST /api/docente/mensajes/subir-imagen`
+  - Validación: máximo 5MB, solo archivos de imagen
+  - Las imágenes se guardan en `/uploads/mensajes/`
+- **Archivos Adjuntos:**
+  - Múltiples archivos adjuntos por mensaje (hasta 10)
+  - Límite de 50MB por archivo
+  - Vista previa de archivos seleccionados con tamaño
+  - Eliminación individual antes de enviar
+  - Los archivos se guardan en la tabla `mensajes_archivos`
+- **Búsqueda de Destinatarios:**
+  - Búsqueda automática por nombre o apellido
+  - Soporta: alumnos, apoderados, personal/docentes, grupos
+  - Muestra información adicional (grado, nivel, etc.)
+  - Validación y conversión de datos para evitar errores de renderizado
+- **Envío Masivo a Grupos:**
+  - Al seleccionar un grupo, el mensaje se envía a TODOS los alumnos del grupo
+  - Solo incluye alumnos matriculados activos (`m.estado = 0`)
+  - Solo incluye alumnos con usuario activo (`u.estado = 'ACTIVO'`)
+  - Muestra resumen: cantidad de grupos, alumnos en grupos, destinatarios directos
+- **Filtrado por Año Activo:**
+  - Los mensajes se filtran automáticamente por el año activo del usuario
+  - Solo se muestran mensajes del año académico actual
+  - Aplicado tanto en recibidos como en enviados
+- **Vista de Mensajes:**
+  - Lista de mensajes recibidos y enviados
+  - Modal de detalle con contenido HTML renderizado
+  - Visualización de archivos adjuntos con enlaces de descarga
+  - Formato de fecha: "hoy" muestra hora, otros días muestran fecha
+- **Auditoría:**
+  - Registro completo de cada envío de mensaje
+  - Incluye: total de destinatarios, grupos seleccionados, alumnos en grupos, destinatarios directos, archivos adjuntos
+  - Datos almacenados en formato JSON para consultas futuras
+  - Preparado para integración con notificaciones push
+
 #### Calendario (Widget)
 - Calendario mensual
 - Actividades del día
