@@ -93,6 +93,32 @@ const uploadArchivos = multer({
   fileFilter: fileFilterArchivos
 });
 
+// Configurar multer para subir archivos de mensajes
+const mensajesStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../backend/uploads/mensajes');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `mensaje-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const fileFilterMensajes = (req, file, cb) => {
+  // Permitir cualquier tipo de archivo para mensajes
+  cb(null, true);
+};
+
+const uploadMensajes = multer({
+  storage: mensajesStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB por archivo
+  fileFilter: fileFilterMensajes
+});
+
 // Todas las rutas requieren autenticación y ser DOCENTE
 router.use(authenticateToken);
 router.use(requireUserType('DOCENTE'));
@@ -1016,21 +1042,26 @@ router.get('/comunicados', async (req, res) => {
 /**
  * GET /api/docente/actividades
  * Obtener actividades del calendario (solo lectura)
+ * Filtra por año actual (no año activo) basándose en el año de fecha_inicio
  */
 router.get('/actividades', async (req, res) => {
   try {
     const { colegio_id } = req.user;
-    const { fecha } = req.query;
+    const { fecha, anio } = req.query;
+
+    // Obtener año actual o el año solicitado
+    const anioFiltro = anio ? parseInt(anio) : new Date().getFullYear();
 
     // actividades NO tiene anio ni estado. Tiene fecha_inicio y fecha_fin (datetime)
-    // Cargar TODAS las actividades del colegio (sin restricción de año)
+    // Filtrar por año actual (o año solicitado): el año de fecha_inicio debe coincidir
     // Si se pasa fecha, filtrar solo las que incluyen ese día en su rango
     let querySql = `
       SELECT a.*
       FROM actividades a
       WHERE a.colegio_id = ?
+        AND YEAR(a.fecha_inicio) = ?
     `;
-    const params = [colegio_id];
+    const params = [colegio_id, anioFiltro];
 
     if (fecha) {
       // Filtrar actividades que incluyen esta fecha en su rango
@@ -1051,52 +1082,474 @@ router.get('/actividades', async (req, res) => {
 });
 
 /**
- * GET /api/docente/mensajes
- * Obtener mensajes enviados y recibidos
+ * GET /api/docente/mensajes/recibidos
+ * Obtener mensajes recibidos con información completa del remitente
  */
-router.get('/mensajes', async (req, res) => {
+router.get('/mensajes/recibidos', async (req, res) => {
   try {
-    const { usuario_id } = req.user;
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const mensajes = await query(
-      `SELECT m.*, 
-              u1.usuario as remitente_usuario,
-              u2.usuario as destinatario_usuario
+      `SELECT m.*,
+              CONCAT(
+                COALESCE(p.nombres, a.nombres, ap.nombres, ''), ' ',
+                COALESCE(
+                  p.apellidos, 
+                  CONCAT(a.apellido_paterno, ' ', a.apellido_materno),
+                  CONCAT(ap.apellido_paterno, ' ', ap.apellido_materno),
+                  ''
+                )
+              ) as remitente_nombre_completo,
+              u1.tipo as remitente_tipo,
+              u1.usuario as remitente_usuario
        FROM mensajes m
-       LEFT JOIN usuarios u1 ON u1.id = m.remitente_id
-       LEFT JOIN usuarios u2 ON u2.id = m.destinatario_id
-       WHERE (m.remitente_id = ? OR m.destinatario_id = ?) AND m.borrado = 'NO'
+       INNER JOIN usuarios u1 ON u1.id = m.remitente_id
+       LEFT JOIN personal p ON p.id = u1.personal_id
+       LEFT JOIN alumnos a ON a.id = u1.alumno_id
+       LEFT JOIN apoderados ap ON ap.id = u1.apoderado_id
+       WHERE m.destinatario_id = ? 
+         AND m.tipo = 'RECIBIDO'
+         AND m.borrado = 'NO'
+         AND YEAR(m.fecha_hora) = ?
        ORDER BY m.fecha_hora DESC
-       LIMIT 50`,
-      [usuario_id, usuario_id]
+       LIMIT ? OFFSET ?`,
+      [usuario_id, anio_activo, parseInt(limit), offset]
     );
 
-    res.json({ mensajes: mensajes || [] });
+    // Obtener archivos adjuntos para cada mensaje
+    for (const mensaje of mensajes) {
+      const archivos = await query(
+        `SELECT id, nombre_archivo, archivo
+         FROM mensajes_archivos
+         WHERE mensaje_id = ?`,
+        [mensaje.id]
+      );
+      mensaje.archivos = archivos || [];
+    }
+
+    const total = await query(
+      `SELECT COUNT(*) as count
+       FROM mensajes m
+       WHERE m.destinatario_id = ? 
+         AND m.tipo = 'RECIBIDO'
+         AND m.borrado = 'NO'
+         AND YEAR(m.fecha_hora) = ?`,
+      [usuario_id, anio_activo]
+    );
+
+    res.json({ 
+      mensajes: mensajes || [],
+      pagination: {
+        total: total[0]?.count || 0,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil((total[0]?.count || 0) / parseInt(limit))
+      }
+    });
   } catch (error) {
-    console.error('Error obteniendo mensajes:', error);
-    res.status(500).json({ error: 'Error al obtener mensajes' });
+    console.error('Error obteniendo mensajes recibidos:', error);
+    res.status(500).json({ error: 'Error al obtener mensajes recibidos' });
   }
 });
 
 /**
- * POST /api/docente/mensajes
- * Enviar mensaje
+ * GET /api/docente/mensajes/enviados
+ * Obtener mensajes enviados con información completa del destinatario
  */
-router.post('/mensajes', async (req, res) => {
+router.get('/mensajes/enviados', async (req, res) => {
   try {
-    const { usuario_id } = req.user;
-    const { destinatario_id, asunto, mensaje } = req.body;
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    if (!destinatario_id || !asunto || !mensaje) {
-      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    const mensajes = await query(
+      `SELECT m.*,
+              CONCAT(
+                COALESCE(p.nombres, a.nombres, ap.nombres, ''), ' ',
+                COALESCE(
+                  p.apellidos, 
+                  CONCAT(a.apellido_paterno, ' ', a.apellido_materno),
+                  CONCAT(ap.apellido_paterno, ' ', ap.apellido_materno),
+                  ''
+                )
+              ) as destinatario_nombre_completo,
+              u2.tipo as destinatario_tipo,
+              u2.usuario as destinatario_usuario
+       FROM mensajes m
+       INNER JOIN usuarios u2 ON u2.id = m.destinatario_id
+       LEFT JOIN personal p ON p.id = u2.personal_id
+       LEFT JOIN alumnos a ON a.id = u2.alumno_id
+       LEFT JOIN apoderados ap ON ap.id = u2.apoderado_id
+       WHERE m.remitente_id = ? 
+         AND m.tipo = 'ENVIADO'
+         AND m.borrado = 'NO'
+         AND YEAR(m.fecha_hora) = ?
+       ORDER BY m.fecha_hora DESC
+       LIMIT ? OFFSET ?`,
+      [usuario_id, anio_activo, parseInt(limit), offset]
+    );
+
+    // Obtener archivos adjuntos para cada mensaje
+    for (const mensaje of mensajes) {
+      const archivos = await query(
+        `SELECT id, nombre_archivo, archivo
+         FROM mensajes_archivos
+         WHERE mensaje_id = ?`,
+        [mensaje.id]
+      );
+      mensaje.archivos = archivos || [];
     }
 
-    // TODO: Implementar inserción cuando se permita escritura en MySQL
-    await registrarAccion(usuario_id, req.user.colegio_id, 'ENVIAR_MENSAJE', 'Docente envió mensaje');
+    const total = await query(
+      `SELECT COUNT(*) as count
+       FROM mensajes m
+       WHERE m.remitente_id = ? 
+         AND m.tipo = 'ENVIADO'
+         AND m.borrado = 'NO'
+         AND YEAR(m.fecha_hora) = ?`,
+      [usuario_id, anio_activo]
+    );
+
+    res.json({ 
+      mensajes: mensajes || [],
+      pagination: {
+        total: total[0]?.count || 0,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil((total[0]?.count || 0) / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo mensajes enviados:', error);
+    res.status(500).json({ error: 'Error al obtener mensajes enviados' });
+  }
+});
+
+/**
+ * GET /api/docente/mensajes/buscar-destinatarios
+ * Buscar destinatarios (alumnos, apoderados, grupos, personal) con búsqueda automática
+ */
+router.get('/mensajes/buscar-destinatarios', async (req, res) => {
+  try {
+    const { colegio_id, anio_activo } = req.user;
+    const { q = '' } = req.query;
+
+    if (!q || q.trim().length < 2) {
+      return res.json({ resultados: [] });
+    }
+
+    const searchTerm = `%${q.trim()}%`;
+    const resultados = [];
+
+    // Buscar alumnos (del año activo)
+    const alumnos = await query(
+      `SELECT DISTINCT u.id as usuario_id,
+              CONCAT(a.nombres, ' ', a.apellido_paterno, ' ', a.apellido_materno) as nombre_completo,
+              'ALUMNO' as tipo,
+              CONCAT(g.grado, '° ', g.seccion, ' - ', n.nombre) as info_adicional,
+              a.foto
+       FROM alumnos a
+       INNER JOIN usuarios u ON u.alumno_id = a.id AND u.estado = 'ACTIVO'
+       INNER JOIN matriculas m ON m.alumno_id = a.id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       WHERE a.colegio_id = ?
+         AND g.anio = ?
+         AND m.estado = 0
+         AND (
+           a.nombres LIKE ? OR
+           a.apellido_paterno LIKE ? OR
+           a.apellido_materno LIKE ? OR
+           CONCAT(a.nombres, ' ', a.apellido_paterno, ' ', a.apellido_materno) LIKE ?
+         )
+       LIMIT 20`,
+      [colegio_id, anio_activo, searchTerm, searchTerm, searchTerm, searchTerm]
+    );
+
+    alumnos.forEach(al => {
+      resultados.push({
+        usuario_id: al.usuario_id,
+        nombre_completo: al.nombre_completo.trim(),
+        tipo: al.tipo,
+        info_adicional: al.info_adicional,
+        foto: al.foto
+      });
+    });
+
+    // Buscar apoderados
+    const apoderados = await query(
+      `SELECT DISTINCT u.id as usuario_id,
+              CONCAT(ap.nombres, ' ', ap.apellido_paterno, ' ', ap.apellido_materno) as nombre_completo,
+              'APODERADO' as tipo,
+              CONCAT('Padre/Madre de: ', a.nombres, ' ', a.apellido_paterno) as info_adicional,
+              '' as foto
+       FROM apoderados ap
+       INNER JOIN usuarios u ON u.apoderado_id = ap.id AND u.estado = 'ACTIVO'
+       INNER JOIN familias f ON f.apoderado_id = ap.id
+       INNER JOIN alumnos a ON a.id = f.alumno_id
+       WHERE ap.colegio_id = ?
+         AND (
+           ap.nombres LIKE ? OR
+           ap.apellido_paterno LIKE ? OR
+           ap.apellido_materno LIKE ? OR
+           CONCAT(ap.nombres, ' ', ap.apellido_paterno, ' ', ap.apellido_materno) LIKE ?
+         )
+       LIMIT 20`,
+      [colegio_id, searchTerm, searchTerm, searchTerm, searchTerm]
+    );
+
+    apoderados.forEach(ap => {
+      resultados.push({
+        usuario_id: ap.usuario_id,
+        nombre_completo: ap.nombre_completo.trim(),
+        tipo: ap.tipo,
+        info_adicional: ap.info_adicional,
+        foto: ap.foto
+      });
+    });
+
+    // Buscar personal/docentes
+    const personal = await query(
+      `SELECT DISTINCT u.id as usuario_id,
+              CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
+              'PERSONAL' as tipo,
+              'Docente/Personal' as info_adicional,
+              p.foto
+       FROM personal p
+       INNER JOIN usuarios u ON u.personal_id = p.id AND u.estado = 'ACTIVO'
+       WHERE p.colegio_id = ?
+         AND (
+           p.nombres LIKE ? OR
+           p.apellidos LIKE ? OR
+           CONCAT(p.nombres, ' ', p.apellidos) LIKE ?
+         )
+       LIMIT 20`,
+      [colegio_id, searchTerm, searchTerm, searchTerm]
+    );
+
+    personal.forEach(p => {
+      resultados.push({
+        usuario_id: p.usuario_id,
+        nombre_completo: p.nombre_completo.trim(),
+        tipo: p.tipo,
+        info_adicional: p.info_adicional,
+        foto: p.foto
+      });
+    });
+
+    // Buscar grupos (para enviar a todos los alumnos del grupo)
+    const grupos = await query(
+      `SELECT g.id as grupo_id,
+              CONCAT(g.grado, '° ', g.seccion, ' - ', n.nombre) as nombre_completo,
+              'GRUPO' as tipo,
+              CONCAT(COUNT(DISTINCT m.alumno_id), ' alumnos') as info_adicional,
+              '' as foto
+       FROM grupos g
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN matriculas m ON m.grupo_id = g.id AND m.estado = 0
+       WHERE g.colegio_id = ?
+         AND g.anio = ?
+         AND (
+           CONCAT(g.grado, '° ', g.seccion) LIKE ? OR
+           n.nombre LIKE ?
+         )
+       GROUP BY g.id, g.grado, g.seccion, n.nombre
+       LIMIT 10`,
+      [colegio_id, anio_activo, searchTerm, searchTerm]
+    );
+
+    grupos.forEach(g => {
+      resultados.push({
+        grupo_id: g.grupo_id,
+        nombre_completo: String(g.nombre_completo || ''),
+        tipo: String(g.tipo || 'GRUPO'),
+        info_adicional: String(g.info_adicional || '0 alumnos'),
+        foto: String(g.foto || '')
+      });
+    });
+
+    res.json({ resultados: resultados.slice(0, 50) });
+  } catch (error) {
+    console.error('Error buscando destinatarios:', error);
+    res.status(500).json({ error: 'Error al buscar destinatarios' });
+  }
+});
+
+/**
+ * POST /api/docente/mensajes/subir-imagen
+ * Subir imagen desde el editor de texto enriquecido
+ */
+router.post('/mensajes/subir-imagen', uploadMensajes.single('imagen'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
+    }
+
+    const imagenUrl = `/uploads/mensajes/${req.file.filename}`;
+    res.json({ url: imagenUrl });
+  } catch (error) {
+    console.error('Error subiendo imagen:', error);
+    res.status(500).json({ error: 'Error al subir la imagen' });
+  }
+});
+
+/**
+ * POST /api/docente/mensajes/enviar
+ * Enviar mensaje (soporta múltiples destinatarios y grupos, archivos adjuntos y texto enriquecido)
+ */
+router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    const { destinatarios, grupos, asunto, mensaje } = req.body;
+
+    // Parsear destinatarios y grupos si vienen como string JSON
+    const destinatariosArray = typeof destinatarios === 'string' ? JSON.parse(destinatarios) : destinatarios;
+    const gruposArray = typeof grupos === 'string' ? JSON.parse(grupos) : grupos;
+
+    if ((!destinatariosArray || destinatariosArray.length === 0) && (!gruposArray || gruposArray.length === 0)) {
+      return res.status(400).json({ error: 'Debe seleccionar al menos un destinatario o grupo' });
+    }
+
+    if (!asunto || !mensaje) {
+      return res.status(400).json({ error: 'Asunto y mensaje son requeridos' });
+    }
+
+    // Obtener todos los usuarios destinatarios
+    const usuariosDestinatarios = [];
+
+    // Agregar destinatarios directos
+    if (destinatariosArray && destinatariosArray.length > 0) {
+      usuariosDestinatarios.push(...destinatariosArray);
+    }
+
+    // Si hay grupos, obtener todos los alumnos de esos grupos
+    let totalAlumnosGrupos = 0;
+    if (gruposArray && gruposArray.length > 0) {
+      const alumnosGrupos = await query(
+        `SELECT DISTINCT u.id as usuario_id
+         FROM grupos g
+         INNER JOIN matriculas m ON m.grupo_id = g.id AND m.estado = 0
+         INNER JOIN alumnos a ON a.id = m.alumno_id
+         INNER JOIN usuarios u ON u.alumno_id = a.id AND u.estado = 'ACTIVO'
+         WHERE g.id IN (${gruposArray.map(() => '?').join(',')})
+           AND g.colegio_id = ?`,
+        [...gruposArray, colegio_id]
+      );
+
+      totalAlumnosGrupos = alumnosGrupos.length;
+      alumnosGrupos.forEach(al => {
+        if (!usuariosDestinatarios.includes(al.usuario_id)) {
+          usuariosDestinatarios.push(al.usuario_id);
+        }
+      });
+    }
+
+    // Crear un mensaje para cada destinatario
+    const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    let mensajesInsertados = 0;
+    const mensajesIds = []; // Para asociar archivos
+
+    // Insertar mensajes en la base de datos
+    for (const destinatarioId of usuariosDestinatarios) {
+      try {
+        // Mensaje para el remitente (tipo ENVIADO)
+        const resultEnviado = await execute(
+          `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, mensaje, fecha_hora, estado, tipo, borrado, favorito)
+           VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'ENVIADO', 'NO', 'NO')`,
+          [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
+        );
+
+        // Mensaje para el destinatario (tipo RECIBIDO)
+        const resultRecibido = await execute(
+          `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, mensaje, fecha_hora, estado, tipo, borrado, favorito)
+           VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'RECIBIDO', 'NO', 'NO')`,
+          [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
+        );
+
+        mensajesIds.push(resultEnviado.insertId, resultRecibido.insertId);
+        mensajesInsertados += 2;
+      } catch (error) {
+        console.error(`Error insertando mensaje para destinatario ${destinatarioId}:`, error);
+        // Continuar con los demás destinatarios aunque uno falle
+      }
+    }
+
+    // Guardar archivos adjuntos si existen
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          // Insertar archivo para cada mensaje creado
+          for (const mensajeId of mensajesIds) {
+            await execute(
+              `INSERT INTO mensajes_archivos (mensaje_id, nombre_archivo, archivo)
+               VALUES (?, ?, ?)`,
+              [mensajeId, file.originalname, file.filename]
+            );
+          }
+        } catch (error) {
+          console.error(`Error guardando archivo ${file.originalname}:`, error);
+        }
+      }
+    }
+
+    // Registrar en auditoría (con formato correcto)
+    try {
+      let descripcionAuditoria = `Envió mensaje a ${usuariosDestinatarios.length} destinatario(s)`;
+      if (gruposArray && gruposArray.length > 0) {
+        descripcionAuditoria += ` (${gruposArray.length} grupo(s) con ${totalAlumnosGrupos} alumno(s))`;
+      }
+      if (destinatariosArray && destinatariosArray.length > 0) {
+        descripcionAuditoria += ` y ${destinatariosArray.length} destinatario(s) directo(s)`;
+      }
+      if (req.files && req.files.length > 0) {
+        descripcionAuditoria += ` con ${req.files.length} archivo(s) adjunto(s)`;
+      }
+      
+      await registrarAccion({
+        usuario_id: usuario_id,
+        colegio_id: colegio_id,
+        tipo_usuario: req.user.tipo || 'DOCENTE',
+        accion: 'ENVIAR_MENSAJE',
+        modulo: 'MENSAJES',
+        entidad: 'mensajes',
+        descripcion: descripcionAuditoria,
+        datos_nuevos: {
+          asunto: asunto,
+          total_destinatarios: usuariosDestinatarios.length,
+          grupos_seleccionados: gruposArray?.length || 0,
+          alumnos_en_grupos: totalAlumnosGrupos,
+          destinatarios_directos: destinatariosArray?.length || 0,
+          archivos_adjuntos: req.files?.length || 0
+        },
+        resultado: mensajesInsertados > 0 ? 'EXITOSO' : 'ERROR'
+      });
+    } catch (auditError) {
+      console.error('Error en auditoría (no crítico):', auditError);
+    }
+
+    if (mensajesInsertados === 0) {
+      return res.status(500).json({ error: 'No se pudieron insertar los mensajes' });
+    }
+
+    let mensajeRespuesta = `Mensaje enviado a ${usuariosDestinatarios.length} destinatario(s)`;
+    if (gruposArray && gruposArray.length > 0) {
+      mensajeRespuesta += ` (${gruposArray.length} grupo(s) con ${totalAlumnosGrupos} alumno(s))`;
+    }
+    if (destinatariosArray && destinatariosArray.length > 0) {
+      mensajeRespuesta += ` y ${destinatariosArray.length} destinatario(s) directo(s)`;
+    }
 
     res.json({
       success: true,
-      message: 'Mensaje enviado correctamente'
+      message: mensajeRespuesta,
+      destinatarios: usuariosDestinatarios.length,
+      grupos: gruposArray?.length || 0,
+      alumnosEnGrupos: totalAlumnosGrupos,
+      destinatariosDirectos: destinatariosArray?.length || 0,
+      mensajesInsertados: mensajesInsertados,
+      archivosAdjuntos: req.files ? req.files.length : 0
     });
   } catch (error) {
     console.error('Error enviando mensaje:', error);
