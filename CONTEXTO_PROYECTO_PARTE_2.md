@@ -179,6 +179,29 @@
 
 **Funcionalidades:**
 - ✅ Lista de cursos asignados
+- ✅ Vista de lista de alumnos por curso (en la misma página, no modal)
+- ✅ Grilla de alumnos con: Apellidos y Nombres, Estrellas (badge dorado), Incidencias (badge rojo)
+- ✅ Menú "Opciones" por alumno con submenú:
+  - 📋 Incidencias
+  - ⭐ Estrellas
+  - 📝 Notas Detalladas (pendiente)
+- ✅ Modal de Gestión de Estrellas:
+  - Formulario para dar estrellas (1-10, combobox)
+  - Campo descripción requerido
+  - Historial completo con: docente, cantidad, descripción, fecha
+  - Botón eliminar solo para estrellas del docente actual
+  - Total de estrellas destacado
+  - Diseño dorado/amarillo
+- ✅ Modal de Gestión de Incidencias:
+  - Formulario para registrar incidencias (solo descripción)
+  - Historial completo con: docente, curso, descripción, fecha
+  - Muestra TODAS las incidencias del alumno (sin filtrar por curso)
+  - Botón eliminar solo para incidencias del docente actual
+  - Total de incidencias destacado
+  - Diseño rojo/naranja
+- ✅ Botón "Volver" en header de lista de alumnos
+- ✅ Header con información del curso (nombre, grado, sección, nivel, turno)
+- ✅ Todo filtrado por año activo
 - ✅ Información del curso
 - ✅ Relación con grupos
 

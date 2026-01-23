@@ -1052,6 +1052,32 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 
 #### Cursos
 - `GET /cursos` - Cursos asignados
+- `GET /cursos/:cursoId/alumnos` - Lista de alumnos de un curso
+  - Incluye conteo de estrellas e incidencias del año activo
+  - Muestra: nombre completo, total de estrellas, total de incidencias
+- `GET /cursos/:cursoId/alumnos/:alumnoId/estrellas` - Historial de estrellas de un alumno
+  - Filtrado por año activo
+  - Incluye: docente, cantidad, descripción, fecha
+  - Indica si el docente actual puede eliminar cada registro
+- `POST /cursos/:cursoId/alumnos/:alumnoId/estrellas` - Dar estrellas a un alumno
+  - Body: `points` (1-10), `description`
+  - Valida que la matrícula pertenezca al año activo
+  - Registra en auditoría
+- `DELETE /cursos/:cursoId/alumnos/:alumnoId/estrellas/:incidentId` - Eliminar estrellas
+  - Solo el docente que dio las estrellas puede eliminarlas
+  - Valida que pertenezca al año activo
+- `GET /cursos/:cursoId/alumnos/:alumnoId/incidencias` - Historial de incidencias de un alumno
+  - Muestra TODAS las incidencias del alumno (sin filtrar por curso)
+  - Filtrado por año activo
+  - Incluye: docente, curso, descripción, fecha
+  - Indica si el docente actual puede eliminar cada registro
+- `POST /cursos/:cursoId/alumnos/:alumnoId/incidencias` - Registrar incidencia
+  - Body: `description`
+  - Valida que la matrícula pertenezca al año activo
+  - Registra en auditoría
+- `DELETE /cursos/:cursoId/alumnos/:alumnoId/incidencias/:incidentId` - Eliminar incidencia
+  - Solo el docente que registró la incidencia puede eliminarla
+  - Valida que pertenezca al año activo
 
 #### Horario
 - `GET /horario` - Horario semanal (tabla `grupos_horarios`)
