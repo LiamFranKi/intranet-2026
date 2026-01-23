@@ -589,6 +589,29 @@
 ---
 
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.2 - Parte 2  
+**Versión del Documento:** 1.0.3 - Parte 2  
 **Mantenido por:** Equipo de Desarrollo
+
+---
+
+## 📝 CAMBIOS RECIENTES (Enero 2026)
+
+### Módulo Cursos Asignados - Gestión de Estrellas e Incidencias
+
+**Implementado:**
+- ✅ Lista de alumnos por curso con conteo de estrellas e incidencias
+- ✅ Modal de gestión de estrellas (dar, ver historial, eliminar)
+- ✅ Modal de gestión de incidencias (registrar, ver historial, eliminar)
+- ✅ Endpoints backend para estrellas e incidencias (GET, POST, DELETE)
+- ✅ Filtrado por año activo en todas las consultas
+- ✅ Validación: solo el docente puede eliminar sus propias estrellas/incidencias
+- ✅ Los docentes pueden ver todas las incidencias del alumno (sin filtrar por curso)
+- ✅ Registro en auditoría de todas las acciones
+- ✅ Diseño consistente: estrellas (dorado), incidencias (rojo/naranja)
+
+**Estructura de Datos:**
+- Tabla `enrollment_incidents`:
+  - `type = 1`: Incidencias (points = 0)
+  - `type = 2`: Estrellas (points = 1-10)
+  - Ambos tipos comparten la misma tabla, diferenciados por `type`
 
