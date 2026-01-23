@@ -88,11 +88,34 @@ app.use('/assets', express.static(path.join(__dirname, 'public', 'assets'), {
 }));
 
 // Servir archivos subidos (fotos de personal, publicaciones, archivos, etc.)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res, path) => {
+// IMPORTANTE: La ruta debe coincidir con donde se guardan los archivos
+// Los archivos se guardan en backend/uploads/ pero el servidor está en backend/
+// Por lo tanto, la ruta correcta es backend/uploads/
+const uploadsPath = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  // Crear subdirectorios necesarios
+  fs.mkdirSync(path.join(uploadsPath, 'mensajes'), { recursive: true });
+  fs.mkdirSync(path.join(uploadsPath, 'personal'), { recursive: true });
+  fs.mkdirSync(path.join(uploadsPath, 'publicaciones'), { recursive: true });
+  fs.mkdirSync(path.join(uploadsPath, 'comunicados'), { recursive: true }); // Para comunicados del sistema nuevo
+}
+app.use('/uploads', express.static(uploadsPath, {
+  setHeaders: (res, filePath) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET');
     res.set('Cache-Control', 'public, max-age=86400'); // Cache por 1 día
+    // Asegurar que los archivos se sirvan correctamente
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.pdf') {
+      res.set('Content-Type', 'application/pdf');
+    } else if (ext === '.doc' || ext === '.docx') {
+      res.set('Content-Type', 'application/msword');
+    } else if (ext === '.xls' || ext === '.xlsx') {
+      res.set('Content-Type', 'application/vnd.ms-excel');
+    } else if (ext === '.ppt' || ext === '.pptx') {
+      res.set('Content-Type', 'application/vnd.ms-powerpoint');
+    }
   }
 }));
 

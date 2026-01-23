@@ -6,6 +6,7 @@ const fs = require('fs');
 const { query, execute, getAnioActivo } = require('../utils/mysql');
 const { authenticateToken, requireUserType } = require('../middleware/auth');
 const { registrarAccion } = require('../utils/auditoria');
+const { uploadToPHPServer } = require('../utils/ftpUpload');
 
 // Configurar multer para subir fotos de personal
 const personalStorage = multer.diskStorage({
@@ -316,7 +317,9 @@ router.get('/perfil', async (req, res) => {
       cargo: docente.cargo,
       profesion: docente.profesion,
       fecha_nacimiento: docente.fecha_nacimiento,
-      fecha_ingreso: docente.fecha_ingreso
+      fecha_ingreso: docente.fecha_ingreso,
+      hora_entrada: docente.hora_entrada,
+      hora_salida: docente.hora_salida
     });
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
@@ -366,18 +369,98 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
     // Por ahora retornamos éxito simulando la actualización
     await registrarAccion(usuario_id, colegio_id, 'ACTUALIZAR_PERFIL', 'Docente actualizó su perfil');
 
+    // Obtener el perfil completo actualizado para devolverlo
+    const personalActualizado = await query(
+      `SELECT p.*, u.tipo as tipo_usuario, u.usuario as dni
+       FROM personal p
+       INNER JOIN usuarios u ON u.personal_id = p.id
+       WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
+      [usuario_id, colegio_id]
+    );
+
+    const docenteActualizado = personalActualizado[0];
+
+    // Construir URL de foto
+    // Si se subió nueva foto, usar fotoPath, sino usar la foto existente del docente
+    const fotoParaUrl = req.file ? fotoPath : (docenteActualizado.foto || fotoPath);
+    let fotoUrl = null;
+    if (fotoParaUrl && fotoParaUrl !== '') {
+      const isProduction = process.env.NODE_ENV === 'production';
+      // Si ya es una ruta completa (empieza con /uploads/), construir URL completa
+      if (fotoParaUrl.startsWith('/uploads/')) {
+        if (isProduction) {
+          fotoUrl = `https://vanguardschools.edu.pe${fotoParaUrl}`;
+        } else {
+          fotoUrl = `http://localhost:5000${fotoParaUrl}`;
+        }
+      } else if (fotoParaUrl.startsWith('http')) {
+        // Si ya es una URL completa, usarla directamente
+        fotoUrl = fotoParaUrl;
+      } else {
+        // Es solo el nombre del archivo
+        if (isProduction) {
+          fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${fotoParaUrl}`;
+        } else {
+          fotoUrl = `http://localhost:5000/uploads/personal/${fotoParaUrl}`;
+        }
+      }
+    } else if (docenteActualizado.foto && docenteActualizado.foto !== '') {
+      // Si no hay fotoPath pero hay foto en la BD, construir URL desde la BD
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (docenteActualizado.foto.startsWith('/uploads/')) {
+        if (isProduction) {
+          fotoUrl = `https://vanguardschools.edu.pe${docenteActualizado.foto}`;
+        } else {
+          fotoUrl = `http://localhost:5000${docenteActualizado.foto}`;
+        }
+      } else if (docenteActualizado.foto.startsWith('http')) {
+        fotoUrl = docenteActualizado.foto;
+      } else {
+        if (isProduction) {
+          fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${docenteActualizado.foto}`;
+        } else {
+          fotoUrl = `http://localhost:5000/uploads/personal/${docenteActualizado.foto}`;
+        }
+      }
+    }
+
     res.json({
       success: true,
       message: 'Perfil actualizado correctamente',
       docente: {
-        id: docente.id,
-        nombres: nombres || docente.nombres,
-        apellidos: apellidos || docente.apellidos,
-        email: email || docente.email,
-        telefono_fijo: telefono_fijo || docente.telefono_fijo,
-        telefono_celular: telefono_celular || docente.telefono_celular,
-        direccion: direccion || docente.direccion,
-        foto: fotoPath
+        id: docenteActualizado.id,
+        nombres: nombres || docenteActualizado.nombres,
+        apellidos: apellidos || docenteActualizado.apellidos,
+        dni: docenteActualizado.dni,
+        email: email || docenteActualizado.email,
+        telefono_fijo: telefono_fijo || docenteActualizado.telefono_fijo,
+        telefono_celular: telefono_celular || docenteActualizado.telefono_celular,
+        direccion: direccion || docenteActualizado.direccion,
+        foto: fotoUrl,
+        cargo: docenteActualizado.cargo,
+        profesion: docenteActualizado.profesion,
+        fecha_nacimiento: docenteActualizado.fecha_nacimiento,
+        fecha_ingreso: docenteActualizado.fecha_ingreso,
+        hora_entrada: docenteActualizado.hora_entrada,
+        hora_salida: docenteActualizado.hora_salida
+      },
+      // También devolver el perfil completo para que el frontend pueda actualizar el estado
+      perfil: {
+        id: docenteActualizado.id,
+        nombres: nombres || docenteActualizado.nombres,
+        apellidos: apellidos || docenteActualizado.apellidos,
+        dni: docenteActualizado.dni,
+        email: email || docenteActualizado.email,
+        telefono_fijo: telefono_fijo || docenteActualizado.telefono_fijo,
+        telefono_celular: telefono_celular || docenteActualizado.telefono_celular,
+        direccion: direccion || docenteActualizado.direccion,
+        foto: fotoUrl,
+        cargo: docenteActualizado.cargo,
+        profesion: docenteActualizado.profesion,
+        fecha_nacimiento: docenteActualizado.fecha_nacimiento,
+        fecha_ingreso: docenteActualizado.fecha_ingreso,
+        hora_entrada: docenteActualizado.hora_entrada,
+        hora_salida: docenteActualizado.hora_salida
       }
     });
   } catch (error) {
@@ -800,6 +883,549 @@ router.get('/cursos', async (req, res) => {
 });
 
 /**
+ * GET /api/docente/cursos/:cursoId/alumnos
+ * Obtener lista de alumnos de un curso (asignatura) con conteo de estrellas
+ */
+router.get('/cursos/:cursoId/alumnos', async (req, res) => {
+  try {
+    const { cursoId } = req.params;
+    const { colegio_id, anio_activo } = req.user;
+
+    // Validar parámetros
+    if (!cursoId) {
+      return res.status(400).json({ error: 'ID de curso es requerido' });
+    }
+
+    // Obtener personal_id del token
+    const personalId = req.user.personal_id;
+    
+    if (!personalId) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Verificar que el docente tiene acceso a este curso (asignatura)
+    const asignatura = await query(
+      `SELECT a.*, g.id as grupo_id, g.grado, g.seccion, g.anio,
+              n.nombre as nivel_nombre, t.nombre as turno_nombre,
+              c.nombre as curso_nombre
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN turnos t ON t.id = g.turno_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personalId, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    const cursoInfo = asignatura[0];
+
+    // Obtener alumnos del grupo con conteo de estrellas e incidencias
+    // IMPORTANTE: Las estrellas e incidencias se calculan solo del año activo
+    // Las estrellas se calculan sumando los puntos de enrollment_incidents (type = 2)
+    // Las incidencias se cuentan de enrollment_incidents (type = 1)
+    // Todo relacionado con las matrículas del alumno y del año activo
+    const alumnos = await query(
+      `SELECT a.id, 
+              a.nombres,
+              a.apellido_paterno,
+              a.apellido_materno,
+              CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
+              m.id as matricula_id,
+              COALESCE(SUM(CASE WHEN ei_estrellas.type = 2 AND g_estrellas.anio = ? THEN ei_estrellas.points ELSE 0 END), 0) as total_estrellas,
+              COUNT(DISTINCT CASE WHEN ei_incidencias.type = 1 AND g_incidencias.anio = ? THEN ei_incidencias.id END) as total_incidencias
+       FROM alumnos a
+       INNER JOIN matriculas m ON m.alumno_id = a.id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       LEFT JOIN enrollment_incidents ei_estrellas ON ei_estrellas.enrollment_id = m.id AND ei_estrellas.type = 2
+       LEFT JOIN matriculas m_estrellas ON m_estrellas.id = ei_estrellas.enrollment_id
+       LEFT JOIN grupos g_estrellas ON g_estrellas.id = m_estrellas.grupo_id
+       LEFT JOIN enrollment_incidents ei_incidencias ON ei_incidencias.enrollment_id = m.id AND ei_incidencias.type = 1
+       LEFT JOIN matriculas m_incidencias ON m_incidencias.id = ei_incidencias.enrollment_id
+       LEFT JOIN grupos g_incidencias ON g_incidencias.id = m_incidencias.grupo_id
+       WHERE m.grupo_id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?
+       GROUP BY a.id, a.nombres, a.apellido_paterno, a.apellido_materno, m.id
+       ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres`,
+      [anio_activo, anio_activo, cursoInfo.grupo_id, colegio_id, anio_activo]
+    );
+
+    res.json({ 
+      alumnos: alumnos || [],
+      curso: {
+        id: cursoInfo.id,
+        curso_nombre: cursoInfo.curso_nombre,
+        grado: cursoInfo.grado,
+        seccion: cursoInfo.seccion,
+        nivel_nombre: cursoInfo.nivel_nombre,
+        turno_nombre: cursoInfo.turno_nombre,
+        grupo_id: cursoInfo.grupo_id
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo alumnos del curso:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Error al obtener lista de alumnos del curso' });
+  }
+});
+
+/**
+ * GET /api/docente/cursos/:cursoId/alumnos/:alumnoId/estrellas
+ * Obtener historial de estrellas de un alumno
+ */
+router.get('/cursos/:cursoId/alumnos/:alumnoId/estrellas', async (req, res) => {
+  try {
+    const { cursoId, alumnoId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Verificar acceso al curso
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    // Obtener matrícula del alumno en el grupo del curso
+    // IMPORTANTE: Verificar que la matrícula pertenezca al año activo
+    const matricula = await query(
+      `SELECT m.id FROM matriculas m
+       INNER JOIN asignaturas a ON a.grupo_id = m.grupo_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? 
+         AND a.id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?`,
+      [alumnoId, cursoId, colegio_id, anio_activo]
+    );
+
+    if (!matricula || matricula.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado en este curso para el año activo' });
+    }
+
+    const matriculaId = matricula[0].id;
+
+    // Obtener historial de estrellas (type = 2 según el sistema anterior)
+    // IMPORTANTE: Filtrar solo estrellas del año activo
+    // Incluir información del docente que dio las estrellas
+    const estrellas = await query(
+      `SELECT ei.id, ei.points, ei.description, ei.created_at, ei.worker_id,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
+              CASE WHEN ei.worker_id = ? THEN 1 ELSE 0 END as puede_eliminar
+       FROM enrollment_incidents ei
+       INNER JOIN matriculas m ON m.id = ei.enrollment_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       LEFT JOIN personal p ON p.id = ei.worker_id
+       WHERE ei.enrollment_id = ? 
+         AND ei.assignment_id = ? 
+         AND ei.type = 2
+         AND g.anio = ?
+       ORDER BY ei.created_at DESC`,
+      [personal_id, matriculaId, cursoId, anio_activo]
+    );
+
+    // Calcular total de estrellas
+    const totalEstrellas = estrellas.reduce((sum, e) => sum + (e.points || 0), 0);
+
+    res.json({
+      estrellas: estrellas || [],
+      total_estrellas: totalEstrellas,
+      matricula_id: matriculaId
+    });
+  } catch (error) {
+    console.error('Error obteniendo estrellas:', error);
+    res.status(500).json({ error: 'Error al obtener historial de estrellas' });
+  }
+});
+
+/**
+ * POST /api/docente/cursos/:cursoId/alumnos/:alumnoId/estrellas
+ * Dar estrellas a un alumno
+ */
+router.post('/cursos/:cursoId/alumnos/:alumnoId/estrellas', async (req, res) => {
+  try {
+    const { cursoId, alumnoId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+    const { points, description } = req.body;
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Validar datos
+    if (!points || points <= 0) {
+      return res.status(400).json({ error: 'La cantidad de estrellas debe ser mayor a 0' });
+    }
+
+    if (!description || description.trim() === '') {
+      return res.status(400).json({ error: 'La descripción es requerida' });
+    }
+
+    // Verificar acceso al curso
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    // Obtener matrícula del alumno
+    // IMPORTANTE: Verificar que la matrícula pertenezca al año activo
+    const matricula = await query(
+      `SELECT m.id FROM matriculas m
+       INNER JOIN asignaturas a ON a.grupo_id = m.grupo_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? 
+         AND a.id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?`,
+      [alumnoId, cursoId, colegio_id, anio_activo]
+    );
+
+    if (!matricula || matricula.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado en este curso para el año activo' });
+    }
+
+    const matriculaId = matricula[0].id;
+
+    // Crear registro de estrellas
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const result = await execute(
+      `INSERT INTO enrollment_incidents 
+       (enrollment_id, assignment_id, worker_id, type, points, description, created_at, updated_at)
+       VALUES (?, ?, ?, 2, ?, ?, ?, ?)`,
+      [matriculaId, cursoId, personal_id, points, description.trim(), now, now]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id: req.user.usuario_id,
+      colegio_id: colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'ESTRELLAS',
+      entidad: 'enrollment_incidents',
+      entidad_id: result.insertId,
+      descripcion: `Dio ${points} estrella(s) al alumno ID ${alumnoId} en el curso ID ${cursoId}`,
+      url: req.originalUrl
+    });
+
+    res.json({
+      success: true,
+      message: `${points} estrella(s) asignada(s) correctamente`,
+      incident_id: result.insertId
+    });
+  } catch (error) {
+    console.error('Error dando estrellas:', error);
+    res.status(500).json({ error: 'Error al asignar estrellas' });
+  }
+});
+
+/**
+ * DELETE /api/docente/cursos/:cursoId/alumnos/:alumnoId/estrellas/:incidentId
+ * Eliminar estrellas (solo las que el docente actual dio)
+ */
+router.delete('/cursos/:cursoId/alumnos/:alumnoId/estrellas/:incidentId', async (req, res) => {
+  try {
+    const { cursoId, alumnoId, incidentId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Verificar que el incidente existe y pertenece al docente actual
+    // IMPORTANTE: Verificar que pertenezca al año activo
+    const incidente = await query(
+      `SELECT ei.* FROM enrollment_incidents ei
+       INNER JOIN matriculas m ON m.id = ei.enrollment_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE ei.id = ? 
+         AND ei.worker_id = ? 
+         AND ei.type = 2
+         AND g.anio = ?`,
+      [incidentId, personal_id, anio_activo]
+    );
+
+    if (!incidente || incidente.length === 0) {
+      return res.status(403).json({ 
+        error: 'No puedes eliminar estas estrellas. Solo puedes eliminar las que tú mismo diste del año activo.' 
+      });
+    }
+
+    // Eliminar el incidente
+    await execute(
+      `DELETE FROM enrollment_incidents WHERE id = ?`,
+      [incidentId]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id: req.user.usuario_id,
+      colegio_id: colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'ESTRELLAS',
+      entidad: 'enrollment_incidents',
+      entidad_id: incidentId,
+      descripcion: `Eliminó ${incidente[0].points} estrella(s) del alumno ID ${alumnoId}`,
+      url: req.originalUrl
+    });
+
+    res.json({
+      success: true,
+      message: 'Estrellas eliminadas correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando estrellas:', error);
+    res.status(500).json({ error: 'Error al eliminar estrellas' });
+  }
+});
+
+/**
+ * GET /api/docente/cursos/:cursoId/alumnos/:alumnoId/incidencias
+ * Obtener historial de incidencias de un alumno
+ */
+router.get('/cursos/:cursoId/alumnos/:alumnoId/incidencias', async (req, res) => {
+  try {
+    const { cursoId, alumnoId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Verificar acceso al curso
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    // Obtener matrícula del alumno en el grupo del curso
+    // IMPORTANTE: Verificar que la matrícula pertenezca al año activo
+    const matricula = await query(
+      `SELECT m.id FROM matriculas m
+       INNER JOIN asignaturas a ON a.grupo_id = m.grupo_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? 
+         AND a.id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?`,
+      [alumnoId, cursoId, colegio_id, anio_activo]
+    );
+
+    if (!matricula || matricula.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado en este curso para el año activo' });
+    }
+
+    const matriculaId = matricula[0].id;
+
+    // Obtener historial de incidencias (type = 1 según el sistema anterior)
+    // IMPORTANTE: 
+    // - Filtrar solo incidencias del año activo
+    // - Mostrar TODAS las incidencias del alumno sin filtrar por curso (assignment_id)
+    // - Incluir información del docente que registró la incidencia y el curso donde se registró
+    const incidencias = await query(
+      `SELECT ei.id, ei.description, ei.created_at, ei.worker_id, ei.assignment_id,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
+              c.nombre as curso_nombre,
+              CASE WHEN ei.worker_id = ? THEN 1 ELSE 0 END as puede_eliminar
+       FROM enrollment_incidents ei
+       INNER JOIN matriculas m ON m.id = ei.enrollment_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       LEFT JOIN personal p ON p.id = ei.worker_id
+       LEFT JOIN asignaturas a ON a.id = ei.assignment_id
+       LEFT JOIN cursos c ON c.id = a.curso_id
+       WHERE ei.enrollment_id = ? 
+         AND ei.type = 1
+         AND g.anio = ?
+       ORDER BY ei.created_at DESC`,
+      [personal_id, matriculaId, anio_activo]
+    );
+
+    res.json({
+      incidencias: incidencias || [],
+      total_incidencias: incidencias.length,
+      matricula_id: matriculaId
+    });
+  } catch (error) {
+    console.error('Error obteniendo incidencias:', error);
+    res.status(500).json({ error: 'Error al obtener historial de incidencias' });
+  }
+});
+
+/**
+ * POST /api/docente/cursos/:cursoId/alumnos/:alumnoId/incidencias
+ * Registrar una incidencia para un alumno
+ */
+router.post('/cursos/:cursoId/alumnos/:alumnoId/incidencias', async (req, res) => {
+  try {
+    const { cursoId, alumnoId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+    const { description } = req.body;
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Validar datos
+    if (!description || description.trim() === '') {
+      return res.status(400).json({ error: 'La descripción es requerida' });
+    }
+
+    // Verificar acceso al curso
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    // Obtener matrícula del alumno
+    // IMPORTANTE: Verificar que la matrícula pertenezca al año activo
+    const matricula = await query(
+      `SELECT m.id FROM matriculas m
+       INNER JOIN asignaturas a ON a.grupo_id = m.grupo_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? 
+         AND a.id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?`,
+      [alumnoId, cursoId, colegio_id, anio_activo]
+    );
+
+    if (!matricula || matricula.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado en este curso para el año activo' });
+    }
+
+    const matriculaId = matricula[0].id;
+
+    // Crear registro de incidencia (type = 1, points = 0)
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const result = await execute(
+      `INSERT INTO enrollment_incidents 
+       (enrollment_id, assignment_id, worker_id, type, points, description, created_at, updated_at)
+       VALUES (?, ?, ?, 1, 0, ?, ?, ?)`,
+      [matriculaId, cursoId, personal_id, description.trim(), now, now]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id: req.user.usuario_id,
+      colegio_id: colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'INCIDENCIAS',
+      entidad: 'enrollment_incidents',
+      entidad_id: result.insertId,
+      descripcion: `Registró una incidencia para el alumno ID ${alumnoId} en el curso ID ${cursoId}`,
+      url: req.originalUrl
+    });
+
+    res.json({
+      success: true,
+      message: 'Incidencia registrada correctamente',
+      incident_id: result.insertId
+    });
+  } catch (error) {
+    console.error('Error registrando incidencia:', error);
+    res.status(500).json({ error: 'Error al registrar la incidencia' });
+  }
+});
+
+/**
+ * DELETE /api/docente/cursos/:cursoId/alumnos/:alumnoId/incidencias/:incidentId
+ * Eliminar incidencia (solo las que el docente actual registró)
+ */
+router.delete('/cursos/:cursoId/alumnos/:alumnoId/incidencias/:incidentId', async (req, res) => {
+  try {
+    const { cursoId, alumnoId, incidentId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    // Verificar que el incidente existe y pertenece al docente actual
+    // IMPORTANTE: Verificar que pertenezca al año activo
+    const incidente = await query(
+      `SELECT ei.* FROM enrollment_incidents ei
+       INNER JOIN matriculas m ON m.id = ei.enrollment_id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE ei.id = ? 
+         AND ei.worker_id = ? 
+         AND ei.type = 1
+         AND g.anio = ?`,
+      [incidentId, personal_id, anio_activo]
+    );
+
+    if (!incidente || incidente.length === 0) {
+      return res.status(403).json({ 
+        error: 'No puedes eliminar esta incidencia. Solo puedes eliminar las que tú mismo registraste del año activo.' 
+      });
+    }
+
+    // Eliminar el incidente
+    await execute(
+      `DELETE FROM enrollment_incidents WHERE id = ?`,
+      [incidentId]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id: req.user.usuario_id,
+      colegio_id: colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'INCIDENCIAS',
+      entidad: 'enrollment_incidents',
+      entidad_id: incidentId,
+      descripcion: `Eliminó una incidencia del alumno ID ${alumnoId}`,
+      url: req.originalUrl
+    });
+
+    res.json({
+      success: true,
+      message: 'Incidencia eliminada correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando incidencia:', error);
+    res.status(500).json({ error: 'Error al eliminar la incidencia' });
+  }
+});
+
+/**
  * GET /api/docente/horario
  * Obtener horario del docente
  */
@@ -956,8 +1582,8 @@ router.get('/comunicados', async (req, res) => {
     // Construir query base
     let querySql = `
       SELECT c.*
-      FROM comunicados c
-      WHERE c.colegio_id = ? AND c.estado = 'ACTIVO'
+       FROM comunicados c
+       WHERE c.colegio_id = ? AND c.estado = 'ACTIVO'
     `;
     const params = [colegio_id];
 
@@ -980,42 +1606,71 @@ router.get('/comunicados', async (req, res) => {
     const comunicados = await query(querySql, params);
 
     // Construir URLs de archivos
-    // Los archivos de comunicados están en el servidor PHP: /Static/Archivos/
-    // En desarrollo y producción usamos la URL del servidor PHP donde están los archivos
+    // IMPORTANTE: Los comunicados pueden venir de dos sistemas:
+    // 1. Sistema PHP anterior: archivos en /Static/Archivos/
+    // 2. Sistema nuevo (React/Node.js): archivos en /uploads/comunicados/
+    // El backend detecta automáticamente el origen y construye la URL correcta
     const comunicadosConUrls = (comunicados || []).map(com => {
       let archivoUrl = null;
       if (com.archivo && com.archivo.trim() !== '') {
         let nombreArchivo = com.archivo.trim();
+        const isProduction = process.env.NODE_ENV === 'production';
         
-        // Usar el subdominio correcto: nuevo.vanguardschools.edu.pe
-        const dominioBase = 'https://nuevo.vanguardschools.edu.pe';
+        // DETECTAR ORIGEN DEL ARCHIVO:
+        // Si empieza con /uploads/comunicados/ → Es del sistema nuevo (React/Node.js)
+        const esSistemaNuevo = nombreArchivo.startsWith('/uploads/comunicados/') || 
+                               nombreArchivo.startsWith('uploads/comunicados/');
         
-        // Si ya es una URL completa, validar y corregir si es necesario
-        if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
-          // Corregir errores comunes en URLs existentes
-          archivoUrl = nombreArchivo
-            .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, dominioBase)
-            .replace(/vanguardschools\.comstatic/gi, `${dominioBase}/Static`)
-            .replace(/vanguardschools\.com\/static/gi, `${dominioBase}/Static`)
-            .replace(/vanguardschools\.com\/Static/gi, `${dominioBase}/Static`)
-            .replace(/([^:]\/)\/+/g, '$1'); // Limpiar múltiples barras
+        if (esSistemaNuevo) {
+          // SISTEMA NUEVO: Archivo en /uploads/comunicados/
+          // Construir URL desde el servidor Node.js
+          if (nombreArchivo.startsWith('/uploads/')) {
+            // Ya tiene la ruta completa relativa
+            if (isProduction) {
+              // En producción, usar el mismo dominio del backend
+              archivoUrl = `https://nuevo.vanguardschools.edu.pe${nombreArchivo}`;
+            } else {
+              // En desarrollo, usar localhost:5000
+              archivoUrl = `http://localhost:5000${nombreArchivo}`;
+            }
+          } else {
+            // Agregar la barra inicial si falta
+            archivoUrl = isProduction
+              ? `https://nuevo.vanguardschools.edu.pe/${nombreArchivo}`
+              : `http://localhost:5000/${nombreArchivo}`;
+          }
+          console.log(`📄 Comunicado ID ${com.id} (SISTEMA NUEVO): ${com.archivo} -> ${archivoUrl}`);
+        } else {
+          // SISTEMA ANTERIOR (PHP): Archivo en /Static/Archivos/
+          // Usar el subdominio correcto: nuevo.vanguardschools.edu.pe
+          const dominioBase = 'https://nuevo.vanguardschools.edu.pe';
+          
+          // Si ya es una URL completa, validar y corregir si es necesario
+          if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
+            // Corregir errores comunes en URLs existentes
+            archivoUrl = nombreArchivo
+              .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, dominioBase)
+              .replace(/vanguardschools\.comstatic/gi, `${dominioBase}/Static`)
+              .replace(/vanguardschools\.com\/static/gi, `${dominioBase}/Static`)
+              .replace(/vanguardschools\.com\/Static/gi, `${dominioBase}/Static`)
+              .replace(/([^:]\/)\/+/g, '$1'); // Limpiar múltiples barras
+          }
+          // Si empieza con /Static/, construir URL completa
+          else if (nombreArchivo.startsWith('/Static/')) {
+            archivoUrl = `${dominioBase}${nombreArchivo}`;
+          }
+          // Si empieza con Static/ (sin barra inicial), agregar la barra
+          else if (nombreArchivo.startsWith('Static/')) {
+            archivoUrl = `${dominioBase}/${nombreArchivo}`;
+          }
+          // Si es solo el nombre del archivo, construir ruta completa
+          else {
+            // Limpiar barras iniciales y construir URL correcta
+            nombreArchivo = nombreArchivo.replace(/^\/+/, '');
+            archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
+          }
+          console.log(`📄 Comunicado ID ${com.id} (SISTEMA ANTERIOR): ${com.archivo} -> ${archivoUrl}`);
         }
-        // Si empieza con /Static/, construir URL completa
-        else if (nombreArchivo.startsWith('/Static/')) {
-          archivoUrl = `${dominioBase}${nombreArchivo}`;
-        }
-        // Si empieza con Static/ (sin barra inicial), agregar la barra
-        else if (nombreArchivo.startsWith('Static/')) {
-          archivoUrl = `${dominioBase}/${nombreArchivo}`;
-        }
-        // Si es solo el nombre del archivo, construir ruta completa
-        else {
-          // Limpiar barras iniciales y construir URL correcta
-          nombreArchivo = nombreArchivo.replace(/^\/+/, '');
-          archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
-        }
-        
-        console.log(`📄 Comunicado ID ${com.id}: ${com.archivo} -> ${archivoUrl}`);
       }
 
       return {
@@ -1092,7 +1747,7 @@ router.get('/mensajes/recibidos', async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const mensajes = await query(
-      `SELECT m.*,
+      `SELECT m.*, 
               CONCAT(
                 COALESCE(p.nombres, a.nombres, ap.nombres, ''), ' ',
                 COALESCE(
@@ -1126,7 +1781,17 @@ router.get('/mensajes/recibidos', async (req, res) => {
          WHERE mensaje_id = ?`,
         [mensaje.id]
       );
-      mensaje.archivos = archivos || [];
+      // Construir URLs completas para los archivos
+      // IMPORTANTE: Los archivos se guardan en backend/uploads/mensajes/ y se sirven desde el servidor Node.js
+      // Igual que en Publicaciones, usar /uploads/mensajes/ para que el servidor Node.js los sirva
+      mensaje.archivos = (archivos || []).map(archivo => {
+        // Construir ruta relativa como en Publicaciones: /uploads/mensajes/filename
+        const rutaArchivo = `/uploads/mensajes/${archivo.archivo}`;
+        return {
+          ...archivo,
+          archivo_url: rutaArchivo // Ruta relativa, el frontend construirá la URL completa
+        };
+      });
     }
 
     const total = await query(
@@ -1199,7 +1864,17 @@ router.get('/mensajes/enviados', async (req, res) => {
          WHERE mensaje_id = ?`,
         [mensaje.id]
       );
-      mensaje.archivos = archivos || [];
+      // Construir URLs completas para los archivos
+      // IMPORTANTE: Los archivos se guardan en backend/uploads/mensajes/ y se sirven desde el servidor Node.js
+      // Igual que en Publicaciones, usar /uploads/mensajes/ para que el servidor Node.js los sirva
+      mensaje.archivos = (archivos || []).map(archivo => {
+        // Construir ruta relativa como en Publicaciones: /uploads/mensajes/filename
+        const rutaArchivo = `/uploads/mensajes/${archivo.archivo}`;
+        return {
+          ...archivo,
+          archivo_url: rutaArchivo // Ruta relativa, el frontend construirá la URL completa
+        };
+      });
     }
 
     const total = await query(
@@ -1416,140 +2091,151 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
       return res.status(400).json({ error: 'Asunto y mensaje son requeridos' });
     }
 
-    // Obtener todos los usuarios destinatarios
-    const usuariosDestinatarios = [];
-
-    // Agregar destinatarios directos
-    if (destinatariosArray && destinatariosArray.length > 0) {
-      usuariosDestinatarios.push(...destinatariosArray);
-    }
-
-    // Si hay grupos, obtener todos los alumnos de esos grupos
-    let totalAlumnosGrupos = 0;
-    if (gruposArray && gruposArray.length > 0) {
-      const alumnosGrupos = await query(
-        `SELECT DISTINCT u.id as usuario_id
-         FROM grupos g
-         INNER JOIN matriculas m ON m.grupo_id = g.id AND m.estado = 0
-         INNER JOIN alumnos a ON a.id = m.alumno_id
-         INNER JOIN usuarios u ON u.alumno_id = a.id AND u.estado = 'ACTIVO'
-         WHERE g.id IN (${gruposArray.map(() => '?').join(',')})
-           AND g.colegio_id = ?`,
-        [...gruposArray, colegio_id]
-      );
-
-      totalAlumnosGrupos = alumnosGrupos.length;
-      alumnosGrupos.forEach(al => {
-        if (!usuariosDestinatarios.includes(al.usuario_id)) {
-          usuariosDestinatarios.push(al.usuario_id);
-        }
-      });
-    }
-
-    // Crear un mensaje para cada destinatario
-    const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    let mensajesInsertados = 0;
-    const mensajesIds = []; // Para asociar archivos
-
-    // Insertar mensajes en la base de datos
-    for (const destinatarioId of usuariosDestinatarios) {
-      try {
-        // Mensaje para el remitente (tipo ENVIADO)
-        const resultEnviado = await execute(
-          `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, mensaje, fecha_hora, estado, tipo, borrado, favorito)
-           VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'ENVIADO', 'NO', 'NO')`,
-          [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
-        );
-
-        // Mensaje para el destinatario (tipo RECIBIDO)
-        const resultRecibido = await execute(
-          `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, mensaje, fecha_hora, estado, tipo, borrado, favorito)
-           VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'RECIBIDO', 'NO', 'NO')`,
-          [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
-        );
-
-        mensajesIds.push(resultEnviado.insertId, resultRecibido.insertId);
-        mensajesInsertados += 2;
-      } catch (error) {
-        console.error(`Error insertando mensaje para destinatario ${destinatarioId}:`, error);
-        // Continuar con los demás destinatarios aunque uno falle
-      }
-    }
-
-    // Guardar archivos adjuntos si existen
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        try {
-          // Insertar archivo para cada mensaje creado
-          for (const mensajeId of mensajesIds) {
-            await execute(
-              `INSERT INTO mensajes_archivos (mensaje_id, nombre_archivo, archivo)
-               VALUES (?, ?, ?)`,
-              [mensajeId, file.originalname, file.filename]
-            );
-          }
-        } catch (error) {
-          console.error(`Error guardando archivo ${file.originalname}:`, error);
-        }
-      }
-    }
-
-    // Registrar en auditoría (con formato correcto)
-    try {
-      let descripcionAuditoria = `Envió mensaje a ${usuariosDestinatarios.length} destinatario(s)`;
-      if (gruposArray && gruposArray.length > 0) {
-        descripcionAuditoria += ` (${gruposArray.length} grupo(s) con ${totalAlumnosGrupos} alumno(s))`;
-      }
-      if (destinatariosArray && destinatariosArray.length > 0) {
-        descripcionAuditoria += ` y ${destinatariosArray.length} destinatario(s) directo(s)`;
-      }
-      if (req.files && req.files.length > 0) {
-        descripcionAuditoria += ` con ${req.files.length} archivo(s) adjunto(s)`;
-      }
-      
-      await registrarAccion({
-        usuario_id: usuario_id,
-        colegio_id: colegio_id,
-        tipo_usuario: req.user.tipo || 'DOCENTE',
-        accion: 'ENVIAR_MENSAJE',
-        modulo: 'MENSAJES',
-        entidad: 'mensajes',
-        descripcion: descripcionAuditoria,
-        datos_nuevos: {
-          asunto: asunto,
-          total_destinatarios: usuariosDestinatarios.length,
-          grupos_seleccionados: gruposArray?.length || 0,
-          alumnos_en_grupos: totalAlumnosGrupos,
-          destinatarios_directos: destinatariosArray?.length || 0,
-          archivos_adjuntos: req.files?.length || 0
-        },
-        resultado: mensajesInsertados > 0 ? 'EXITOSO' : 'ERROR'
-      });
-    } catch (auditError) {
-      console.error('Error en auditoría (no crítico):', auditError);
-    }
-
-    if (mensajesInsertados === 0) {
-      return res.status(500).json({ error: 'No se pudieron insertar los mensajes' });
-    }
-
-    let mensajeRespuesta = `Mensaje enviado a ${usuariosDestinatarios.length} destinatario(s)`;
-    if (gruposArray && gruposArray.length > 0) {
-      mensajeRespuesta += ` (${gruposArray.length} grupo(s) con ${totalAlumnosGrupos} alumno(s))`;
-    }
-    if (destinatariosArray && destinatariosArray.length > 0) {
-      mensajeRespuesta += ` y ${destinatariosArray.length} destinatario(s) directo(s)`;
-    }
-
+    // Responder inmediatamente al cliente
     res.json({
       success: true,
-      message: mensajeRespuesta,
-      destinatarios: usuariosDestinatarios.length,
-      grupos: gruposArray?.length || 0,
-      alumnosEnGrupos: totalAlumnosGrupos,
-      destinatariosDirectos: destinatariosArray?.length || 0,
-      mensajesInsertados: mensajesInsertados,
-      archivosAdjuntos: req.files ? req.files.length : 0
+      message: 'Mensaje Enviado',
+      procesando: false
+    });
+
+    // Continuar el procesamiento en segundo plano
+    setImmediate(async () => {
+      try {
+        // Obtener todos los usuarios destinatarios
+        const usuariosDestinatarios = [];
+
+        // Agregar destinatarios directos
+        if (destinatariosArray && destinatariosArray.length > 0) {
+          usuariosDestinatarios.push(...destinatariosArray);
+        }
+
+        // Si hay grupos, obtener todos los alumnos de esos grupos
+        let totalAlumnosGrupos = 0;
+        if (gruposArray && gruposArray.length > 0) {
+          const alumnosGrupos = await query(
+            `SELECT DISTINCT u.id as usuario_id
+             FROM grupos g
+             INNER JOIN matriculas m ON m.grupo_id = g.id AND m.estado = 0
+             INNER JOIN alumnos a ON a.id = m.alumno_id
+             INNER JOIN usuarios u ON u.alumno_id = a.id AND u.estado = 'ACTIVO'
+             WHERE g.id IN (${gruposArray.map(() => '?').join(',')})
+               AND g.colegio_id = ?`,
+            [...gruposArray, colegio_id]
+          );
+
+          totalAlumnosGrupos = alumnosGrupos.length;
+          alumnosGrupos.forEach(al => {
+            if (!usuariosDestinatarios.includes(al.usuario_id)) {
+              usuariosDestinatarios.push(al.usuario_id);
+            }
+          });
+        }
+
+        // Crear un mensaje para cada destinatario
+        const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        let mensajesInsertados = 0;
+        const mensajesIds = []; // Para asociar archivos
+
+        // Insertar mensajes en la base de datos
+        for (const destinatarioId of usuariosDestinatarios) {
+          try {
+            // Mensaje para el remitente (tipo ENVIADO)
+            const resultEnviado = await execute(
+              `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, mensaje, fecha_hora, estado, tipo, borrado, favorito)
+               VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'ENVIADO', 'NO', 'NO')`,
+              [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
+            );
+
+            // Mensaje para el destinatario (tipo RECIBIDO)
+            const resultRecibido = await execute(
+              `INSERT INTO mensajes (remitente_id, destinatario_id, asunto, mensaje, fecha_hora, estado, tipo, borrado, favorito)
+               VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'RECIBIDO', 'NO', 'NO')`,
+              [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
+            );
+
+            mensajesIds.push(resultEnviado.insertId, resultRecibido.insertId);
+            mensajesInsertados += 2;
+          } catch (error) {
+            console.error(`Error insertando mensaje para destinatario ${destinatarioId}:`, error);
+            // Continuar con los demás destinatarios aunque uno falle
+          }
+        }
+
+        // Guardar archivos adjuntos si existen
+        // IMPORTANTE: Los archivos se guardan localmente en backend/uploads/mensajes/
+        // y se sirven desde el servidor Node.js, igual que en Publicaciones
+        // NO se suben al servidor PHP porque el servidor Node.js los sirve directamente
+        if (req.files && req.files.length > 0) {
+          for (const file of req.files) {
+            try {
+              // Insertar archivo para cada mensaje creado
+              // El archivo ya está guardado en backend/uploads/mensajes/ por multer
+              for (const mensajeId of mensajesIds) {
+                await execute(
+                  `INSERT INTO mensajes_archivos (mensaje_id, nombre_archivo, archivo)
+                   VALUES (?, ?, ?)`,
+                  [mensajeId, file.originalname, file.filename]
+                );
+              }
+            } catch (error) {
+              console.error(`Error guardando archivo ${file.originalname}:`, error);
+              // Continuar con los demás archivos aunque uno falle
+            }
+          }
+        }
+
+        // Registrar en auditoría (con formato correcto)
+        try {
+          let descripcionAuditoria = `Envió mensaje a ${usuariosDestinatarios.length} destinatario(s)`;
+          if (gruposArray && gruposArray.length > 0) {
+            descripcionAuditoria += ` (${gruposArray.length} grupo(s) con ${totalAlumnosGrupos} alumno(s))`;
+          }
+          if (destinatariosArray && destinatariosArray.length > 0) {
+            descripcionAuditoria += ` y ${destinatariosArray.length} destinatario(s) directo(s)`;
+          }
+          if (req.files && req.files.length > 0) {
+            descripcionAuditoria += ` con ${req.files.length} archivo(s) adjunto(s)`;
+          }
+          
+          await registrarAccion({
+            usuario_id: usuario_id,
+            colegio_id: colegio_id,
+            tipo_usuario: req.user.tipo || 'DOCENTE',
+            accion: 'ENVIAR_MENSAJE',
+            modulo: 'MENSAJES',
+            entidad: 'mensajes',
+            descripcion: descripcionAuditoria,
+            datos_nuevos: {
+              asunto: asunto,
+              total_destinatarios: usuariosDestinatarios.length,
+              grupos_seleccionados: gruposArray?.length || 0,
+              alumnos_en_grupos: totalAlumnosGrupos,
+              destinatarios_directos: destinatariosArray?.length || 0,
+              archivos_adjuntos: req.files?.length || 0
+            },
+            resultado: mensajesInsertados > 0 ? 'EXITOSO' : 'ERROR'
+          });
+        } catch (auditError) {
+          console.error('Error en auditoría (no crítico):', auditError);
+        }
+
+        if (mensajesInsertados === 0) {
+          console.error('No se pudieron insertar los mensajes');
+          return;
+        }
+
+        let mensajeRespuesta = `Mensaje enviado a ${usuariosDestinatarios.length} destinatario(s)`;
+        if (gruposArray && gruposArray.length > 0) {
+          mensajeRespuesta += ` (${gruposArray.length} grupo(s) con ${totalAlumnosGrupos} alumno(s))`;
+        }
+        if (destinatariosArray && destinatariosArray.length > 0) {
+          mensajeRespuesta += ` y ${destinatariosArray.length} destinatario(s) directo(s)`;
+        }
+
+        console.log('✅ Mensaje enviado exitosamente:', mensajeRespuesta);
+      } catch (bgError) {
+        console.error('Error en procesamiento en segundo plano:', bgError);
+      }
     });
   } catch (error) {
     console.error('Error enviando mensaje:', error);
