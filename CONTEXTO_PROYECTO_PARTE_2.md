@@ -2,7 +2,7 @@
 
 **Fecha de Documentación:** Enero 2026  
 **Estado:** Desarrollo Activo  
-**Versión:** 1.0.0 - Parte 2
+**Versión:** 1.0.4 - Parte 2
 
 ---
 
@@ -204,6 +204,13 @@
 - ✅ Todo filtrado por año activo
 - ✅ Información del curso
 - ✅ Relación con grupos
+- ✅ Exportación a PDF de Estrellas e Incidencias:
+  - PDFs con diseño mejorado y columnas optimizadas
+  - Textos completos sin cortes (usando splitTextToSize)
+  - Columnas centradas y alineadas correctamente
+  - Espaciado mejorado para totales (no pegados al borde)
+  - Columna FECHA pegada a la derecha sin espacios en blanco
+  - Anchos ajustados: ESTRELLAS más ancho, CURSO y DESCRIPCIÓN más anchos en incidencias
 
 **Endpoints:**
 - `GET /api/docente/cursos` - Lista de cursos
@@ -589,12 +596,28 @@
 ---
 
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.3 - Parte 2  
+**Versión del Documento:** 1.0.4 - Parte 2  
 **Mantenido por:** Equipo de Desarrollo
 
 ---
 
 ## 📝 CAMBIOS RECIENTES (Enero 2026)
+
+### Mejoras en PDFs de Estrellas e Incidencias (Enero 2026)
+
+**Mejoras Implementadas:**
+- ✅ Ajuste de anchos de columnas para mejor visualización
+- ✅ Textos completos sin cortes usando `splitTextToSize` de jsPDF
+- ✅ Todos los textos centrados dentro de sus columnas
+- ✅ Espaciado mejorado para totales (no pegados al borde del cuadro)
+- ✅ Columna FECHA pegada a la derecha sin espacios en blanco
+- ✅ Anchos optimizados: ESTRELLAS más ancho, CURSO y DESCRIPCIÓN más anchos en incidencias
+- ✅ Eliminación de emojis en títulos (jsPDF no los renderiza correctamente)
+- ✅ Diseño limpio y profesional
+
+**Estructura de Columnas:**
+- **PDF de Estrellas**: DOCENTE (35mm), ESTRELLAS (25mm), DESCRIPCIÓN (60mm), FECHA (25mm, pegada a la derecha)
+- **PDF de Incidencias**: DOCENTE (30mm), CURSO (30mm), DESCRIPCIÓN (65mm), FECHA (20mm, pegada a la derecha)
 
 ### Módulo Cursos Asignados - Gestión de Estrellas e Incidencias
 
@@ -608,6 +631,7 @@
 - ✅ Los docentes pueden ver todas las incidencias del alumno (sin filtrar por curso)
 - ✅ Registro en auditoría de todas las acciones
 - ✅ Diseño consistente: estrellas (dorado), incidencias (rojo/naranja)
+- ✅ Exportación a PDF mejorada con diseño profesional
 
 **Estructura de Datos:**
 - Tabla `enrollment_incidents`:
