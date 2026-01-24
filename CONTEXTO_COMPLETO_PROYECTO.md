@@ -462,6 +462,10 @@ react-aula-virtual/
 - `/docente/perfil` - Perfil y edición
 - `/docente/grupos` - Grupos asignados
 - `/docente/cursos` - Cursos asignados
+  - Lista de alumnos con estrellas, incidencias y promedio final
+  - Gestión de estrellas e incidencias por alumno
+  - Visualización de notas detalladas por bimestre
+  - Cálculo automático del promedio final (promedio de todos los bimestres con notas registradas)
 - `/docente/horario` - Horario semanal
 - `/docente/tutoria` - Tutoría de grupos
 - `/docente/comunicados` - Comunicados

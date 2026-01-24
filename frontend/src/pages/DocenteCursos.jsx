@@ -31,6 +31,10 @@ function DocenteCursos() {
   const [formIncidencias, setFormIncidencias] = useState({ description: '' });
   const [guardandoEstrellas, setGuardandoEstrellas] = useState(false);
   const [guardandoIncidencias, setGuardandoIncidencias] = useState(false);
+  const [mostrarModalNotasDetalladas, setMostrarModalNotasDetalladas] = useState(false);
+  const [notasDetalladas, setNotasDetalladas] = useState(null);
+  const [loadingNotasDetalladas, setLoadingNotasDetalladas] = useState(false);
+  const [cicloSeleccionado, setCicloSeleccionado] = useState(1); // 1-4 = Bimestres
   const dropdownRef = useRef({});
   const buttonRef = useRef({});
 
@@ -302,6 +306,67 @@ function DocenteCursos() {
     }
   };
 
+  const abrirModalNotasDetalladas = async (alumno) => {
+    console.log('=== INICIANDO abrirModalNotasDetalladas ===');
+    console.log('selectedCurso:', selectedCurso);
+    console.log('alumno:', alumno);
+    
+    if (!selectedCurso || !alumno) {
+      console.error('No se puede abrir modal: selectedCurso o alumno faltante', { selectedCurso, alumno });
+      Swal.fire({
+        title: 'Error',
+        text: 'No se puede abrir el modal. Faltan datos necesarios.',
+        icon: 'error',
+        zIndex: 100001
+      });
+      return;
+    }
+    
+    try {
+      console.log('Abriendo modal de notas detalladas para alumno:', alumno.id);
+      
+      // Primero establecer los estados necesarios
+      setAlumnoSeleccionado(alumno);
+      setCicloSeleccionado(1); // Empezar con el primer bimestre
+      setNotasDetalladas(null); // Resetear notas antes de cargar
+      
+      // Luego abrir el modal
+      setMostrarModalNotasDetalladas(true);
+      console.log('Estado mostrarModalNotasDetalladas establecido a true');
+      
+      // Cargar las notas después de abrir el modal
+      await cargarNotasDetalladas(alumno.id);
+    } catch (error) {
+      console.error('Error en abrirModalNotasDetalladas:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Ocurrió un error al abrir el modal de notas detalladas',
+        icon: 'error',
+        zIndex: 100001
+      });
+    }
+  };
+
+  const cargarNotasDetalladas = async (alumnoId) => {
+    if (!selectedCurso || !alumnoId) return;
+    
+    try {
+      setLoadingNotasDetalladas(true);
+      const response = await api.get(`/docente/cursos/${selectedCurso}/alumnos/${alumnoId}/notas-detalladas`);
+      setNotasDetalladas(response.data);
+    } catch (error) {
+      console.error('Error cargando notas detalladas:', error);
+      Swal.fire({
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar las notas detalladas',
+        icon: 'error',
+        zIndex: 100001
+      });
+    } finally {
+      setLoadingNotasDetalladas(false);
+    }
+  };
+
   const handleRegistrarIncidencia = async (e) => {
     e.preventDefault();
     
@@ -433,12 +498,12 @@ function DocenteCursos() {
     const contentWidth = pageWidth - (margin * 2);
     let yPosition = margin;
 
-    // Colores
-    const colorHeader = [251, 191, 36]; // #fbbf24 (dorado)
-    const colorBorder = [217, 119, 6]; // #d97706 (borde más oscuro)
+    // Colores - Azul claro para estrellas
+    const colorHeader = [96, 165, 250]; // #60a5fa (azul claro)
+    const colorBorder = [59, 130, 246]; // #3b82f6 (borde más oscuro)
     const colorText = [30, 41, 59]; // #1e293b
-    const colorLight = [254, 243, 199]; // #fef3c7
-    const colorDark = [146, 64, 14]; // #92400e
+    const colorLight = [219, 234, 254]; // #dbeafe
+    const colorDark = [30, 64, 175]; // #1e40af
 
     // ========== HEADER PRINCIPAL ==========
     doc.setFillColor(...colorHeader);
@@ -689,12 +754,12 @@ function DocenteCursos() {
     const contentWidth = pageWidth - (margin * 2);
     let yPosition = margin;
 
-    // Colores
-    const colorHeader = [239, 68, 68]; // #ef4444 (rojo)
-    const colorBorder = [185, 28, 28]; // #b91c1c (borde más oscuro)
+    // Colores - Morado claro para incidencias
+    const colorHeader = [167, 139, 250]; // #a78bfa (morado claro)
+    const colorBorder = [139, 92, 246]; // #8b5cf6 (borde más oscuro)
     const colorText = [30, 41, 59]; // #1e293b
-    const colorLight = [254, 226, 226]; // #fee2e2
-    const colorDark = [153, 27, 27]; // #991b1b
+    const colorLight = [233, 213, 255]; // #e9d5ff
+    const colorDark = [107, 33, 168]; // #6b21a8
 
     // ========== HEADER PRINCIPAL ==========
     doc.setFillColor(...colorHeader);
@@ -1139,6 +1204,7 @@ function DocenteCursos() {
                         <th>APELLIDOS Y NOMBRES</th>
                         <th>ESTRELLAS</th>
                         <th>INCIDENCIAS</th>
+                        <th>PROMEDIO</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -1154,6 +1220,11 @@ function DocenteCursos() {
                           <td>
                             <span className="incidencias-badge">
                               📋 {alumno.total_incidencias || 0}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`promedio-badge ${alumno.promedio_final && parseFloat(alumno.promedio_final) >= 11 ? 'aprobado' : 'desaprobado'}`}>
+                              {alumno.promedio_final ? parseFloat(alumno.promedio_final).toFixed(0) : '-'}
                             </span>
                           </td>
                           <td>
@@ -1247,8 +1318,7 @@ function DocenteCursos() {
                                         e.stopPropagation();
                                         e.preventDefault();
                                         setOpenDropdownAlumno(null);
-                                        // TODO: Implementar Notas Detalladas
-                                        console.log('Notas Detalladas para alumno:', alumno.id);
+                                        abrirModalNotasDetalladas(alumno);
                                       }}
                                     >
                                       <span className="dropdown-icon">📝</span>
@@ -1529,6 +1599,262 @@ function DocenteCursos() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Modal de Notas Detalladas */}
+        {mostrarModalNotasDetalladas && alumnoSeleccionado && createPortal(
+          <div 
+            className="modal-notas-detalladas-overlay" 
+            onClick={() => {
+              console.log('Click en overlay, cerrando modal');
+              setMostrarModalNotasDetalladas(false);
+            }}
+            style={{ zIndex: 10000 }}
+          >
+            <div 
+              className="modal-notas-detalladas-container" 
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Click en container, no cerrar');
+              }}
+            >
+              <div className="modal-notas-detalladas-header">
+                <div>
+                  <h2 className="modal-notas-detalladas-title">📝 Notas Detalladas</h2>
+                  <p className="modal-notas-detalladas-subtitle">
+                    {notasDetalladas?.alumno?.nombre_completo || alumnoSeleccionado?.nombre_completo || 'Alumno'}
+                  </p>
+                </div>
+                <button
+                  className="modal-notas-detalladas-close"
+                  onClick={() => {
+                    console.log('Click en botón cerrar');
+                    setMostrarModalNotasDetalladas(false);
+                  }}
+                  type="button"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="modal-notas-detalladas-body">
+                {loadingNotasDetalladas ? (
+                  <div className="loading-notas-detalladas">Cargando notas...</div>
+                ) : notasDetalladas ? (
+                  <>
+                    {/* Información del Curso */}
+                    <div className="notas-detalladas-info">
+                      <h3 className="curso-nombre-notas">{notasDetalladas.curso?.nombre || 'Curso'}</h3>
+                      <p className="curso-tipo-notas">
+                        {notasDetalladas.curso?.nivel?.tipo_calificacion === 0 
+                          ? 'Calificación: Cualitativa (Letras)' 
+                          : 'Calificación: Cuantitativa (0-20)'}
+                      </p>
+                      {notasDetalladas.curso?.nivel?.tipo_calificacion_final === 1 && (
+                        <p className="curso-tipo-notas">Cálculo Final: Por Porcentaje</p>
+                      )}
+                      {notasDetalladas.curso?.nivel?.tipo_calificacion_final === 0 && (
+                        <p className="curso-tipo-notas">Cálculo Final: Por Promedio</p>
+                      )}
+                    </div>
+
+                    {/* Selector de Ciclo/Bimestre */}
+                    <div className="ciclo-selector">
+                      <label>Bimestre:</label>
+                      <select
+                        value={cicloSeleccionado}
+                        onChange={(e) => setCicloSeleccionado(parseInt(e.target.value))}
+                        className="select-ciclo"
+                      >
+                        <option value={1}>I Bimestre</option>
+                        <option value={2}>II Bimestre</option>
+                        <option value={3}>III Bimestre</option>
+                        <option value={4}>IV Bimestre</option>
+                      </select>
+                    </div>
+
+                    {/* Tabla de Notas */}
+                    {notasDetalladas.criterios && notasDetalladas.criterios.length > 0 ? (
+                      <div className="notas-detalladas-table-container">
+                        <table className="notas-detalladas-table">
+                          <thead>
+                            <tr>
+                              <th>Criterio</th>
+                              <th>Notas</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {notasDetalladas.criterios.map((criterio) => {
+                              // La nota del criterio viene en criterio.notas[ciclo]
+                              const notaCriterio = criterio.notas?.[cicloSeleccionado] || null;
+                              
+                              // Las subnotas vienen en notasDetalladas.notas[ciclo][criterio_id][indicador_id][indice]
+                              const subnotasCriterio = notasDetalladas.notas?.[cicloSeleccionado]?.[criterio.id] || {};
+                              
+                              // Verificar si tiene indicadores
+                              const tieneIndicadores = criterio.indicadores && criterio.indicadores.length > 0;
+                              
+                              return (
+                                <tr key={criterio.id}>
+                                  <td className="criterio-nombre">
+                                    <strong>{criterio.descripcion}</strong>
+                                    {notasDetalladas.curso?.nivel?.tipo_calificacion_final === 1 && (
+                                      <span className="criterio-peso"> ({criterio.peso}%)</span>
+                                    )}
+                                  </td>
+                                  <td className="criterio-notas">
+                                    {tieneIndicadores ? (
+                                      <div className="indicadores-container">
+                                        {criterio.indicadores.map((indicador) => {
+                                          // Acceder a las subnotas: notasDetalladas.notas[ciclo][criterio_id][indicador_id]
+                                          const subnotasIndicador = subnotasCriterio[indicador.id] || {};
+                                          const cuadros = indicador.cuadros || 0;
+                                          const notasArray = [];
+                                          
+                                          // Obtener todas las subnotas del indicador
+                                          // El objeto deserializado tiene la estructura: [indicador_id][indice] = nota
+                                          for (let i = 0; i < cuadros; i++) {
+                                            const nota = subnotasIndicador[i] !== undefined && subnotasIndicador[i] !== null && subnotasIndicador[i] !== '' 
+                                              ? subnotasIndicador[i] 
+                                              : '-';
+                                            notasArray.push(nota);
+                                          }
+                                          
+                                          // Calcular promedio del indicador
+                                          const notasValidas = notasArray.filter(n => n !== '-' && n !== null && n !== '');
+                                          const promedio = notasValidas.length > 0
+                                            ? Math.round(notasValidas.reduce((sum, n) => sum + parseFloat(n), 0) / notasValidas.length)
+                                            : null;
+                                          
+                                          return (
+                                            <div key={indicador.id} className="indicador-group">
+                                              <div className="indicador-nombre">{indicador.descripcion}</div>
+                                              <div className="subnotas-container">
+                                                {notasArray.map((nota, idx) => (
+                                                  <span
+                                                    key={idx}
+                                                    className={`subnota ${nota !== '-' && nota !== null && nota !== '' 
+                                                      ? (parseFloat(nota) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11) 
+                                                          ? 'aprobado' 
+                                                          : 'desaprobado')
+                                                      : 'vacio'}`}
+                                                  >
+                                                    {nota}
+                                                  </span>
+                                                ))}
+                                                <span className={`promedio-indicador ${promedio !== null 
+                                                  ? (promedio >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11) 
+                                                      ? 'aprobado' 
+                                                      : 'desaprobado')
+                                                  : 'vacio'}`}>
+                                                  {promedio !== null ? promedio : '-'}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div className="nota-simple">
+                                        <span className={`nota-valor ${notaCriterio !== null && notaCriterio !== '' 
+                                          ? (parseFloat(notaCriterio) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11) 
+                                              ? 'aprobado' 
+                                              : 'desaprobado')
+                                          : 'vacio'}`}>
+                                          {notaCriterio !== null && notaCriterio !== '' ? notaCriterio : '-'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+
+                            {/* Examen Mensual (si aplica) */}
+                            {notasDetalladas.curso?.examen_mensual && (
+                              <tr>
+                                <td className="criterio-nombre">
+                                  <strong>Examen Mensual</strong>
+                                  {notasDetalladas.curso?.nivel?.tipo_calificacion_final === 1 && (
+                                    <span className="criterio-peso"> ({notasDetalladas.curso?.peso_examen_mensual}%)</span>
+                                  )}
+                                </td>
+                                <td className="criterio-notas">
+                                  <div className="examen-mensual-container">
+                                    {[1, 2].map((nro) => {
+                                      const notaExamen = notasDetalladas.notas?.[cicloSeleccionado]?.examen_mensual?.[nro] || null;
+                                      return (
+                                        <span
+                                          key={nro}
+                                          className={`nota-examen ${notaExamen !== null && notaExamen !== '' 
+                                            ? (parseFloat(notaExamen) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11) 
+                                                ? 'aprobado' 
+                                                : 'desaprobado')
+                                            : 'vacio'}`}
+                                        >
+                                          {notaExamen !== null && notaExamen !== '' ? notaExamen : '-'}
+                                        </span>
+                                      );
+                                    })}
+                                    {/* Promedio de exámenes mensuales */}
+                                    {(() => {
+                                      const examen1 = notasDetalladas.notas?.[cicloSeleccionado]?.examen_mensual?.[1];
+                                      const examen2 = notasDetalladas.notas?.[cicloSeleccionado]?.examen_mensual?.[2];
+                                      const promedioExamen = (examen1 && examen2) 
+                                        ? Math.round((parseFloat(examen1) + parseFloat(examen2)) / 2)
+                                        : null;
+                                      return (
+                                        <span className={`promedio-examen ${promedioExamen !== null 
+                                          ? (promedioExamen >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11) 
+                                              ? 'aprobado' 
+                                              : 'desaprobado')
+                                          : 'vacio'}`}>
+                                          {promedioExamen !== null ? promedioExamen : '-'}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+
+                            {/* Promedio Final - Diseño mejorado */}
+                            <tr className="promedio-final-row">
+                              <td className="criterio-nombre-promedio">
+                                <strong>PROMEDIO FINAL</strong>
+                              </td>
+                              <td className="criterio-notas-promedio">
+                                <div className="promedio-final-container">
+                                  <span className={`promedio-final-badge ${notasDetalladas.notas?.[cicloSeleccionado]?.promedio_final 
+                                    ? (parseFloat(notasDetalladas.notas[cicloSeleccionado].promedio_final) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11) 
+                                        ? 'aprobado' 
+                                        : 'desaprobado')
+                                    : 'vacio'}`}>
+                                    {notasDetalladas.notas?.[cicloSeleccionado]?.promedio_final 
+                                      ? parseFloat(notasDetalladas.notas[cicloSeleccionado].promedio_final).toFixed(0)
+                                      : '-'}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="empty-notas-detalladas">
+                        <p>No hay criterios configurados para este curso</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="empty-notas-detalladas">
+                    <p>No se pudieron cargar las notas detalladas</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>,
