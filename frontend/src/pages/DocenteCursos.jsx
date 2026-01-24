@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import Swal from 'sweetalert2';
+import jsPDF from 'jspdf';
 import './DocenteCursos.css';
 
 function DocenteCursos() {
@@ -400,6 +401,541 @@ function DocenteCursos() {
     return `${dia}-${mes}-${año} ${String(horas).padStart(2, '0')}:${minutos} ${ampm}`;
   };
 
+  const formatearFechaPDF = (fecha) => {
+    if (!fecha) return '';
+    const date = new Date(fecha);
+    const dia = String(date.getDate()).padStart(2, '0');
+    const mes = String(date.getMonth() + 1).padStart(2, '0');
+    const año = date.getFullYear();
+    let horas = date.getHours();
+    const minutos = String(date.getMinutes()).padStart(2, '0');
+    const ampm = horas >= 12 ? 'PM' : 'AM';
+    horas = horas % 12;
+    horas = horas ? horas : 12;
+    return `${dia}/${mes}/${año} ${String(horas).padStart(2, '0')}:${minutos} ${ampm}`;
+  };
+
+  const exportarPDFEstrellas = () => {
+    if (!alumnoSeleccionado || historialEstrellas.length === 0) {
+      Swal.fire({
+        title: 'Sin datos',
+        text: 'No hay estrellas para exportar',
+        icon: 'info',
+        zIndex: 100001
+      });
+      return;
+    }
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    let yPosition = margin;
+
+    // Colores
+    const colorHeader = [251, 191, 36]; // #fbbf24 (dorado)
+    const colorBorder = [217, 119, 6]; // #d97706 (borde más oscuro)
+    const colorText = [30, 41, 59]; // #1e293b
+    const colorLight = [254, 243, 199]; // #fef3c7
+    const colorDark = [146, 64, 14]; // #92400e
+
+    // ========== HEADER PRINCIPAL ==========
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, contentWidth, 30, 'F');
+    
+    // Borde del header
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPosition, contentWidth, 30);
+    
+    // Título (sin emoji, jsPDF no los renderiza bien)
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('REPORTE DE ESTRELLAS', margin + 5, yPosition + 12);
+    
+    // Información del alumno
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Alumno: ${alumnoSeleccionado.nombre_completo}`, margin + 5, yPosition + 22);
+    
+    yPosition += 35;
+
+    // ========== CUADRO DE INFORMACIÓN DEL CURSO ==========
+    if (cursoInfo) {
+      // Fondo del cuadro
+      doc.setFillColor(...colorLight);
+      doc.rect(margin, yPosition, contentWidth, 25, 'F');
+      
+      // Borde del cuadro
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.3);
+      doc.rect(margin, yPosition, contentWidth, 25);
+      
+      // Título del cuadro
+      doc.setFillColor(...colorHeader);
+      doc.rect(margin, yPosition, contentWidth, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INFORMACIÓN DEL CURSO', margin + 5, yPosition + 5);
+      
+      yPosition += 10;
+      
+      // Contenido del cuadro
+      doc.setTextColor(...colorText);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Curso: ${cursoInfo.curso_nombre}`, margin + 5, yPosition);
+      yPosition += 5;
+      doc.text(`Grado: ${cursoInfo.grado}° ${cursoInfo.seccion}`, margin + 5, yPosition);
+      yPosition += 5;
+      doc.text(`Nivel: ${cursoInfo.nivel_nombre} - Turno: ${cursoInfo.turno_nombre}`, margin + 5, yPosition);
+      yPosition += 5;
+      
+      // Total destacado (sin emoji) - con más espacio del borde
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...colorDark);
+      doc.text(`Total de Estrellas: ${totalEstrellas}`, margin + 5, yPosition - 2);
+      yPosition += 12;
+    }
+
+    // ========== TABLA DE ESTRELLAS ==========
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colorText);
+    doc.text('HISTORIAL DE ESTRELLAS', margin, yPosition);
+    yPosition += 8;
+
+    // Encabezados de tabla con fondo dorado
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, contentWidth, 9, 'F');
+    
+    // Borde del header de tabla
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, yPosition, contentWidth, 9);
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    
+    // Líneas divisorias en el header - ESTRELLAS más ancho, FECHA pegado a la derecha
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 50, yPosition, margin + 50, yPosition + 9);
+    doc.line(margin + 75, yPosition, margin + 75, yPosition + 9); // ESTRELLAS más ancho
+    doc.line(margin + 135, yPosition, margin + 135, yPosition + 9); // DESCRIPCIÓN ajustada
+    // FECHA va hasta el borde derecho (sin línea divisoria al final, usa el borde de la tabla)
+    
+    // Centrar textos en headers
+    doc.text('DOCENTE', margin + 25, yPosition + 6, { align: 'center' });
+    doc.text('ESTRELLAS', margin + 62.5, yPosition + 6, { align: 'center' });
+    doc.text('DESCRIPCIÓN', margin + 105, yPosition + 6, { align: 'center' });
+    doc.text('FECHA', margin + 157.5, yPosition + 6, { align: 'center' }); // Más a la derecha
+    yPosition += 11;
+
+    // Filas de datos
+    doc.setTextColor(...colorText);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setDrawColor(...colorBorder);
+
+    historialEstrellas.forEach((item, index) => {
+      // Verificar si necesitamos nueva página
+      if (yPosition > pageHeight - 35) {
+        doc.addPage();
+        yPosition = margin;
+        // Repetir encabezados
+        doc.setFillColor(...colorHeader);
+        doc.rect(margin, yPosition, contentWidth, 9, 'F');
+        doc.setDrawColor(...colorBorder);
+        doc.rect(margin, yPosition, contentWidth, 9);
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setDrawColor(255, 255, 255);
+        doc.line(margin + 50, yPosition, margin + 50, yPosition + 9);
+        doc.line(margin + 75, yPosition, margin + 75, yPosition + 9);
+        doc.line(margin + 135, yPosition, margin + 135, yPosition + 9);
+        doc.line(margin + 160, yPosition, margin + 160, yPosition + 9);
+        doc.text('DOCENTE', margin + 25, yPosition + 6, { align: 'center' });
+        doc.text('ESTRELLAS', margin + 62.5, yPosition + 6, { align: 'center' });
+        doc.text('DESCRIPCIÓN', margin + 105, yPosition + 6, { align: 'center' });
+        doc.text('FECHA', margin + 147.5, yPosition + 6, { align: 'center' });
+        yPosition += 11;
+        doc.setTextColor(...colorText);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setDrawColor(...colorBorder);
+      }
+
+      // Datos
+      doc.setTextColor(...colorText);
+      const docente = item.docente_nombre || 'N/A';
+      const descripcion = item.description || '-';
+      const fecha = formatearFechaPDF(item.created_at);
+      
+      // Descripción - usar splitText para texto largo y mostrar completo
+      const maxWidth = 65; // Ancho máximo para descripción
+      const descripcionLines = doc.splitTextToSize(descripcion, maxWidth);
+      
+      // Calcular altura necesaria para la descripción
+      const alturaDescripcion = descripcionLines.length * 4; // 4mm por línea
+      const alturaFila = Math.max(9, alturaDescripcion + 2); // Mínimo 9mm, más si la descripción es larga
+
+      // Fondo alternado
+      if (index % 2 === 0) {
+        doc.setFillColor(...colorLight);
+        doc.rect(margin, yPosition - 3, contentWidth, alturaFila, 'F');
+      }
+
+      // Borde de fila
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.2);
+      doc.rect(margin, yPosition - 3, contentWidth, alturaFila);
+
+      // Líneas divisorias verticales - ESTRELLAS más ancho, FECHA pegado a la derecha
+      doc.setLineWidth(0.1);
+      doc.line(margin + 50, yPosition - 3, margin + 50, yPosition - 3 + alturaFila);
+      doc.line(margin + 75, yPosition - 3, margin + 75, yPosition - 3 + alturaFila);
+      doc.line(margin + 135, yPosition - 3, margin + 135, yPosition - 3 + alturaFila);
+      // FECHA usa el borde derecho de la tabla (no necesita línea divisoria)
+
+      // Centros de columnas
+      const centroDocente = margin + 25;
+      const centroEstrellas = margin + 62.5;
+      const centroDescripcion = margin + 105;
+      const centroFecha = margin + 157.5; // Más a la derecha, cerca del borde
+      const anchoDocente = 45;
+      const anchoDescripcion = 60;
+      
+      // Docente - centrado y completo (usar splitText si es muy largo)
+      const docenteLines = doc.splitTextToSize(docente, anchoDocente);
+      let docenteY = yPosition + 2.5;
+      docenteLines.forEach((line, lineIndex) => {
+        if (lineIndex === 0) {
+          doc.text(line, centroDocente, docenteY, { align: 'center' });
+        } else {
+          docenteY += 4;
+          doc.text(line, centroDocente, docenteY, { align: 'center' });
+        }
+      });
+      
+      // Estrellas (centrado, sin emoji)
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${item.points}`, centroEstrellas, yPosition + 2.5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      
+      // Mostrar todas las líneas de la descripción - centrado
+      let descY = yPosition + 2.5;
+      descripcionLines.forEach((line, lineIndex) => {
+        if (lineIndex === 0) {
+          doc.text(line, centroDescripcion, descY, { align: 'center', maxWidth: anchoDescripcion });
+        } else {
+          descY += 4;
+          doc.text(line, centroDescripcion, descY, { align: 'center', maxWidth: anchoDescripcion });
+        }
+      });
+      
+      // Fecha - centrado, pegado a la derecha
+      doc.text(fecha, centroFecha, yPosition + 2.5, { align: 'center' });
+
+      yPosition += alturaFila;
+    });
+
+    // ========== PIE DE PÁGINA ==========
+    const fechaGeneracion = new Date().toLocaleDateString('es-PE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Generado el: ${fechaGeneracion}`, margin, pageHeight - 10);
+
+    // Guardar PDF
+    const nombreArchivo = `Estrellas_${alumnoSeleccionado.nombre_completo.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`;
+    doc.save(nombreArchivo);
+
+    Swal.fire({
+      title: '¡PDF Generado!',
+      text: 'El reporte de estrellas se ha descargado correctamente',
+      icon: 'success',
+      zIndex: 100001
+    });
+  };
+
+  const exportarPDFIncidencias = () => {
+    if (!alumnoSeleccionado || historialIncidencias.length === 0) {
+      Swal.fire({
+        title: 'Sin datos',
+        text: 'No hay incidencias para exportar',
+        icon: 'info',
+        zIndex: 100001
+      });
+      return;
+    }
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    let yPosition = margin;
+
+    // Colores
+    const colorHeader = [239, 68, 68]; // #ef4444 (rojo)
+    const colorBorder = [185, 28, 28]; // #b91c1c (borde más oscuro)
+    const colorText = [30, 41, 59]; // #1e293b
+    const colorLight = [254, 226, 226]; // #fee2e2
+    const colorDark = [153, 27, 27]; // #991b1b
+
+    // ========== HEADER PRINCIPAL ==========
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, contentWidth, 30, 'F');
+    
+    // Borde del header
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPosition, contentWidth, 30);
+    
+    // Título (sin emoji, jsPDF no los renderiza bien)
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('REPORTE DE INCIDENCIAS', margin + 5, yPosition + 12);
+    
+    // Información del alumno
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Alumno: ${alumnoSeleccionado.nombre_completo}`, margin + 5, yPosition + 22);
+    
+    yPosition += 35;
+
+    // ========== CUADRO DE INFORMACIÓN DEL CURSO ==========
+    if (cursoInfo) {
+      // Fondo del cuadro
+      doc.setFillColor(...colorLight);
+      doc.rect(margin, yPosition, contentWidth, 25, 'F');
+      
+      // Borde del cuadro
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.3);
+      doc.rect(margin, yPosition, contentWidth, 25);
+      
+      // Título del cuadro
+      doc.setFillColor(...colorHeader);
+      doc.rect(margin, yPosition, contentWidth, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INFORMACIÓN DEL CURSO', margin + 5, yPosition + 5);
+      
+      yPosition += 10;
+      
+      // Contenido del cuadro
+      doc.setTextColor(...colorText);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Curso: ${cursoInfo.curso_nombre}`, margin + 5, yPosition);
+      yPosition += 5;
+      doc.text(`Grado: ${cursoInfo.grado}° ${cursoInfo.seccion}`, margin + 5, yPosition);
+      yPosition += 5;
+      doc.text(`Nivel: ${cursoInfo.nivel_nombre} - Turno: ${cursoInfo.turno_nombre}`, margin + 5, yPosition);
+      yPosition += 5;
+      
+      // Total destacado (sin emoji) - con más espacio del borde
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...colorDark);
+      doc.text(`Total de Incidencias: ${totalIncidencias}`, margin + 5, yPosition - 2);
+      yPosition += 12;
+    }
+
+    // ========== TABLA DE INCIDENCIAS ==========
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colorText);
+    doc.text('HISTORIAL DE INCIDENCIAS', margin, yPosition);
+    yPosition += 8;
+
+    // Encabezados de tabla con fondo rojo
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, contentWidth, 9, 'F');
+    
+    // Borde del header de tabla
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, yPosition, contentWidth, 9);
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    
+    // Líneas divisorias en el header - CURSO y DESCRIPCIÓN más anchos, FECHA pegado a la derecha
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 45, yPosition, margin + 45, yPosition + 9);
+    doc.line(margin + 75, yPosition, margin + 75, yPosition + 9); // CURSO más ancho
+    doc.line(margin + 140, yPosition, margin + 140, yPosition + 9); // DESCRIPCIÓN más ancho
+    // FECHA va hasta el borde derecho (sin línea divisoria al final, usa el borde de la tabla)
+    
+    // Centrar textos en headers
+    doc.text('DOCENTE', margin + 22.5, yPosition + 6, { align: 'center' });
+    doc.text('CURSO', margin + 60, yPosition + 6, { align: 'center' });
+    doc.text('DESCRIPCIÓN', margin + 107.5, yPosition + 6, { align: 'center' });
+    doc.text('FECHA', margin + 157.5, yPosition + 6, { align: 'center' }); // Más a la derecha
+    yPosition += 11;
+
+    // Filas de datos
+    doc.setTextColor(...colorText);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setDrawColor(...colorBorder);
+
+    historialIncidencias.forEach((item, index) => {
+      // Verificar si necesitamos nueva página
+      if (yPosition > pageHeight - 35) {
+        doc.addPage();
+        yPosition = margin;
+        // Repetir encabezados
+        doc.setFillColor(...colorHeader);
+        doc.rect(margin, yPosition, contentWidth, 9, 'F');
+        doc.setDrawColor(...colorBorder);
+        doc.rect(margin, yPosition, contentWidth, 9);
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setDrawColor(255, 255, 255);
+        doc.line(margin + 45, yPosition, margin + 45, yPosition + 9);
+        doc.line(margin + 75, yPosition, margin + 75, yPosition + 9);
+        doc.line(margin + 140, yPosition, margin + 140, yPosition + 9);
+        // FECHA usa el borde derecho de la tabla
+        doc.text('DOCENTE', margin + 22.5, yPosition + 6, { align: 'center' });
+        doc.text('CURSO', margin + 60, yPosition + 6, { align: 'center' });
+        doc.text('DESCRIPCIÓN', margin + 107.5, yPosition + 6, { align: 'center' });
+        doc.text('FECHA', margin + 157.5, yPosition + 6, { align: 'center' }); // Más a la derecha
+        yPosition += 11;
+        doc.setTextColor(...colorText);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setDrawColor(...colorBorder);
+      }
+
+      // Datos
+      doc.setTextColor(...colorText);
+      const docente = item.docente_nombre || 'N/A';
+      const curso = item.curso_nombre || 'N/A';
+      const descripcion = item.description || '-';
+      const fecha = formatearFechaPDF(item.created_at);
+
+      // Descripción - usar splitText para texto largo y mostrar completo
+      const maxWidth = 65; // Ancho máximo para descripción
+      const descripcionLines = doc.splitTextToSize(descripcion, maxWidth);
+      
+      // Calcular altura necesaria para la descripción
+      const alturaDescripcion = descripcionLines.length * 4; // 4mm por línea
+      const alturaFila = Math.max(9, alturaDescripcion + 2); // Mínimo 9mm, más si la descripción es larga
+
+      // Fondo alternado
+      if (index % 2 === 0) {
+        doc.setFillColor(...colorLight);
+        doc.rect(margin, yPosition - 3, contentWidth, alturaFila, 'F');
+      }
+
+      // Borde de fila
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.2);
+      doc.rect(margin, yPosition - 3, contentWidth, alturaFila);
+
+      // Líneas divisorias verticales - CURSO y DESCRIPCIÓN más anchos, FECHA pegado a la derecha
+      doc.setLineWidth(0.1);
+      doc.line(margin + 45, yPosition - 3, margin + 45, yPosition - 3 + alturaFila);
+      doc.line(margin + 75, yPosition - 3, margin + 75, yPosition - 3 + alturaFila);
+      doc.line(margin + 140, yPosition - 3, margin + 140, yPosition - 3 + alturaFila);
+      // FECHA usa el borde derecho de la tabla (no necesita línea divisoria)
+
+      // Centros de columnas
+      const centroDocente = margin + 22.5;
+      const centroCurso = margin + 60;
+      const centroDescripcion = margin + 107.5;
+      const centroFecha = margin + 157.5; // Más a la derecha, cerca del borde
+      const anchoDocente = 40;
+      const anchoCurso = 55; // Más ancho
+      const anchoDescripcion = 60; // Más ancho
+      
+      // Docente - centrado y completo (usar splitText si es muy largo)
+      const docenteLines = doc.splitTextToSize(docente, anchoDocente);
+      let docenteY = yPosition + 2.5;
+      docenteLines.forEach((line, lineIndex) => {
+        if (lineIndex === 0) {
+          doc.text(line, centroDocente, docenteY, { align: 'center' });
+        } else {
+          docenteY += 4;
+          doc.text(line, centroDocente, docenteY, { align: 'center' });
+        }
+      });
+      
+      // Curso - centrado y completo (usar splitText si es muy largo)
+      const cursoLines = doc.splitTextToSize(curso, anchoCurso);
+      let cursoY = yPosition + 2.5;
+      cursoLines.forEach((line, lineIndex) => {
+        if (lineIndex === 0) {
+          doc.text(line, centroCurso, cursoY, { align: 'center' });
+        } else {
+          cursoY += 4;
+          doc.text(line, centroCurso, cursoY, { align: 'center' });
+        }
+      });
+      
+      // Mostrar todas las líneas de la descripción - centrado
+      let descY = yPosition + 2.5;
+      descripcionLines.forEach((line, lineIndex) => {
+        if (lineIndex === 0) {
+          doc.text(line, centroDescripcion, descY, { align: 'center', maxWidth: anchoDescripcion });
+        } else {
+          descY += 4;
+          doc.text(line, centroDescripcion, descY, { align: 'center', maxWidth: anchoDescripcion });
+        }
+      });
+      
+      // Fecha - centrado, pegado a la derecha
+      doc.text(fecha, centroFecha, yPosition + 2.5, { align: 'center' });
+
+      yPosition += alturaFila;
+    });
+
+    // ========== PIE DE PÁGINA ==========
+    const fechaGeneracion = new Date().toLocaleDateString('es-PE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Generado el: ${fechaGeneracion}`, margin, pageHeight - 10);
+
+    // Guardar PDF
+    const nombreArchivo = `Incidencias_${alumnoSeleccionado.nombre_completo.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`;
+    doc.save(nombreArchivo);
+
+    Swal.fire({
+      title: '¡PDF Generado!',
+      text: 'El reporte de incidencias se ha descargado correctamente',
+      icon: 'success',
+      zIndex: 100001
+    });
+  };
+
   const handleCursoAction = (curso, action) => {
     setOpenDropdown(null); // Cerrar dropdown al seleccionar una opción
     setDropdownPosition(null);
@@ -755,13 +1291,23 @@ function DocenteCursos() {
                     <span className="total-value">{totalEstrellas}</span>
                   </div>
                 </div>
-                <button
-                  className="modal-estrellas-close"
-                  onClick={() => setMostrarModalEstrellas(false)}
-                  type="button"
-                >
-                  ✕
-                </button>
+                <div className="modal-estrellas-actions">
+                  <button
+                    className="btn-exportar-pdf"
+                    onClick={exportarPDFEstrellas}
+                    type="button"
+                    title="Exportar a PDF"
+                  >
+                    📄 Exportar PDF
+                  </button>
+                  <button
+                    className="modal-estrellas-close"
+                    onClick={() => setMostrarModalEstrellas(false)}
+                    type="button"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               <div className="modal-estrellas-body">
@@ -884,13 +1430,23 @@ function DocenteCursos() {
                     <span className="total-value">{totalIncidencias}</span>
                   </div>
                 </div>
-                <button
-                  className="modal-incidencias-close"
-                  onClick={() => setMostrarModalIncidencias(false)}
-                  type="button"
-                >
-                  ✕
-                </button>
+                <div className="modal-incidencias-actions">
+                  <button
+                    className="btn-exportar-pdf-incidencias"
+                    onClick={exportarPDFIncidencias}
+                    type="button"
+                    title="Exportar a PDF"
+                  >
+                    📄 Exportar PDF
+                  </button>
+                  <button
+                    className="modal-incidencias-close"
+                    onClick={() => setMostrarModalIncidencias(false)}
+                    type="button"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               <div className="modal-incidencias-body">
