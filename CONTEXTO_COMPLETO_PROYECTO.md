@@ -1065,7 +1065,13 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 - `GET /cursos` - Cursos asignados
 - `GET /cursos/:cursoId/alumnos` - Lista de alumnos de un curso
   - Incluye conteo de estrellas e incidencias del año activo
-  - Muestra: nombre completo, total de estrellas, total de incidencias
+  - Muestra: nombre completo, total de estrellas, total de incidencias, promedio final
+  - El promedio final se calcula como promedio de TODOS los bimestres con notas registradas (no solo el más reciente)
+- `GET /cursos/:cursoId/alumnos/:alumnoId/notas-detalladas` - Notas detalladas por bimestre
+  - Retorna información completa del alumno, curso, nivel (tipo de calificación), criterios con indicadores
+  - Incluye todas las notas por ciclo (1-4): subnotas, promedios de indicadores, notas de criterios, exámenes mensuales y promedios finales
+  - Optimizado con consultas SQL eficientes (reduce de 16+ queries a consultas con IN clauses)
+  - Deserializa datos PHP de `notas_detalles.data` usando `php-serialize`
 - `GET /cursos/:cursoId/alumnos/:alumnoId/estrellas` - Historial de estrellas de un alumno
   - Filtrado por año activo
   - Incluye: docente, cantidad, descripción, fecha
