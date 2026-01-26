@@ -736,6 +736,446 @@ function DocenteCursos() {
     });
   };
 
+  const exportarPDFNotasDetalladas = () => {
+    if (!alumnoSeleccionado || !notasDetalladas || !notasDetalladas.criterios || notasDetalladas.criterios.length === 0) {
+      Swal.fire({
+        title: 'Sin datos',
+        text: 'No hay notas detalladas para exportar',
+        icon: 'info',
+        zIndex: 100001
+      });
+      return;
+    }
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    let yPosition = margin;
+
+    // Colores - Verde azulado para notas
+    const colorHeader = [34, 197, 94]; // #22c55e (verde)
+    const colorBorder = [22, 163, 74]; // #16a34a (borde más oscuro)
+    const colorText = [30, 41, 59]; // #1e293b
+    const colorLight = [220, 252, 231]; // #dcfce7
+    const colorDark = [20, 83, 45]; // #14532d
+    const colorAprobado = [34, 197, 94]; // Verde para aprobado
+    const colorDesaprobado = [239, 68, 68]; // Rojo para desaprobado
+
+    // ========== HEADER PRINCIPAL ==========
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, contentWidth, 30, 'F');
+    
+    // Borde del header
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPosition, contentWidth, 30);
+    
+    // Título
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('REPORTE DE NOTAS DETALLADAS', margin + 5, yPosition + 12);
+    
+    // Información del alumno
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const nombreAlumno = notasDetalladas.alumno?.nombre_completo || alumnoSeleccionado?.nombre_completo || 'Alumno';
+    doc.text(`Alumno: ${nombreAlumno}`, margin + 5, yPosition + 22);
+    
+    yPosition += 35;
+
+    // ========== CUADRO DE INFORMACIÓN DEL CURSO ==========
+    if (cursoInfo || notasDetalladas.curso) {
+      const curso = notasDetalladas.curso || cursoInfo;
+      
+      // Fondo del cuadro
+      doc.setFillColor(...colorLight);
+      doc.rect(margin, yPosition, contentWidth, 30, 'F');
+      
+      // Borde del cuadro
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.3);
+      doc.rect(margin, yPosition, contentWidth, 30);
+      
+      // Título del cuadro
+      doc.setFillColor(...colorHeader);
+      doc.rect(margin, yPosition, contentWidth, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INFORMACIÓN DEL CURSO', margin + 5, yPosition + 5);
+      
+      yPosition += 10;
+      
+      // Contenido del cuadro
+      doc.setTextColor(...colorText);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Curso: ${curso?.nombre || curso?.curso_nombre || 'N/A'}`, margin + 5, yPosition);
+      yPosition += 5;
+      
+      if (cursoInfo) {
+        doc.text(`Grado: ${cursoInfo.grado}° ${cursoInfo.seccion}`, margin + 5, yPosition);
+        yPosition += 5;
+        doc.text(`Nivel: ${cursoInfo.nivel_nombre} - Turno: ${cursoInfo.turno_nombre}`, margin + 5, yPosition);
+        yPosition += 5;
+      }
+      
+      // Tipo de calificación
+      const tipoCalif = curso?.nivel?.tipo_calificacion === 0 ? 'Cualitativa (Letras)' : 'Cuantitativa (0-20)';
+      doc.text(`Tipo: ${tipoCalif}`, margin + 5, yPosition);
+      yPosition += 5;
+      
+      // Bimestre
+      const nombresBimestres = ['I', 'II', 'III', 'IV'];
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...colorDark);
+      doc.text(`Bimestre: ${nombresBimestres[cicloSeleccionado - 1]}`, margin + 5, yPosition);
+      yPosition += 12;
+    }
+
+    // ========== TABLA DE NOTAS ==========
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colorText);
+    doc.text('NOTAS POR CRITERIO', margin, yPosition);
+    yPosition += 8;
+
+    // Procesar cada criterio
+    notasDetalladas.criterios.forEach((criterio, criterioIndex) => {
+      // Verificar si necesitamos nueva página
+      if (yPosition > pageHeight - 50) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      const notaCriterio = criterio.notas?.[cicloSeleccionado] || null;
+      const subnotasCriterio = notasDetalladas.notas?.[cicloSeleccionado]?.[criterio.id] || {};
+      const tieneIndicadores = criterio.indicadores && criterio.indicadores.length > 0;
+
+      // Guardar posición inicial del criterio
+      const yInicioCriterio = yPosition;
+
+      // Nombre del criterio (header verde) - dibujar primero
+      doc.setFillColor(...colorHeader);
+      doc.rect(margin, yPosition, contentWidth, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      
+      let nombreCriterio = criterio.descripcion || 'Criterio';
+      if (notasDetalladas.curso?.nivel?.tipo_calificacion_final === 1 && criterio.peso) {
+        nombreCriterio += ` (${criterio.peso}%)`;
+      }
+      
+      doc.text(nombreCriterio, margin + 5, yPosition + 5);
+      yPosition += 9;
+      
+      // Guardar posición donde empieza el contenido (después del header)
+      const yInicioContenido = yPosition;
+      
+      // Estimar altura del contenido para dibujar fondo primero
+      let alturaEstimadaContenido = 0;
+      if (tieneIndicadores) {
+        criterio.indicadores.forEach((indicador) => {
+          alturaEstimadaContenido += 12; // Por cada indicador
+        });
+        if (notaCriterio) alturaEstimadaContenido += 8; // Nota final del criterio
+      } else {
+        alturaEstimadaContenido = 10; // Nota directa o mensaje
+      }
+      
+      // Dibujar fondo claro del contenido ANTES de dibujar el contenido
+      doc.setFillColor(...colorLight);
+      doc.rect(margin, yInicioContenido, contentWidth, alturaEstimadaContenido, 'F');
+
+      if (tieneIndicadores) {
+        // Guardar posición inicial de todos los indicadores para centrar la nota del criterio
+        const yInicioTodosIndicadores = yPosition;
+        const espacioNota = 25; // Espacio para la nota del criterio al final
+        const xNotaCriterio = margin + contentWidth - espacioNota; // Posición fija de la nota del criterio
+        
+        // Procesar indicadores
+        criterio.indicadores.forEach((indicador) => {
+          const subnotasIndicador = subnotasCriterio[indicador.id] || {};
+          const cuadros = indicador.cuadros || 0;
+          const notasArray = [];
+          
+          // Obtener todas las subnotas
+          for (let i = 0; i < cuadros; i++) {
+            const nota = subnotasIndicador[i] !== undefined && subnotasIndicador[i] !== null && subnotasIndicador[i] !== '' 
+              ? subnotasIndicador[i] 
+              : '-';
+            notasArray.push(nota);
+          }
+
+          // Verificar si necesitamos nueva página para este indicador
+          if (yPosition > pageHeight - 25) {
+            doc.addPage();
+            yPosition = margin;
+          }
+
+          // Agregar espacio antes de "GENERAL:" (salto de línea)
+          yPosition += 3;
+          
+          // Nombre del indicador
+          doc.setTextColor(...colorText);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`  ${indicador.descripcion || 'Indicador'}:`, margin + 5, yPosition);
+          yPosition += 5;
+
+          // Subnotas en una línea - alineación horizontal uniforme
+          doc.setFontSize(8);
+          const notaWidth = 10; // Ancho de cada nota
+          const spacing = 3; // Espaciado entre notas
+          const limiteX = xNotaCriterio - 5; // Límite antes de la nota
+          
+          // Calcular posición inicial para alinear todas las notas a la izquierda
+          let xPos = margin + 5;
+          let yActual = yPosition;
+          
+          // Dibujar todas las subnotas
+          notasArray.forEach((nota, idx) => {
+            // Verificar si cabe en la línea actual, si no, nueva línea
+            if (xPos + notaWidth > limiteX) {
+              yActual += 6;
+              xPos = margin + 5;
+            }
+            
+            const esValida = nota !== '-' && nota !== null && nota !== '';
+            const esAprobado = esValida && parseFloat(nota) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+            
+            // Fondo de la nota
+            if (esValida) {
+              doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+              doc.rect(xPos, yActual - 3, notaWidth, 5, 'F');
+            } else {
+              // Fondo blanco para notas vacías
+              doc.setFillColor(255, 255, 255);
+              doc.rect(xPos, yActual - 3, notaWidth, 5, 'F');
+            }
+            
+            // Borde
+            doc.setDrawColor(...colorBorder);
+            doc.setLineWidth(0.1);
+            doc.rect(xPos, yActual - 3, notaWidth, 5);
+            
+            // Texto centrado
+            doc.setTextColor(esValida ? 255 : colorText[0], esValida ? 255 : colorText[1], esValida ? 255 : colorText[2]);
+            doc.setFont('helvetica', esValida ? 'bold' : 'normal');
+            doc.text(nota.toString(), xPos + notaWidth / 2, yActual, { align: 'center' });
+            
+            xPos += notaWidth + spacing;
+          });
+
+          // Actualizar yPosition si hubo múltiples líneas
+          yPosition = yActual;
+          yPosition += 7; // Espacio después de cada indicador
+        });
+
+        // Nota del criterio - centrada verticalmente con TODAS las subnotas de TODOS los indicadores
+        if (notaCriterio !== null && notaCriterio !== '') {
+          const alturaTotalIndicadores = yPosition - yInicioTodosIndicadores;
+          const yCentroIndicadores = yInicioTodosIndicadores + alturaTotalIndicadores / 2;
+          
+          const esAprobado = parseFloat(notaCriterio) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+          const alturaNota = 6;
+          const yNota = yCentroIndicadores - alturaNota / 2; // Centrar verticalmente con todas las subnotas
+          doc.rect(xNotaCriterio, yNota, 20, alturaNota, 'F');
+          doc.setDrawColor(...colorBorder);
+          doc.rect(xNotaCriterio, yNota, 20, alturaNota);
+          doc.setTextColor(255, 255, 255);
+          doc.text(`Nota: ${notaCriterio}`, xNotaCriterio + 10, yNota + alturaNota / 2 + 1, { align: 'center' });
+        }
+        
+        yPosition += 3; // Espacio después de todos los indicadores
+      } else {
+        // Sin indicadores - mostrar nota directa
+        if (notaCriterio !== null && notaCriterio !== '') {
+          const esAprobado = parseFloat(notaCriterio) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+          doc.rect(margin + contentWidth - 30, yPosition - 3, 25, 7, 'F');
+          doc.setDrawColor(...colorBorder);
+          doc.rect(margin + contentWidth - 30, yPosition - 3, 25, 7);
+          doc.setTextColor(255, 255, 255);
+          doc.text(`Nota: ${notaCriterio}`, margin + contentWidth - 17.5, yPosition + 1.5, { align: 'center' });
+        } else {
+          doc.setTextColor(...colorText);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text('Sin nota registrada', margin + 5, yPosition);
+        }
+        yPosition += 10;
+      }
+
+      // Calcular altura real del criterio
+      const alturaReal = yPosition - yInicioCriterio;
+      const alturaRealContenido = yPosition - yInicioContenido;
+      
+      // Si la altura real del contenido es mayor a la estimada, extender el fondo
+      if (alturaRealContenido > alturaEstimadaContenido) {
+        doc.setFillColor(...colorLight);
+        doc.rect(margin, yInicioContenido + alturaEstimadaContenido, contentWidth, alturaRealContenido - alturaEstimadaContenido, 'F');
+      }
+      
+      // Dibujar borde completo del criterio
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.3);
+      doc.rect(margin, yInicioCriterio, contentWidth, alturaReal);
+
+      yPosition += 3; // Espacio entre criterios
+    });
+
+    // Examen Mensual (si aplica)
+    if (notasDetalladas.curso?.examen_mensual) {
+      if (yPosition > pageHeight - 30) {
+        doc.addPage();
+        yPosition = margin;
+      }
+
+      doc.setFillColor(...colorHeader);
+      doc.rect(margin, yPosition, contentWidth, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      
+      let nombreExamen = 'Examen Mensual';
+      if (notasDetalladas.curso?.nivel?.tipo_calificacion_final === 1 && notasDetalladas.curso?.peso_examen_mensual) {
+        nombreExamen += ` (${notasDetalladas.curso.peso_examen_mensual}%)`;
+      }
+      
+      doc.text(nombreExamen, margin + 5, yPosition + 5);
+      yPosition += 9;
+
+      const examen1 = notasDetalladas.notas?.[cicloSeleccionado]?.examen_mensual?.[1];
+      const examen2 = notasDetalladas.notas?.[cicloSeleccionado]?.examen_mensual?.[2];
+      const promedioExamen = (examen1 && examen2) 
+        ? Math.round((parseFloat(examen1) + parseFloat(examen2)) / 2)
+        : null;
+
+      doc.setTextColor(...colorText);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('  Examen 1:', margin + 5, yPosition);
+      if (examen1 !== null && examen1 !== '') {
+        const esAprobado = parseFloat(examen1) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+        doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+        doc.rect(margin + 40, yPosition - 3, 15, 5, 'F');
+        doc.setDrawColor(...colorBorder);
+        doc.rect(margin + 40, yPosition - 3, 15, 5);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text(examen1.toString(), margin + 47.5, yPosition, { align: 'center' });
+      } else {
+        doc.text('-', margin + 40, yPosition);
+      }
+      yPosition += 6;
+
+      doc.setFont('helvetica', 'normal');
+      doc.text('  Examen 2:', margin + 5, yPosition);
+      if (examen2 !== null && examen2 !== '') {
+        const esAprobado = parseFloat(examen2) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+        doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+        doc.rect(margin + 40, yPosition - 3, 15, 5, 'F');
+        doc.setDrawColor(...colorBorder);
+        doc.rect(margin + 40, yPosition - 3, 15, 5);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text(examen2.toString(), margin + 47.5, yPosition, { align: 'center' });
+      } else {
+        doc.text('-', margin + 40, yPosition);
+      }
+      yPosition += 6;
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('  Promedio:', margin + 5, yPosition);
+      if (promedioExamen !== null) {
+        const esAprobado = promedioExamen >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+        doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+        doc.rect(margin + 40, yPosition - 3, 15, 5, 'F');
+        doc.setDrawColor(...colorBorder);
+        doc.rect(margin + 40, yPosition - 3, 15, 5);
+        doc.setTextColor(255, 255, 255);
+        doc.text(promedioExamen.toString(), margin + 47.5, yPosition, { align: 'center' });
+      } else {
+        doc.setTextColor(...colorText);
+        doc.setFont('helvetica', 'normal');
+        doc.text('-', margin + 40, yPosition);
+      }
+      yPosition += 10;
+    }
+
+    // Promedio Final
+    if (yPosition > pageHeight - 30) {
+      doc.addPage();
+      yPosition = margin;
+    }
+
+    const promedioFinal = notasDetalladas.notas?.[cicloSeleccionado]?.promedio_final;
+    
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, contentWidth, 10, 'F');
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPosition, contentWidth, 10);
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROMEDIO FINAL', margin + 5, yPosition + 7);
+    
+    if (promedioFinal !== null && promedioFinal !== '') {
+      const esAprobado = parseFloat(promedioFinal) >= (notasDetalladas.curso?.nivel?.nota_aprobatoria || 11);
+      doc.setFillColor(...(esAprobado ? colorAprobado : colorDesaprobado));
+      doc.rect(margin + contentWidth - 30, yPosition + 1, 25, 8, 'F');
+      doc.setDrawColor(...colorBorder);
+      doc.rect(margin + contentWidth - 30, yPosition + 1, 25, 8);
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text(parseFloat(promedioFinal).toFixed(0), margin + contentWidth - 17.5, yPosition + 6.5, { align: 'center' });
+    } else {
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.text('Sin promedio', margin + contentWidth - 20, yPosition + 6.5, { align: 'right' });
+    }
+    
+    yPosition += 15;
+
+    // ========== PIE DE PÁGINA ==========
+    const fechaGeneracion = new Date().toLocaleDateString('es-PE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Generado el: ${fechaGeneracion}`, margin, pageHeight - 10);
+
+    // Guardar PDF
+    const nombresBimestres = ['I', 'II', 'III', 'IV'];
+    const nombreArchivo = `Notas_Detalladas_${nombreAlumno.replace(/\s+/g, '_')}_${nombresBimestres[cicloSeleccionado - 1]}_Bimestre_${new Date().getTime()}.pdf`;
+    doc.save(nombreArchivo);
+
+    Swal.fire({
+      title: '¡PDF Generado!',
+      text: 'El reporte de notas detalladas se ha descargado correctamente',
+      icon: 'success',
+      zIndex: 100001
+    });
+  };
+
   const exportarPDFIncidencias = () => {
     if (!alumnoSeleccionado || historialIncidencias.length === 0) {
       Swal.fire({
@@ -1629,16 +2069,26 @@ function DocenteCursos() {
                     {notasDetalladas?.alumno?.nombre_completo || alumnoSeleccionado?.nombre_completo || 'Alumno'}
                   </p>
                 </div>
-                <button
-                  className="modal-notas-detalladas-close"
-                  onClick={() => {
-                    console.log('Click en botón cerrar');
-                    setMostrarModalNotasDetalladas(false);
-                  }}
-                  type="button"
-                >
-                  ✕
-                </button>
+                <div className="modal-notas-detalladas-actions">
+                  <button
+                    className="btn-exportar-pdf-notas"
+                    onClick={exportarPDFNotasDetalladas}
+                    type="button"
+                    title="Exportar a PDF"
+                  >
+                    📄 Exportar PDF
+                  </button>
+                  <button
+                    className="modal-notas-detalladas-close"
+                    onClick={() => {
+                      console.log('Click en botón cerrar');
+                      setMostrarModalNotasDetalladas(false);
+                    }}
+                    type="button"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               <div className="modal-notas-detalladas-body">
