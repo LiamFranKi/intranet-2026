@@ -512,7 +512,7 @@ react-aula-virtual/
   - Dropdown "Opciones" con submenús: "Estrellas", "Incidencias", "Notas Detalladas"
   - **Modal Estrellas:** Gestión de estrellas (1-10), historial con docente, cantidad, descripción y fecha. Solo el docente que dio las estrellas puede eliminarlas. Exportación a PDF.
   - **Modal Incidencias:** Registro de incidencias, historial completo del alumno (sin filtrar por curso), exportación a PDF.
-  - **Modal Notas Detalladas:** Visualización completa de notas por bimestre (I, II, III, IV), incluye criterios, indicadores, subnotas, promedios de indicadores, notas finales de criterios, exámenes mensuales y promedio final. Soporte para calificación cualitativa (letras) y cuantitativa (0-20). Diseño optimizado con mejor resalte del promedio final.
+  - **Modal Notas Detalladas:** Visualización completa de notas por bimestre (I, II, III, IV), incluye criterios, indicadores, subnotas, promedios de indicadores, notas finales de criterios, exámenes mensuales y promedio final. Soporte para calificación cualitativa (letras) y cuantitativa (0-20). Diseño optimizado con mejor resalte del promedio final. **Exportación a PDF:** Reporte PDF completo con información del curso, criterios, indicadores, subnotas alineadas horizontalmente, nota del criterio centrada verticalmente, exámenes mensuales y promedio final. Colores: verde para aprobados, rojo para desaprobados.
 
 #### Aula Virtual
 - **Diseño Gamificado:** Nueva versión con diseño tipo dashboard gamificado
