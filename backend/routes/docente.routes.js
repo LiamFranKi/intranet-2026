@@ -3350,5 +3350,161 @@ router.get('/aula-virtual/enlaces', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/docente/actividades/importar-calendario
+ * Importar actividades desde calendarizacion.json a la base de datos
+ * Solo para administradores o docentes autorizados
+ */
+router.post('/actividades/importar-calendario', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    const fs = require('fs');
+    const path = require('path');
+
+    // Ruta al archivo JSON
+    const jsonPath = path.join(__dirname, '../../../calendarizacion.json');
+
+    // Verificar que el archivo existe
+    if (!fs.existsSync(jsonPath)) {
+      return res.status(404).json({ error: 'Archivo calendarizacion.json no encontrado' });
+    }
+
+    // Leer el archivo JSON
+    const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    const año = jsonData.año || 2026;
+    const meses = jsonData.meses || {};
+
+    console.log(`📅 Iniciando importación de actividades para el año ${año}`);
+
+    let actividadesInsertadas = 0;
+    let actividadesConError = 0;
+    const errores = [];
+
+    // Procesar cada mes
+    for (const [mesNum, mesData] of Object.entries(meses)) {
+      const mes = parseInt(mesNum);
+      const eventos = mesData.eventos || [];
+
+      console.log(`📅 Procesando mes ${mes} (${mesData.nombre}): ${eventos.length} eventos`);
+
+      // Procesar cada evento del mes
+      for (const evento of eventos) {
+        try {
+          let fechaInicio, fechaFin;
+          const descripcion = evento.texto || '';
+          const lugar = 'Colegio Vanguard';
+          const detalles = evento.tipo || '';
+
+          // Determinar fechas según si tiene día único o rango
+          if (evento.dia) {
+            // Evento de un solo día
+            fechaInicio = new Date(año, mes - 1, evento.dia, 0, 0, 0);
+            fechaFin = new Date(año, mes - 1, evento.dia, 23, 59, 59);
+          } else if (evento.rango && evento.rango.inicio && evento.rango.fin) {
+            // Evento con rango de días
+            fechaInicio = new Date(año, mes - 1, evento.rango.inicio, 0, 0, 0);
+            fechaFin = new Date(año, mes - 1, evento.rango.fin, 23, 59, 59);
+          } else {
+            // Si no tiene ni día ni rango válido, saltar
+            console.warn(`⚠️ Evento sin fecha válida: ${descripcion}`);
+            actividadesConError++;
+            errores.push({
+              evento: descripcion,
+              error: 'No tiene día ni rango válido'
+            });
+            continue;
+          }
+
+          // Validar que las fechas sean válidas
+          if (isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
+            console.warn(`⚠️ Fecha inválida para evento: ${descripcion}`);
+            actividadesConError++;
+            errores.push({
+              evento: descripcion,
+              error: 'Fecha inválida'
+            });
+            continue;
+          }
+
+          // Formatear fechas para MySQL (YYYY-MM-DD HH:mm:ss)
+          const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+          const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+
+          // Verificar si ya existe una actividad similar (evitar duplicados)
+          const actividadesExistentes = await query(
+            `SELECT id FROM actividades 
+             WHERE colegio_id = ? 
+             AND descripcion = ? 
+             AND DATE(fecha_inicio) = DATE(?) 
+             AND DATE(fecha_fin) = DATE(?)`,
+            [colegio_id, descripcion, fechaInicioStr, fechaFinStr]
+          );
+
+          if (actividadesExistentes.length > 0) {
+            console.log(`⏭️ Actividad ya existe, saltando: ${descripcion} (${fechaInicioStr})`);
+            continue;
+          }
+
+          // Insertar actividad en la base de datos
+          await execute(
+            `INSERT INTO actividades (colegio_id, descripcion, lugar, detalles, fecha_inicio, fecha_fin, usuario_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [colegio_id, descripcion, lugar, detalles, fechaInicioStr, fechaFinStr, usuario_id]
+          );
+
+          actividadesInsertadas++;
+          console.log(`✅ Actividad insertada: ${descripcion} (${fechaInicioStr} - ${fechaFinStr})`);
+
+        } catch (error) {
+          console.error(`❌ Error procesando evento:`, error);
+          actividadesConError++;
+          errores.push({
+            evento: evento.texto || 'Desconocido',
+            error: error.message
+          });
+        }
+      }
+    }
+
+    // Registrar acción en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'IMPORTAR',
+      modulo: 'ACTIVIDADES',
+      entidad: 'actividades',
+      entidad_id: null,
+      descripcion: `Importación de actividades desde calendarizacion.json - ${actividadesInsertadas} insertadas`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: {
+        año,
+        actividades_insertadas: actividadesInsertadas,
+        actividades_con_error: actividadesConError
+      },
+      resultado: actividadesConError === 0 ? 'EXITOSO' : 'PARCIAL'
+    });
+
+    res.json({
+      success: true,
+      message: `Importación completada: ${actividadesInsertadas} actividades insertadas`,
+      año,
+      actividades_insertadas: actividadesInsertadas,
+      actividades_con_error: actividadesConError,
+      errores: errores.length > 0 ? errores : undefined
+    });
+
+  } catch (error) {
+    console.error('Error importando actividades:', error);
+    res.status(500).json({ 
+      error: 'Error al importar actividades',
+      detalles: error.message 
+    });
+  }
+});
+
 module.exports = router;
 
