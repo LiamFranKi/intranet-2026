@@ -1490,8 +1490,47 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ---
 
+## 📝 HISTORIAL DE CAMBIOS
+
+### Enero 2026 - Corrección Módulo Mi Perfil (Docente)
+
+**Commit:** `b13827f` - fix: Corregir módulo Mi Perfil del Docente
+
+#### Problemas Corregidos:
+
+1. **Actualización de datos en Base de Datos**
+   - ✅ Se implementó UPDATE real en `PUT /api/docente/perfil`
+   - ✅ Ahora se actualizan correctamente: nombres, apellidos, email, teléfonos, dirección, fecha_nacimiento y foto
+   - ✅ Los datos persisten después de recargar la página
+
+2. **Endpoint de Cambio de Contraseña**
+   - ✅ Creado `PUT /api/docente/perfil/password`
+   - ✅ Validación de contraseña actual (SHA1)
+   - ✅ Validación de nueva contraseña (mínimo 6 caracteres)
+   - ✅ Actualización en base de datos con hash SHA1
+
+3. **Gestión de Fotos**
+   - ✅ La foto se guarda correctamente en el servidor
+   - ✅ El nombre del archivo se actualiza en la base de datos
+   - ✅ Eliminación de foto anterior al subir nueva
+
+4. **Frontend - Recarga de Perfil**
+   - ✅ Recarga automática del perfil después de guardar
+   - ✅ Actualización inmediata del navbar (AuthContext)
+   - ✅ Sincronización con localStorage
+
+5. **Auditoría**
+   - ✅ Corregida llamada a `registrarAccion` con parámetros nombrados
+   - ✅ Registro completo de datos anteriores y nuevos
+
+#### Archivos Modificados:
+- `backend/routes/docente.routes.js` - Endpoints de perfil y contraseña
+- `frontend/src/pages/DocentePerfil.jsx` - Recarga y actualización de estado
+
+---
+
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.0  
+**Versión del Documento:** 1.0.1  
 **Mantenido por:** Equipo de Desarrollo
 
 ---
