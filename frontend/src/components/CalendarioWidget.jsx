@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import EventoModal from './EventoModal';
 import './CalendarioWidget.css';
 
 function CalendarioWidget() {
+  // Calendario muestra TODAS las actividades de TODOS los años (sin restricción)
+  // Usar año actual para la visualización inicial
   const [fechaActual, setFechaActual] = useState(new Date());
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
   const [actividades, setActividades] = useState([]);
@@ -23,25 +26,32 @@ function CalendarioWidget() {
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  // Cargar todas las actividades (sin filtrar por fecha para mostrar todas)
+  // Cargar TODAS las actividades de TODOS los años (sin restricción de año)
   useEffect(() => {
     cargarActividades();
   }, [añoActual, mesActual]);
 
   const cargarActividades = async () => {
     try {
-      // Cargar todas las actividades del año activo (sin filtrar por fecha específica)
-      const response = await api.get('/docente/actividades');
+      // Cargar actividades del año que se está visualizando en el calendario
+      // Pasar el año como parámetro para que el backend filtre correctamente
+      const response = await api.get('/docente/actividades', {
+        params: { anio: añoActual }
+      });
       const actividadesData = response.data.actividades || [];
-      console.log('📅 Actividades cargadas:', actividadesData.length);
+      
+      console.log(`📅 Calendario - Actividades del año ${añoActual}:`, actividadesData.length);
+      
       if (actividadesData.length > 0) {
         console.log('📅 Primeras actividades:', actividadesData.slice(0, 3).map(a => ({
           id: a.id,
           descripcion: a.descripcion,
           fecha_inicio: a.fecha_inicio,
-          fecha_fin: a.fecha_fin
+          fecha_fin: a.fecha_fin,
+          año: new Date(a.fecha_inicio).getFullYear()
         })));
       }
+      
       setActividades(actividadesData);
     } catch (error) {
       console.error('❌ Error cargando actividades:', error);
@@ -51,7 +61,19 @@ function CalendarioWidget() {
   };
 
   const cambiarMes = (direccion) => {
-    setFechaActual(new Date(añoActual, mesActual + direccion, 1));
+    const nuevoMes = mesActual + direccion;
+    let nuevoAño = añoActual;
+    
+    // Si se sale del rango de meses, ajustar el año
+    if (nuevoMes < 0) {
+      nuevoAño = añoActual - 1;
+      setFechaActual(new Date(nuevoAño, 11, 1)); // Diciembre del año anterior
+    } else if (nuevoMes > 11) {
+      nuevoAño = añoActual + 1;
+      setFechaActual(new Date(nuevoAño, 0, 1)); // Enero del año siguiente
+    } else {
+      setFechaActual(new Date(añoActual, nuevoMes, 1));
+    }
   };
 
   const irAHoy = () => {
@@ -81,7 +103,7 @@ function CalendarioWidget() {
   const obtenerActividadesDelDia = (dia) => {
     if (!dia || actividades.length === 0) return [];
     
-    // Crear fecha del día en formato YYYY-MM-DD para comparar
+    // Crear fecha del día usando el año actual del calendario
     const fechaDia = new Date(añoActual, mesActual, dia);
     const añoDia = fechaDia.getFullYear();
     const mesDia = fechaDia.getMonth();

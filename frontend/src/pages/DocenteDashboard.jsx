@@ -16,16 +16,33 @@ function DocenteDashboard() {
       setLoading(true);
       const response = await api.get('/docente/dashboard');
       console.log('📊 Dashboard data recibida:', response.data);
-      // Debug: Log de eventos recibidos
+      
+      // Debug: Log detallado de eventos recibidos
       if (response.data.actividades) {
         console.log('📅 Actividades recibidas:', response.data.actividades.length);
-        console.log('📅 Primeras actividades:', response.data.actividades.slice(0, 3));
+        if (response.data.actividades.length > 0) {
+          console.log('📅 Primeras actividades:', response.data.actividades.slice(0, 5).map(a => ({
+            id: a.id,
+            descripcion: a.descripcion,
+            fecha_inicio: a.fecha_inicio,
+            fecha_fin: a.fecha_fin,
+            año: new Date(a.fecha_inicio).getFullYear()
+          })));
+        } else {
+          console.warn('⚠️ No hay actividades en el dashboard (año activo filtrado)');
+        }
       }
       if (response.data.proximosExamenes) {
         console.log('📝 Exámenes recibidos:', response.data.proximosExamenes.length);
+        if (response.data.proximosExamenes.length > 0) {
+          console.log('📝 Primeros exámenes:', response.data.proximosExamenes.slice(0, 3));
+        }
       }
       if (response.data.proximasTareas) {
         console.log('📋 Tareas recibidas:', response.data.proximasTareas.length);
+        if (response.data.proximasTareas.length > 0) {
+          console.log('📋 Primeras tareas:', response.data.proximasTareas.slice(0, 3));
+        }
       }
       setDashboardData(response.data);
     } catch (error) {
@@ -122,12 +139,12 @@ function DocenteDashboard() {
   };
 
   // Combinar y ordenar todos los eventos
-  // IMPORTANTE: NO filtramos aquí - el backend ya filtra con SQL (DATE >= CURDATE())
+  // IMPORTANTE: El backend ya filtra por año activo y fecha >= hoy
   // Solo mostramos TODO lo que viene del backend sin restricciones adicionales
   const todosEventos = useMemo(() => {
     const eventos = [];
 
-    // Agregar exámenes (vienen ya filtrados del backend con SQL)
+    // Agregar exámenes (vienen ya filtrados del backend por año activo y fecha >= hoy)
     if (proximosExamenes && Array.isArray(proximosExamenes)) {
       proximosExamenes.forEach(examen => {
         // Usar fecha_desde o fecha_evento si está disponible
@@ -142,7 +159,7 @@ function DocenteDashboard() {
       });
     }
 
-    // Agregar tareas (vienen ya filtradas del backend con SQL)
+    // Agregar tareas (vienen ya filtradas del backend por año activo y fecha >= hoy)
     if (proximasTareas && Array.isArray(proximasTareas)) {
       proximasTareas.forEach(tarea => {
         // Usar fecha_fin o fecha_evento si está disponible
@@ -157,24 +174,44 @@ function DocenteDashboard() {
       });
     }
 
-    // Agregar actividades (vienen ya filtradas del backend con SQL)
-    // NO filtramos aquí - mostramos TODO lo que viene del backend
+    // Agregar actividades (vienen ya filtradas del backend por año activo y fecha >= hoy)
     if (actividades && Array.isArray(actividades)) {
+      console.log('📅 Procesando actividades para Próximos Eventos:', actividades.length);
       actividades.forEach(actividad => {
         // Usar fecha_inicio o fecha_evento si está disponible
         const fechaActividad = crearFechaLima(actividad.fecha_inicio || actividad.fecha_evento);
+        console.log('📅 Actividad procesada:', {
+          id: actividad.id,
+          descripcion: actividad.descripcion,
+          fecha_inicio: actividad.fecha_inicio,
+          fecha_evento: actividad.fecha_evento,
+          fechaProcesada: fechaActividad ? fechaActividad.toISOString() : 'null'
+        });
         if (fechaActividad) {
           eventos.push({
             ...actividad,
             tipo: 'actividad',
             fecha: fechaActividad
           });
+        } else {
+          console.warn('⚠️ Actividad sin fecha válida:', actividad);
         }
       });
+    } else {
+      console.warn('⚠️ actividades no es un array válido:', actividades);
     }
 
     // Ordenar por fecha (más próximos primero)
-    return eventos.sort((a, b) => a.fecha - b.fecha);
+    const eventosOrdenados = eventos.sort((a, b) => a.fecha - b.fecha);
+    
+    console.log('📊 Total eventos combinados:', eventosOrdenados.length);
+    console.log('📊 Eventos por tipo:', {
+      examenes: eventosOrdenados.filter(e => e.tipo === 'examen').length,
+      tareas: eventosOrdenados.filter(e => e.tipo === 'tarea').length,
+      actividades: eventosOrdenados.filter(e => e.tipo === 'actividad').length
+    });
+    
+    return eventosOrdenados;
   }, [proximosExamenes, proximasTareas, actividades]);
 
   // Resetear página cuando cambian los eventos

@@ -221,18 +221,30 @@ router.get('/dashboard', async (req, res) => {
       [docente.id, colegio_id, anio_activo]
     );
 
-    // Actividades próximas (solo futuras, no pasadas)
-    // IMPORTANTE: Comparar solo fechas (sin hora) para incluir eventos de hoy
+    // Actividades próximas (solo futuras del año actual, no año activo)
+    // IMPORTANTE: Filtrar por AÑO ACTUAL del sistema (no año activo) y comparar solo fechas (sin hora) para incluir eventos de hoy
     // Usar DATE() en ambos lados para comparar solo fechas
+    const añoActual = new Date().getFullYear();
     const actividades = await query(
       `SELECT a.*,
               DATE(a.fecha_inicio) as fecha_evento
        FROM actividades a
        WHERE a.colegio_id = ?
+       AND YEAR(a.fecha_inicio) = ?
        AND DATE(a.fecha_inicio) >= DATE(NOW())
        ORDER BY a.fecha_inicio ASC`,
-      [colegio_id]
+      [colegio_id, añoActual]
     );
+
+    console.log(`📅 Dashboard - Actividades del año actual ${añoActual} (futuras):`, actividades.length);
+    if (actividades.length > 0) {
+      console.log('📅 Dashboard - Primeras actividades:', actividades.slice(0, 3).map(a => ({
+        id: a.id,
+        descripcion: a.descripcion,
+        fecha_inicio: a.fecha_inicio,
+        fecha_evento: a.fecha_evento
+      })));
+    }
 
     // Construir nombre completo
     const nombreCompleto = `${docente.nombres || ''} ${docente.apellidos || ''}`.trim();
@@ -2048,27 +2060,36 @@ router.get('/comunicados', async (req, res) => {
 /**
  * GET /api/docente/actividades
  * Obtener actividades del calendario (solo lectura)
- * Filtra por año actual (no año activo) basándose en el año de fecha_inicio
+ * IMPORTANTE: Para el menú Actividades, muestra TODAS las actividades del año actual (pasadas y futuras)
+ * Para el CalendarioWidget, puede mostrar todas sin restricción si no se pasa parámetro de año
  */
 router.get('/actividades', async (req, res) => {
   try {
     const { colegio_id } = req.user;
-    const { fecha, anio } = req.query;
+    const { fecha, mes, anio } = req.query;
 
-    // Obtener año actual o el año solicitado
-    const anioFiltro = anio ? parseInt(anio) : new Date().getFullYear();
+    // Si no se especifica año, usar año actual (para el menú Actividades)
+    // Si se especifica año, usar ese año (para el calendario que puede navegar entre años)
+    const añoFiltro = anio ? parseInt(anio) : new Date().getFullYear();
 
-    // actividades NO tiene anio ni estado. Tiene fecha_inicio y fecha_fin (datetime)
-    // Filtrar por año actual (o año solicitado): el año de fecha_inicio debe coincidir
-    // Si se pasa fecha, filtrar solo las que incluyen ese día en su rango
     let querySql = `
       SELECT a.*
       FROM actividades a
       WHERE a.colegio_id = ?
         AND YEAR(a.fecha_inicio) = ?
     `;
-    const params = [colegio_id, anioFiltro];
+    const params = [colegio_id, añoFiltro];
 
+    // Si se pasa mes (1-12), filtrar por ese mes
+    if (mes) {
+      const mesNum = parseInt(mes);
+      if (mesNum >= 1 && mesNum <= 12) {
+        querySql += ` AND MONTH(a.fecha_inicio) = ?`;
+        params.push(mesNum);
+      }
+    }
+
+    // Si se pasa fecha, filtrar solo las que incluyen ese día en su rango
     if (fecha) {
       // Filtrar actividades que incluyen esta fecha en su rango
       // La fecha puede estar entre fecha_inicio y fecha_fin
@@ -2076,11 +2097,16 @@ router.get('/actividades', async (req, res) => {
       params.push(fecha);
     }
 
-    querySql += ` ORDER BY a.fecha_inicio ASC`;
+    querySql += ` ORDER BY a.fecha_inicio ASC, a.fecha_fin ASC`;
 
     const actividades = await query(querySql, params);
 
-    res.json({ actividades: actividades || [] });
+    console.log(`📅 Actividades del año ${añoFiltro}${mes ? `, mes ${mes}` : ''}:`, actividades.length);
+
+    res.json({ 
+      actividades: actividades || [],
+      anio: añoFiltro
+    });
   } catch (error) {
     console.error('Error obteniendo actividades:', error);
     res.status(500).json({ error: 'Error al obtener actividades' });
