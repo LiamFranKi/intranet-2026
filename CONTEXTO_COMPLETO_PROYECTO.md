@@ -1563,7 +1563,7 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 ---
 
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.2  
+**Versión del Documento:** 1.0.3  
 **Mantenido por:** Equipo de Desarrollo
 
 ---
