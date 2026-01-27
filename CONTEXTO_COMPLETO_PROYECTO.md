@@ -1492,6 +1492,51 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ## 📝 HISTORIAL DE CAMBIOS
 
+### Versión 1.0.3 - Enero 2026 - Scripts SQL para Importación de Actividades
+
+**Commit:** `b9643b6` - feat: Agregar scripts SQL para importar y gestionar actividades desde calendarizacion.json
+
+#### Nuevas Funcionalidades:
+
+1. **Script SQL de Importación de Actividades**
+   - ✅ Creado `importar-actividades.sql` para importar 142 actividades del año 2026
+   - ✅ Script genera INSERT statements con protección contra duplicados (`WHERE NOT EXISTS`)
+   - ✅ Todas las actividades se importan con lugar "Colegio Vanguard"
+   - ✅ Variables configurables: `@colegio_id`, `@usuario_id`, `@año`
+   - ✅ Incluye verificación previa y resumen post-importación
+
+2. **Script SQL de Eliminación de Actividades**
+   - ✅ Creado `eliminar-actividades-usuario-2.sql` para eliminar actividades por usuario
+   - ✅ Incluye verificación previa (muestra cuántas se eliminarán)
+   - ✅ Verificación posterior y resumen de actividades restantes
+   - ✅ Fácilmente modificable para cambiar `usuario_id`
+
+3. **Script de Utilidad: Listar Usuarios**
+   - ✅ Creado `listar-usuarios.js` para encontrar usuarios válidos en la base de datos
+   - ✅ Lista usuarios ADMINISTRADOR, DOCENTE y DIRECTOR activos
+   - ✅ Muestra DNI, nombre, tipo y colegio_id para facilitar la selección de credenciales
+
+4. **Dependencias**
+   - ✅ Instalado `axios` en la raíz del proyecto para scripts de importación
+   - ✅ No interfiere con el backend (que tiene su propio axios)
+
+#### Archivos Nuevos:
+- `importar-actividades.sql` - Script SQL completo para importar actividades desde calendarizacion.json
+- `eliminar-actividades-usuario-2.sql` - Script SQL para eliminar actividades por usuario_id
+- `listar-usuarios.js` - Script Node.js para listar usuarios válidos
+
+#### Archivos Modificados:
+- `package.json` - Agregado axios como dependencia
+- `package-lock.json` - Actualizado con axios
+- `backend/routes/docente.routes.js` - Endpoint `/docente/actividades/importar-calendario` ya implementado
+
+#### Notas:
+- Los scripts SQL están listos para ejecutar directamente en phpMyAdmin
+- El endpoint de importación por API (`POST /api/docente/actividades/importar-calendario`) ya estaba implementado previamente
+- Los scripts SQL son una alternativa más directa que no requiere autenticación API
+
+---
+
 ### Versión 1.0.2 - Enero 2026 - Mejoras en Calendario y Actividades
 
 **Commit:** `f66f235` - feat: Mejoras en Calendario y Actividades
