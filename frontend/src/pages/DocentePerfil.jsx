@@ -54,7 +54,11 @@ function DocentePerfil() {
         email: data.email || '',
         telefono_celular: data.telefono_celular || '',
         direccion: data.direccion || '',
-        fecha_nacimiento: data.fecha_nacimiento ? data.fecha_nacimiento.split('T')[0] : ''
+        fecha_nacimiento: data.fecha_nacimiento 
+          ? (data.fecha_nacimiento.includes('T') 
+              ? data.fecha_nacimiento.split('T')[0] 
+              : data.fecha_nacimiento.split(' ')[0])
+          : ''
       });
       
       // Cargar foto si existe
@@ -190,36 +194,36 @@ function DocentePerfil() {
         timerProgressBar: true
       });
 
-      // Actualizar perfil local
-      if (response.data.docente) {
-        setPerfil(response.data.docente);
-        if (response.data.docente.foto) {
-          const fotoUrl = response.data.docente.foto.startsWith('http') 
-            ? response.data.docente.foto 
-            : response.data.docente.foto.startsWith('/')
-            ? `${window.location.protocol}//${window.location.hostname}:5000${response.data.docente.foto}`
-            : `${window.location.protocol}//${window.location.hostname}:5000/uploads/personal/${response.data.docente.foto}`;
-          setFotoPreview(fotoUrl);
-        }
+      // Recargar perfil completo desde el servidor para asegurar datos actualizados
+      await cargarPerfil();
+      
+      // Actualizar usuario en AuthContext para que se refleje en el navbar
+      if (response.data.perfil || response.data.docente) {
+        const perfilActualizado = response.data.perfil || response.data.docente;
         
-        // Actualizar usuario en AuthContext para que se refleje en el navbar
-        if (user && response.data.docente.foto) {
+        if (user && perfilActualizado) {
           // Construir URL completa de la foto para el contexto
-          const fotoUrlForContext = response.data.docente.foto.startsWith('http') 
-            ? response.data.docente.foto 
-            : response.data.docente.foto.startsWith('/')
-            ? `${window.location.protocol}//${window.location.hostname}:5000${response.data.docente.foto}`
-            : `${window.location.protocol}//${window.location.hostname}:5000/uploads/personal/${response.data.docente.foto}`;
+          let fotoUrlForContext = null;
+          if (perfilActualizado.foto) {
+            fotoUrlForContext = perfilActualizado.foto.startsWith('http') 
+              ? perfilActualizado.foto 
+              : perfilActualizado.foto.startsWith('/')
+              ? `${window.location.protocol}//${window.location.hostname}:5000${perfilActualizado.foto}`
+              : `${window.location.protocol}//${window.location.hostname}:5000/uploads/personal/${perfilActualizado.foto}`;
+          }
           
           const updatedUser = {
             ...user,
-            foto: fotoUrlForContext, // URL completa para el navbar
-            nombres: response.data.docente.nombres,
-            apellidos: response.data.docente.apellidos
+            foto: fotoUrlForContext || user.foto,
+            nombres: perfilActualizado.nombres || user.nombres,
+            apellidos: perfilActualizado.apellidos || user.apellidos,
+            email: perfilActualizado.email || user.email,
+            telefono_celular: perfilActualizado.telefono_celular || user.telefono_celular,
+            direccion: perfilActualizado.direccion || user.direccion
           };
           setUser(updatedUser);
           localStorage.setItem('user', JSON.stringify(updatedUser));
-          console.log('✅ Usuario actualizado en contexto, foto:', fotoUrlForContext);
+          console.log('✅ Usuario actualizado en contexto y localStorage');
         }
       }
       

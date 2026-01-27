@@ -334,7 +334,7 @@ router.get('/perfil', async (req, res) => {
 router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
   try {
     const { usuario_id, colegio_id } = req.user;
-    const { nombres, apellidos, email, telefono_fijo, telefono_celular, direccion } = req.body;
+    const { nombres, apellidos, email, telefono_fijo, telefono_celular, direccion, fecha_nacimiento } = req.body;
 
     // Obtener docente actual
     const personal = await query(
@@ -349,6 +349,19 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
     }
 
     const docente = personal[0];
+    
+    // Guardar datos anteriores para auditoría
+    const datosAnteriores = {
+      nombres: docente.nombres,
+      apellidos: docente.apellidos,
+      email: docente.email,
+      telefono_fijo: docente.telefono_fijo,
+      telefono_celular: docente.telefono_celular,
+      direccion: docente.direccion,
+      fecha_nacimiento: docente.fecha_nacimiento,
+      foto: docente.foto
+    };
+    
     let fotoPath = docente.foto;
 
     // Si se subió una nueva foto
@@ -361,13 +374,62 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
         }
       }
       
-      // Guardar nueva foto
-      fotoPath = `/uploads/personal/${req.file.filename}`;
+      // Guardar nueva foto - solo el nombre del archivo, no la ruta completa
+      fotoPath = req.file.filename;
     }
 
-    // Actualizar datos (solo lectura en MySQL, pero preparado para cuando se permita escritura)
-    // Por ahora retornamos éxito simulando la actualización
-    await registrarAccion(usuario_id, colegio_id, 'ACTUALIZAR_PERFIL', 'Docente actualizó su perfil');
+    // ACTUALIZAR DATOS EN LA BASE DE DATOS
+    await execute(
+      `UPDATE personal SET
+        nombres = ?,
+        apellidos = ?,
+        email = ?,
+        telefono_fijo = ?,
+        telefono_celular = ?,
+        direccion = ?,
+        foto = ?,
+        fecha_nacimiento = ?
+      WHERE id = ?`,
+      [
+        nombres || docente.nombres,
+        apellidos || docente.apellidos,
+        email || docente.email,
+        telefono_fijo || docente.telefono_fijo,
+        telefono_celular || docente.telefono_celular,
+        direccion || docente.direccion,
+        fotoPath,
+        fecha_nacimiento || docente.fecha_nacimiento,
+        docente.id
+      ]
+    );
+
+    // Registrar acción en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'PERFIL',
+      entidad: 'personal',
+      entidad_id: docente.id,
+      descripcion: 'Docente actualizó su perfil',
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: datosAnteriores,
+      datos_nuevos: {
+        nombres: nombres || docente.nombres,
+        apellidos: apellidos || docente.apellidos,
+        email: email || docente.email,
+        telefono_fijo: telefono_fijo || docente.telefono_fijo,
+        telefono_celular: telefono_celular || docente.telefono_celular,
+        direccion: direccion || docente.direccion,
+        fecha_nacimiento: fecha_nacimiento || docente.fecha_nacimiento,
+        foto: fotoPath
+      },
+      resultado: 'EXITOSO'
+    });
 
     // Obtener el perfil completo actualizado para devolverlo
     const personalActualizado = await query(
@@ -380,46 +442,27 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
 
     const docenteActualizado = personalActualizado[0];
 
-    // Construir URL de foto
-    // Si se subió nueva foto, usar fotoPath, sino usar la foto existente del docente
-    const fotoParaUrl = req.file ? fotoPath : (docenteActualizado.foto || fotoPath);
+    // Construir URL de foto desde la BD actualizada
     let fotoUrl = null;
-    if (fotoParaUrl && fotoParaUrl !== '') {
+    const fotoEnBD = docenteActualizado.foto;
+    if (fotoEnBD && fotoEnBD !== '') {
       const isProduction = process.env.NODE_ENV === 'production';
       // Si ya es una ruta completa (empieza con /uploads/), construir URL completa
-      if (fotoParaUrl.startsWith('/uploads/')) {
+      if (fotoEnBD.startsWith('/uploads/')) {
         if (isProduction) {
-          fotoUrl = `https://vanguardschools.edu.pe${fotoParaUrl}`;
+          fotoUrl = `https://vanguardschools.edu.pe${fotoEnBD}`;
         } else {
-          fotoUrl = `http://localhost:5000${fotoParaUrl}`;
+          fotoUrl = `http://localhost:5000${fotoEnBD}`;
         }
-      } else if (fotoParaUrl.startsWith('http')) {
+      } else if (fotoEnBD.startsWith('http')) {
         // Si ya es una URL completa, usarla directamente
-        fotoUrl = fotoParaUrl;
+        fotoUrl = fotoEnBD;
       } else {
         // Es solo el nombre del archivo
         if (isProduction) {
-          fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${fotoParaUrl}`;
+          fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${fotoEnBD}`;
         } else {
-          fotoUrl = `http://localhost:5000/uploads/personal/${fotoParaUrl}`;
-        }
-      }
-    } else if (docenteActualizado.foto && docenteActualizado.foto !== '') {
-      // Si no hay fotoPath pero hay foto en la BD, construir URL desde la BD
-      const isProduction = process.env.NODE_ENV === 'production';
-      if (docenteActualizado.foto.startsWith('/uploads/')) {
-        if (isProduction) {
-          fotoUrl = `https://vanguardschools.edu.pe${docenteActualizado.foto}`;
-        } else {
-          fotoUrl = `http://localhost:5000${docenteActualizado.foto}`;
-        }
-      } else if (docenteActualizado.foto.startsWith('http')) {
-        fotoUrl = docenteActualizado.foto;
-      } else {
-        if (isProduction) {
-          fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${docenteActualizado.foto}`;
-        } else {
-          fotoUrl = `http://localhost:5000/uploads/personal/${docenteActualizado.foto}`;
+          fotoUrl = `http://localhost:5000/uploads/personal/${fotoEnBD}`;
         }
       }
     }
@@ -429,13 +472,13 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
       message: 'Perfil actualizado correctamente',
       docente: {
         id: docenteActualizado.id,
-        nombres: nombres || docenteActualizado.nombres,
-        apellidos: apellidos || docenteActualizado.apellidos,
+        nombres: docenteActualizado.nombres,
+        apellidos: docenteActualizado.apellidos,
         dni: docenteActualizado.dni,
-        email: email || docenteActualizado.email,
-        telefono_fijo: telefono_fijo || docenteActualizado.telefono_fijo,
-        telefono_celular: telefono_celular || docenteActualizado.telefono_celular,
-        direccion: direccion || docenteActualizado.direccion,
+        email: docenteActualizado.email,
+        telefono_fijo: docenteActualizado.telefono_fijo,
+        telefono_celular: docenteActualizado.telefono_celular,
+        direccion: docenteActualizado.direccion,
         foto: fotoUrl,
         cargo: docenteActualizado.cargo,
         profesion: docenteActualizado.profesion,
@@ -447,13 +490,13 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
       // También devolver el perfil completo para que el frontend pueda actualizar el estado
       perfil: {
         id: docenteActualizado.id,
-        nombres: nombres || docenteActualizado.nombres,
-        apellidos: apellidos || docenteActualizado.apellidos,
+        nombres: docenteActualizado.nombres,
+        apellidos: docenteActualizado.apellidos,
         dni: docenteActualizado.dni,
-        email: email || docenteActualizado.email,
-        telefono_fijo: telefono_fijo || docenteActualizado.telefono_fijo,
-        telefono_celular: telefono_celular || docenteActualizado.telefono_celular,
-        direccion: direccion || docenteActualizado.direccion,
+        email: docenteActualizado.email,
+        telefono_fijo: docenteActualizado.telefono_fijo,
+        telefono_celular: docenteActualizado.telefono_celular,
+        direccion: docenteActualizado.direccion,
         foto: fotoUrl,
         cargo: docenteActualizado.cargo,
         profesion: docenteActualizado.profesion,
@@ -466,6 +509,79 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
   } catch (error) {
     console.error('Error actualizando perfil:', error);
     res.status(500).json({ error: 'Error al actualizar perfil' });
+  }
+});
+
+/**
+ * PUT /api/docente/perfil/password
+ * Cambiar contraseña del docente
+ */
+router.put('/perfil/password', async (req, res) => {
+  try {
+    const { usuario_id } = req.user;
+    const { password_actual, password_nueva } = req.body;
+
+    if (!password_actual || !password_nueva) {
+      return res.status(400).json({ error: 'Contraseña actual y nueva son requeridas' });
+    }
+
+    if (password_nueva.length < 6) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    // Obtener usuario actual
+    const usuarios = await query(
+      `SELECT u.id, u.password, u.tipo, u.colegio_id FROM usuarios u WHERE u.id = ?`,
+      [usuario_id]
+    );
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const usuarioDB = usuarios[0];
+
+    // Validar contraseña actual (SHA1 como en PHP)
+    const crypto = require('crypto');
+    const passwordHashActual = crypto.createHash('sha1').update(password_actual).digest('hex');
+    
+    if (usuarioDB.password !== passwordHashActual) {
+      return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    }
+
+    // Generar hash de la nueva contraseña
+    const passwordHashNueva = crypto.createHash('sha1').update(password_nueva).digest('hex');
+
+    // Actualizar contraseña en la base de datos
+    await execute(
+      `UPDATE usuarios SET password = ? WHERE id = ?`,
+      [passwordHashNueva, usuario_id]
+    );
+
+    // Registrar acción en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id: usuarioDB.colegio_id,
+      tipo_usuario: usuarioDB.tipo,
+      accion: 'CAMBIAR_PASSWORD',
+      modulo: 'PERFIL',
+      entidad: 'usuario',
+      entidad_id: usuario_id,
+      descripcion: 'Docente cambió su contraseña',
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Contraseña actualizada correctamente' 
+    });
+  } catch (error) {
+    console.error('Error cambiando contraseña:', error);
+    res.status(500).json({ error: 'Error al cambiar la contraseña' });
   }
 });
 
