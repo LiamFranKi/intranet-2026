@@ -1492,7 +1492,40 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ## 📝 HISTORIAL DE CAMBIOS
 
-### Enero 2026 - Corrección Módulo Mi Perfil (Docente)
+### Versión 1.0.2 - Enero 2026 - Mejoras en Calendario y Actividades
+
+**Commit:** `f66f235` - feat: Mejoras en Calendario y Actividades
+
+#### Mejoras Implementadas:
+
+1. **Separación de Lógica: Calendario vs Próximos Eventos**
+   - ✅ **Calendario:** Muestra TODAS las actividades de todos los años (sin restricción)
+   - ✅ **Próximos Eventos (Dashboard):** Muestra solo eventos futuros del año actual
+   - ✅ Backend actualizado para aceptar parámetro `anio` en `/docente/actividades`
+   - ✅ CalendarioWidget actualizado para pasar año como parámetro y permitir navegación entre años
+
+2. **Menú de Actividades - Optimización de Carga**
+   - ✅ Carga única de todas las actividades del año al inicio
+   - ✅ Filtrado local por mes (sin recargar desde backend)
+   - ✅ Los conteos de actividades por mes se mantienen visibles siempre
+   - ✅ Indicador de carga sutil que no bloquea la UI
+   - ✅ Los botones de mes mantienen sus conteos durante la carga
+
+3. **Mejoras de UI/UX**
+   - ✅ Fondo morado cambiado a colores pastel suaves (azul cielo, beige, crema)
+   - ✅ Animación de gradiente más suave y sutil
+   - ✅ Mejor experiencia al cambiar entre meses (sin pérdida de datos)
+
+#### Archivos Modificados:
+- `backend/routes/docente.routes.js` - Endpoint `/docente/actividades` con parámetro `anio`
+- `frontend/src/components/CalendarioWidget.jsx` - Navegación entre años y filtrado por año
+- `frontend/src/pages/DocenteActividades.jsx` - Optimización de carga y filtrado local
+- `frontend/src/pages/DocenteActividades.css` - Colores pastel y estilos de loading
+- `frontend/src/pages/DocenteDashboard.jsx` - Logs mejorados para depuración
+
+---
+
+### Versión 1.0.1 - Enero 2026 - Corrección Módulo Mi Perfil (Docente)
 
 **Commit:** `b13827f` - fix: Corregir módulo Mi Perfil del Docente
 
