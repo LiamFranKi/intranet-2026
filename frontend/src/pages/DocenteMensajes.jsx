@@ -12,6 +12,8 @@ function DocenteMensajes() {
   const [mensajesEnviados, setMensajesEnviados] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mensajeSeleccionado, setMensajeSeleccionado] = useState(null);
+  const [mensajesSeleccionados, setMensajesSeleccionados] = useState(new Set());
+  const [anioFiltro, setAnioFiltro] = useState(null); // null = todos los años
   const quillRef = React.useRef(null);
   
   // Estados para nuevo mensaje
@@ -22,6 +24,7 @@ function DocenteMensajes() {
   const [contenido, setContenido] = useState('');
   const [archivosAdjuntos, setArchivosAdjuntos] = useState([]);
   const [mostrarResultados, setMostrarResultados] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   // Configurar handler de imágenes para ReactQuill
   useEffect(() => {
@@ -81,29 +84,55 @@ function DocenteMensajes() {
   const cargarMensajesRecibidos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/docente/mensajes/recibidos');
-      setMensajesRecibidos(response.data.mensajes || []);
+      const params = {};
+      if (anioFiltro) {
+        params.anio = anioFiltro;
+      }
+      const response = await api.get('/docente/mensajes/recibidos', { params });
+      const mensajes = response.data.mensajes || [];
+      setMensajesRecibidos(mensajes);
+      setMensajesSeleccionados(new Set()); // Limpiar selección al cargar
+      
+      // Si no hay mensajes y había un filtro de año, limpiarlo
+      if (mensajes.length === 0 && anioFiltro) {
+        setAnioFiltro(null);
+      }
     } catch (error) {
       console.error('Error cargando mensajes recibidos:', error);
       Swal.fire('Error', 'No se pudieron cargar los mensajes recibidos', 'error');
+      setMensajesSeleccionados(new Set());
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [anioFiltro]);
 
   // Cargar mensajes enviados
   const cargarMensajesEnviados = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/docente/mensajes/enviados');
-      setMensajesEnviados(response.data.mensajes || []);
+      const params = {};
+      if (anioFiltro) {
+        params.anio = anioFiltro;
+      }
+      const response = await api.get('/docente/mensajes/enviados', { params });
+      const mensajes = response.data.mensajes || [];
+      setMensajesEnviados(mensajes);
+      setMensajesSeleccionados(new Set()); // Limpiar selección al cargar
+      
+      // Si no hay mensajes y había un filtro de año, limpiarlo y recargar sin filtro
+      if (mensajes.length === 0 && anioFiltro) {
+        setAnioFiltro(null);
+        // No recargar aquí porque causaría un loop, el useEffect lo hará
+      }
     } catch (error) {
       console.error('Error cargando mensajes enviados:', error);
       Swal.fire('Error', 'No se pudieron cargar los mensajes enviados', 'error');
+      // En caso de error, también limpiar selección
+      setMensajesSeleccionados(new Set());
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [anioFiltro]);
 
   // Buscar destinatarios
   const buscarDestinatarios = useCallback(async (termino) => {
@@ -154,6 +183,117 @@ function DocenteMensajes() {
     }
   }, [vista, cargarMensajesRecibidos, cargarMensajesEnviados]);
 
+  // Obtener años únicos de los mensajes para el filtro
+  const [aniosDisponibles, setAniosDisponibles] = useState([]);
+  
+  const cargarAniosDisponibles = useCallback(async () => {
+    try {
+      const response = await api.get('/docente/mensajes/anios-disponibles');
+      const anios = response.data.anios || [];
+      setAniosDisponibles(anios);
+      
+      // Si el año filtrado ya no está disponible, limpiar el filtro
+      if (anioFiltro && !anios.includes(anioFiltro)) {
+        setAnioFiltro(null);
+      }
+    } catch (error) {
+      console.error('Error cargando años disponibles:', error);
+      // Si falla, calcular desde los mensajes ya cargados como fallback
+      const todosMensajes = [...mensajesRecibidos, ...mensajesEnviados];
+      const anios = new Set();
+      todosMensajes.forEach(m => {
+        if (m.fecha_hora) {
+          anios.add(new Date(m.fecha_hora).getFullYear());
+        }
+      });
+      const aniosArray = Array.from(anios).sort((a, b) => b - a);
+      setAniosDisponibles(aniosArray);
+      
+      // Si el año filtrado ya no está disponible, limpiar el filtro
+      if (anioFiltro && !aniosArray.includes(anioFiltro)) {
+        setAnioFiltro(null);
+      }
+    }
+  }, [anioFiltro]); // Incluir anioFiltro para verificar si aún existe
+
+  // Cargar años disponibles solo al montar
+  useEffect(() => {
+    cargarAniosDisponibles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Solo al montar
+
+  const obtenerAniosDisponibles = () => {
+    return aniosDisponibles;
+  };
+
+  // Manejar selección de mensaje
+  const toggleMensajeSeleccionado = (mensajeId) => {
+    const nuevosSeleccionados = new Set(mensajesSeleccionados);
+    if (nuevosSeleccionados.has(mensajeId)) {
+      nuevosSeleccionados.delete(mensajeId);
+    } else {
+      nuevosSeleccionados.add(mensajeId);
+    }
+    setMensajesSeleccionados(nuevosSeleccionados);
+  };
+
+  // Marcar todos / Desmarcar todos
+  const toggleMarcarTodos = () => {
+    const mensajes = vista === 'recibidos' ? mensajesRecibidos : mensajesEnviados;
+    if (mensajesSeleccionados.size === mensajes.length) {
+      setMensajesSeleccionados(new Set());
+    } else {
+      setMensajesSeleccionados(new Set(mensajes.map(m => m.id)));
+    }
+  };
+
+  // Eliminar mensajes seleccionados
+  const eliminarMensajesSeleccionados = async () => {
+    if (mensajesSeleccionados.size === 0) {
+      Swal.fire('Atención', 'Debe seleccionar al menos un mensaje para eliminar', 'warning');
+      return;
+    }
+
+    const resultado = await Swal.fire({
+      title: '¿Eliminar mensajes?',
+      text: `¿Está seguro de eliminar ${mensajesSeleccionados.size} mensaje(s)?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!resultado.isConfirmed) return;
+
+    try {
+      const idsArray = Array.from(mensajesSeleccionados);
+      const response = await api.delete('/docente/mensajes', {
+        data: { mensajesIds: idsArray }
+      });
+
+      Swal.fire('Éxito', response.data?.message || `${idsArray.length} mensaje(s) eliminado(s) correctamente`, 'success');
+      
+      // Limpiar selección
+      setMensajesSeleccionados(new Set());
+      
+      // Recargar años disponibles PRIMERO para actualizar el combo
+      // La función cargarAniosDisponibles ya verifica y limpia el filtro si el año ya no existe
+      await cargarAniosDisponibles();
+      
+      // Recargar mensajes de la vista actual
+      if (vista === 'recibidos') {
+        await cargarMensajesRecibidos();
+      } else {
+        await cargarMensajesEnviados();
+      }
+    } catch (error) {
+      console.error('Error eliminando mensajes:', error);
+      Swal.fire('Error', error.response?.data?.error || 'Error al eliminar mensajes', 'error');
+    }
+  };
+
   // Seleccionar destinatario
   const seleccionarDestinatario = (resultado) => {
     const yaSeleccionado = destinatariosSeleccionados.some(
@@ -186,6 +326,11 @@ function DocenteMensajes() {
 
   // Enviar mensaje
   const enviarMensaje = async () => {
+    // Prevenir doble envío
+    if (enviando) {
+      return;
+    }
+
     if (destinatariosSeleccionados.length === 0) {
       Swal.fire('Error', 'Debe seleccionar al menos un destinatario', 'error');
       return;
@@ -203,6 +348,7 @@ function DocenteMensajes() {
       return;
     }
 
+    setEnviando(true);
     try {
       const usuarios = destinatariosSeleccionados.filter(d => d.usuario_id).map(d => d.usuario_id);
       const grupos = destinatariosSeleccionados.filter(d => d.grupo_id).map(d => d.grupo_id);
@@ -252,6 +398,8 @@ function DocenteMensajes() {
     } catch (error) {
       console.error('Error enviando mensaje:', error);
       Swal.fire('Error', error.response?.data?.error || 'Error al enviar el mensaje', 'error');
+    } finally {
+      setEnviando(false);
     }
   };
 
@@ -272,6 +420,30 @@ function DocenteMensajes() {
       month: 'short',
       year: fecha.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined
     });
+  };
+
+  // Procesar HTML del mensaje para convertir URLs relativas de imágenes a absolutas
+  const procesarHTMLMensaje = (html) => {
+    if (!html) return '';
+    
+    const baseURL = api.defaults.baseURL.replace('/api', '');
+    
+    // Convertir URLs relativas de imágenes a absolutas
+    // Buscar todas las imágenes con src que empiecen con /uploads/
+    const htmlProcesado = html.replace(
+      /<img([^>]*)\ssrc=["'](\/uploads\/[^"']+)["']([^>]*)>/gi,
+      (match, before, src, after) => {
+        // Si ya es una URL completa (http/https), no hacer nada
+        if (src.startsWith('http://') || src.startsWith('https://')) {
+          return match;
+        }
+        // Convertir URL relativa a absoluta
+        const absoluteUrl = `${baseURL}${src}`;
+        return `<img${before} src="${absoluteUrl}"${after}>`;
+      }
+    );
+    
+    return htmlProcesado;
   };
 
   const mensajes = vista === 'recibidos' ? mensajesRecibidos : mensajesEnviados;
@@ -483,8 +655,9 @@ function DocenteMensajes() {
                   <button
                     className="btn-enviar"
                     onClick={enviarMensaje}
+                    disabled={enviando}
                   >
-                    ✉️ Enviar Mensaje
+                    {enviando ? '⏳ Enviando...' : '✉️ Enviar Mensaje'}
                   </button>
                 </div>
               </div>
@@ -492,9 +665,35 @@ function DocenteMensajes() {
               <div className="mensajes-lista">
                 <div className="lista-header">
                   <h2>{tituloLista}</h2>
-                  <div className="lista-pagination">
-                    <button className="btn-pagination">‹</button>
-                    <button className="btn-pagination">›</button>
+                  <div className="lista-controls">
+                    {/* Filtro por año */}
+                    <div className="filtro-anio">
+                      <label htmlFor="filtro-anio-select">Filtrar por año:</label>
+                      <select
+                        id="filtro-anio-select"
+                        value={anioFiltro || ''}
+                        onChange={(e) => setAnioFiltro(e.target.value ? parseInt(e.target.value) : null)}
+                        className="select-anio"
+                      >
+                        <option value="">Todos los años</option>
+                        {obtenerAniosDisponibles().map(anio => (
+                          <option key={anio} value={anio}>{anio}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Botones de acción */}
+                    {mensajesSeleccionados.size > 0 && (
+                      <button
+                        className="btn-eliminar-seleccionados"
+                        onClick={eliminarMensajesSeleccionados}
+                      >
+                        🗑️ Eliminar ({mensajesSeleccionados.size})
+                      </button>
+                    )}
+                    <div className="lista-pagination">
+                      <button className="btn-pagination">‹</button>
+                      <button className="btn-pagination">›</button>
+                    </div>
                   </div>
                 </div>
 
@@ -508,20 +707,43 @@ function DocenteMensajes() {
                   </div>
                 ) : (
                   <div className="mensajes-table">
+                    {/* Checkbox "Marcar todos" */}
+                    {mensajes.length > 0 && (
+                      <div className="mensaje-row-header">
+                        <div className="mensaje-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={mensajesSeleccionados.size === mensajes.length && mensajes.length > 0}
+                            onChange={toggleMarcarTodos}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="mensaje-header-text">
+                          {mensajesSeleccionados.size > 0 
+                            ? `${mensajesSeleccionados.size} seleccionado(s)`
+                            : 'Seleccionar todos'}
+                        </div>
+                      </div>
+                    )}
                     {mensajes.map((mensaje) => {
                       const nombre = vista === 'recibidos' 
                         ? mensaje.remitente_nombre_completo 
                         : mensaje.destinatario_nombre_completo;
                       const esNoLeido = mensaje.estado === 'NO_LEIDO';
+                      const estaSeleccionado = mensajesSeleccionados.has(mensaje.id);
 
                       return (
                         <div
                           key={mensaje.id}
-                          className={`mensaje-row ${esNoLeido ? 'no-leido' : ''}`}
+                          className={`mensaje-row ${esNoLeido ? 'no-leido' : ''} ${estaSeleccionado ? 'seleccionado' : ''}`}
                           onClick={() => setMensajeSeleccionado(mensaje)}
                         >
-                          <div className="mensaje-checkbox">
-                            <input type="checkbox" />
+                          <div className="mensaje-checkbox" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={estaSeleccionado}
+                              onChange={() => toggleMensajeSeleccionado(mensaje.id)}
+                            />
                           </div>
                           <div className="mensaje-favorito">
                             <span className={mensaje.favorito === 'SI' ? 'star-filled' : 'star-empty'}>
@@ -571,26 +793,60 @@ function DocenteMensajes() {
                     <strong>Fecha:</strong> {new Date(mensajeSeleccionado.fecha_hora).toLocaleString('es-PE')}
                   </div>
                 </div>
-                <div className="mensaje-modal-contenido" dangerouslySetInnerHTML={{ __html: mensajeSeleccionado.mensaje }} />
+                <div 
+                  className="mensaje-modal-contenido" 
+                  dangerouslySetInnerHTML={{ __html: procesarHTMLMensaje(mensajeSeleccionado.mensaje) }}
+                  style={{
+                    wordBreak: 'break-word'
+                  }}
+                />
                 
                 {/* Archivos Adjuntos */}
                 {mensajeSeleccionado.archivos && mensajeSeleccionado.archivos.length > 0 && (
                   <div className="mensaje-archivos">
-                    <h4>Archivos Adjuntos:</h4>
+                    <h4>Archivos Adjuntos ({mensajeSeleccionado.archivos.length}):</h4>
                     <div className="archivos-lista-modal">
                       {mensajeSeleccionado.archivos.map((archivo) => {
-                        const archivoUrl = `${api.defaults.baseURL.replace('/api', '')}/uploads/mensajes/${archivo.archivo}`;
+                        // Construir URL completa del archivo
+                        const baseURL = api.defaults.baseURL.replace('/api', '');
+                        const archivoUrl = archivo.archivo_url 
+                          ? `${baseURL}${archivo.archivo_url}`
+                          : `${baseURL}/uploads/mensajes/${archivo.archivo}`;
+                        
+                        // Determinar si es imagen
+                        const esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(archivo.nombre_archivo || archivo.archivo);
+                        
                         return (
-                          <a
-                            key={archivo.id}
-                            href={archivoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="archivo-enlace"
-                            download
-                          >
-                            📎 {archivo.nombre_archivo}
-                          </a>
+                          <div key={archivo.id} className="archivo-item-modal">
+                            {esImagen ? (
+                              <div className="archivo-imagen">
+                                <img 
+                                  src={archivoUrl} 
+                                  alt={archivo.nombre_archivo || 'Imagen adjunta'}
+                                  style={{ maxWidth: '300px', maxHeight: '300px', borderRadius: '8px' }}
+                                />
+                                <a
+                                  href={archivoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="archivo-enlace"
+                                  download
+                                >
+                                  📎 {archivo.nombre_archivo || archivo.archivo}
+                                </a>
+                              </div>
+                            ) : (
+                              <a
+                                href={archivoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="archivo-enlace"
+                                download
+                              >
+                                📎 {archivo.nombre_archivo || archivo.archivo}
+                              </a>
+                            )}
+                          </div>
                         );
                       })}
                     </div>

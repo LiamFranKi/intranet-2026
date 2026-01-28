@@ -461,6 +461,30 @@
   transform: translateX(4px);
 }
 
+.archivo-item-modal {
+  margin-bottom: 0.75rem;
+}
+
+.archivo-imagen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.archivo-imagen img {
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mensaje-modal-contenido img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .form-actions {
   display: flex;
   gap: 1rem;
@@ -513,6 +537,62 @@
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.lista-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filtro-anio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filtro-anio label {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.select-anio {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1f2937;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.select-anio:focus {
+  outline: none;
+  border-color: #4a83c1;
+  box-shadow: 0 0 0 3px rgba(74, 131, 193, 0.1);
+}
+
+.btn-eliminar-seleccionados {
+  padding: 0.625rem 1rem;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.btn-eliminar-seleccionados:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
 }
 
 .lista-header h2 {
@@ -573,6 +653,34 @@
   background: linear-gradient(90deg, #eff6ff 0%, #ffffff 100%);
   border-left: 3px solid #4a83c1;
   font-weight: 600;
+}
+
+.mensaje-row.seleccionado {
+  background: #dbeafe;
+  border-left: 4px solid #2563eb;
+}
+
+.mensaje-row-header {
+  display: grid;
+  grid-template-columns: 40px 40px 1fr auto;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mensaje-row-header:hover {
+  background: #f3f4f6;
+}
+
+.mensaje-header-text {
+  display: flex;
+  align-items: center;
 }
 
 .mensaje-checkbox input {

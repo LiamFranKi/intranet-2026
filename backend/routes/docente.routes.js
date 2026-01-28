@@ -2123,17 +2123,16 @@ router.get('/mensajes/recibidos', async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    const mensajes = await query(
-      `SELECT m.*, 
-              CONCAT(
-                COALESCE(p.nombres, a.nombres, ap.nombres, ''), ' ',
-                COALESCE(
-                  p.apellidos, 
-                  CONCAT(a.apellido_paterno, ' ', a.apellido_materno),
-                  CONCAT(ap.apellido_paterno, ' ', ap.apellido_materno),
-                  ''
-                )
-              ) as remitente_nombre_completo,
+    // Obtener año del query si existe, sino mostrar todos
+    const anioFiltro = req.query.anio ? parseInt(req.query.anio) : null;
+    
+    let querySQL = `SELECT m.*, 
+              CASE
+                WHEN p.id IS NOT NULL THEN CONCAT(p.nombres, ' ', p.apellidos)
+                WHEN a.id IS NOT NULL THEN CONCAT(a.nombres, ' ', a.apellido_paterno, ' ', a.apellido_materno)
+                WHEN ap.id IS NOT NULL THEN CONCAT(ap.nombres, ' ', ap.apellido_paterno, ' ', ap.apellido_materno)
+                ELSE 'Usuario desconocido'
+              END as remitente_nombre_completo,
               u1.tipo as remitente_tipo,
               u1.usuario as remitente_usuario
        FROM mensajes m
@@ -2143,12 +2142,20 @@ router.get('/mensajes/recibidos', async (req, res) => {
        LEFT JOIN apoderados ap ON ap.id = u1.apoderado_id
        WHERE m.destinatario_id = ? 
          AND m.tipo = 'RECIBIDO'
-         AND m.borrado = 'NO'
-         AND YEAR(m.fecha_hora) = ?
-       ORDER BY m.fecha_hora DESC
-       LIMIT ? OFFSET ?`,
-      [usuario_id, anio_activo, parseInt(limit), offset]
-    );
+         AND m.borrado = 'NO'`;
+    
+    const queryParams = [usuario_id];
+    
+    // Agregar filtro por año solo si se especifica
+    if (anioFiltro) {
+      querySQL += ` AND YEAR(m.fecha_hora) = ?`;
+      queryParams.push(anioFiltro);
+    }
+    
+    querySQL += ` ORDER BY m.fecha_hora DESC LIMIT ? OFFSET ?`;
+    queryParams.push(parseInt(limit), offset);
+    
+    const mensajes = await query(querySQL, queryParams);
 
     // Obtener archivos adjuntos para cada mensaje
     for (const mensaje of mensajes) {
@@ -2171,15 +2178,20 @@ router.get('/mensajes/recibidos', async (req, res) => {
       });
     }
 
-    const total = await query(
-      `SELECT COUNT(*) as count
+    // Contar total con mismo filtro de año
+    let countSQL = `SELECT COUNT(*) as count
        FROM mensajes m
        WHERE m.destinatario_id = ? 
          AND m.tipo = 'RECIBIDO'
-         AND m.borrado = 'NO'
-         AND YEAR(m.fecha_hora) = ?`,
-      [usuario_id, anio_activo]
-    );
+         AND m.borrado = 'NO'`;
+    const countParams = [usuario_id];
+    
+    if (anioFiltro) {
+      countSQL += ` AND YEAR(m.fecha_hora) = ?`;
+      countParams.push(anioFiltro);
+    }
+    
+    const total = await query(countSQL, countParams);
 
     res.json({ 
       mensajes: mensajes || [],
@@ -2206,17 +2218,16 @@ router.get('/mensajes/enviados', async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    const mensajes = await query(
-      `SELECT m.*,
-              CONCAT(
-                COALESCE(p.nombres, a.nombres, ap.nombres, ''), ' ',
-                COALESCE(
-                  p.apellidos, 
-                  CONCAT(a.apellido_paterno, ' ', a.apellido_materno),
-                  CONCAT(ap.apellido_paterno, ' ', ap.apellido_materno),
-                  ''
-                )
-              ) as destinatario_nombre_completo,
+    // Obtener año del query si existe, sino mostrar todos
+    const anioFiltro = req.query.anio ? parseInt(req.query.anio) : null;
+    
+    let querySQL = `SELECT m.*,
+              CASE
+                WHEN p.id IS NOT NULL THEN CONCAT(p.nombres, ' ', p.apellidos)
+                WHEN a.id IS NOT NULL THEN CONCAT(a.nombres, ' ', a.apellido_paterno, ' ', a.apellido_materno)
+                WHEN ap.id IS NOT NULL THEN CONCAT(ap.nombres, ' ', ap.apellido_paterno, ' ', ap.apellido_materno)
+                ELSE 'Usuario desconocido'
+              END as destinatario_nombre_completo,
               u2.tipo as destinatario_tipo,
               u2.usuario as destinatario_usuario
        FROM mensajes m
@@ -2226,12 +2237,20 @@ router.get('/mensajes/enviados', async (req, res) => {
        LEFT JOIN apoderados ap ON ap.id = u2.apoderado_id
        WHERE m.remitente_id = ? 
          AND m.tipo = 'ENVIADO'
-         AND m.borrado = 'NO'
-         AND YEAR(m.fecha_hora) = ?
-       ORDER BY m.fecha_hora DESC
-       LIMIT ? OFFSET ?`,
-      [usuario_id, anio_activo, parseInt(limit), offset]
-    );
+         AND m.borrado = 'NO'`;
+    
+    const queryParams = [usuario_id];
+    
+    // Agregar filtro por año solo si se especifica
+    if (anioFiltro) {
+      querySQL += ` AND YEAR(m.fecha_hora) = ?`;
+      queryParams.push(anioFiltro);
+    }
+    
+    querySQL += ` ORDER BY m.fecha_hora DESC LIMIT ? OFFSET ?`;
+    queryParams.push(parseInt(limit), offset);
+    
+    const mensajes = await query(querySQL, queryParams);
 
     // Obtener archivos adjuntos para cada mensaje
     for (const mensaje of mensajes) {
@@ -2254,15 +2273,20 @@ router.get('/mensajes/enviados', async (req, res) => {
       });
     }
 
-    const total = await query(
-      `SELECT COUNT(*) as count
+    // Contar total con mismo filtro de año
+    let countSQL = `SELECT COUNT(*) as count
        FROM mensajes m
        WHERE m.remitente_id = ? 
          AND m.tipo = 'ENVIADO'
-         AND m.borrado = 'NO'
-         AND YEAR(m.fecha_hora) = ?`,
-      [usuario_id, anio_activo]
-    );
+         AND m.borrado = 'NO'`;
+    const countParams = [usuario_id];
+    
+    if (anioFiltro) {
+      countSQL += ` AND YEAR(m.fecha_hora) = ?`;
+      countParams.push(anioFiltro);
+    }
+    
+    const total = await query(countSQL, countParams);
 
     res.json({ 
       mensajes: mensajes || [],
@@ -2453,6 +2477,7 @@ router.post('/mensajes/subir-imagen', uploadMensajes.single('imagen'), async (re
  */
 router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req, res) => {
   try {
+    console.log('📨 [ENVIAR MENSAJE] Inicio de procesamiento -', new Date().toISOString());
     const { usuario_id, colegio_id } = req.user;
     const { destinatarios, grupos, asunto, mensaje } = req.body;
 
@@ -2514,6 +2539,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
         const mensajesIds = []; // Para asociar archivos
 
         // Insertar mensajes en la base de datos
+        console.log(`📨 [ENVIAR MENSAJE] Procesando ${usuariosDestinatarios.length} destinatario(s)`);
         for (const destinatarioId of usuariosDestinatarios) {
           try {
             // Mensaje para el remitente (tipo ENVIADO)
@@ -2522,6 +2548,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
                VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'ENVIADO', 'NO', 'NO')`,
               [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
             );
+            console.log(`📨 [ENVIAR MENSAJE] Mensaje ENVIADO creado - ID: ${resultEnviado.insertId}, destinatario: ${destinatarioId}`);
 
             // Mensaje para el destinatario (tipo RECIBIDO)
             const resultRecibido = await execute(
@@ -2529,6 +2556,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
                VALUES (?, ?, ?, ?, ?, 'NO_LEIDO', 'RECIBIDO', 'NO', 'NO')`,
               [usuario_id, destinatarioId, asunto, mensaje, fechaHora]
             );
+            console.log(`📨 [ENVIAR MENSAJE] Mensaje RECIBIDO creado - ID: ${resultRecibido.insertId}, destinatario: ${destinatarioId}`);
 
             mensajesIds.push(resultEnviado.insertId, resultRecibido.insertId);
             mensajesInsertados += 2;
@@ -2543,6 +2571,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
         // y se sirven desde el servidor Node.js, igual que en Publicaciones
         // NO se suben al servidor PHP porque el servidor Node.js los sirve directamente
         if (req.files && req.files.length > 0) {
+          console.log(`📎 [ENVIAR MENSAJE] Procesando ${req.files.length} archivo(s) para ${mensajesIds.length} mensaje(s)`);
           for (const file of req.files) {
             try {
               // Insertar archivo para cada mensaje creado
@@ -2553,6 +2582,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
                    VALUES (?, ?, ?)`,
                   [mensajeId, file.originalname, file.filename]
                 );
+                console.log(`📎 [ENVIAR MENSAJE] Archivo insertado - mensaje_id: ${mensajeId}, archivo: ${file.filename}`);
               }
             } catch (error) {
               console.error(`Error guardando archivo ${file.originalname}:`, error);
@@ -2617,6 +2647,184 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
   } catch (error) {
     console.error('Error enviando mensaje:', error);
     res.status(500).json({ error: 'Error al enviar mensaje' });
+  }
+});
+
+/**
+ * DELETE /api/docente/mensajes/:mensajeId
+ * Eliminar mensaje (marcar como borrado)
+ */
+router.delete('/mensajes/:mensajeId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    const { mensajeId } = req.params;
+
+    // Verificar que el mensaje pertenece al usuario
+    const mensaje = await query(
+      `SELECT id, remitente_id, destinatario_id, tipo 
+       FROM mensajes 
+       WHERE id = ? AND borrado = 'NO'`,
+      [mensajeId]
+    );
+
+    if (mensaje.length === 0) {
+      return res.status(404).json({ error: 'Mensaje no encontrado' });
+    }
+
+    const mensajeData = mensaje[0];
+    
+    // Solo el remitente puede eliminar mensajes ENVIADOS
+    // Solo el destinatario puede eliminar mensajes RECIBIDOS
+    const puedeEliminar = 
+      (mensajeData.tipo === 'ENVIADO' && mensajeData.remitente_id === usuario_id) ||
+      (mensajeData.tipo === 'RECIBIDO' && mensajeData.destinatario_id === usuario_id);
+
+    if (!puedeEliminar) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar este mensaje' });
+    }
+
+    // Marcar como borrado (soft delete)
+    await execute(
+      `UPDATE mensajes SET borrado = 'SI' WHERE id = ?`,
+      [mensajeId]
+    );
+
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'MENSAJES',
+      entidad: 'mensaje',
+      entidad_id: mensajeId,
+      descripcion: `Eliminó mensaje ID: ${mensajeId}`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ success: true, message: 'Mensaje eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando mensaje:', error);
+    res.status(500).json({ error: 'Error al eliminar mensaje' });
+  }
+});
+
+/**
+ * DELETE /api/docente/mensajes
+ * Eliminar múltiples mensajes
+ */
+router.delete('/mensajes', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    const { mensajesIds } = req.body; // Array de IDs
+
+    if (!mensajesIds || !Array.isArray(mensajesIds) || mensajesIds.length === 0) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos un ID de mensaje' });
+    }
+
+    // Verificar que todos los mensajes pertenecen al usuario
+    const placeholders = mensajesIds.map(() => '?').join(',');
+    const mensajes = await query(
+      `SELECT id, remitente_id, destinatario_id, tipo 
+       FROM mensajes 
+       WHERE id IN (${placeholders}) AND borrado = 'NO'`,
+      mensajesIds
+    );
+
+    if (mensajes.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron mensajes válidos' });
+    }
+
+    // Filtrar solo los mensajes que el usuario puede eliminar
+    const mensajesAEliminar = mensajes.filter(m => 
+      (m.tipo === 'ENVIADO' && m.remitente_id === usuario_id) ||
+      (m.tipo === 'RECIBIDO' && m.destinatario_id === usuario_id)
+    );
+
+    if (mensajesAEliminar.length === 0) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar estos mensajes' });
+    }
+
+    const idsAEliminar = mensajesAEliminar.map(m => m.id);
+    const placeholdersEliminar = idsAEliminar.map(() => '?').join(',');
+
+    // Marcar como borrado (soft delete)
+    await execute(
+      `UPDATE mensajes SET borrado = 'SI' WHERE id IN (${placeholdersEliminar})`,
+      idsAEliminar
+    );
+
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'MENSAJES',
+      entidad: 'mensaje',
+      entidad_id: null,
+      descripcion: `Eliminó ${idsAEliminar.length} mensaje(s)`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      resultado: 'EXITOSO',
+      datos_nuevos: { mensajes_eliminados: idsAEliminar.length, ids: idsAEliminar }
+    });
+
+    res.json({ 
+      success: true, 
+      message: `${idsAEliminar.length} mensaje(s) eliminado(s) correctamente`,
+      eliminados: idsAEliminar.length
+    });
+  } catch (error) {
+    console.error('Error eliminando mensajes:', error);
+    res.status(500).json({ error: 'Error al eliminar mensajes' });
+  }
+});
+
+/**
+ * GET /api/docente/mensajes/anios-disponibles
+ * Obtener lista de años disponibles en mensajes (recibidos y enviados)
+ */
+router.get('/mensajes/anios-disponibles', async (req, res) => {
+  try {
+    const { usuario_id } = req.user;
+
+    // Obtener años únicos de mensajes recibidos y enviados
+    const aniosRecibidos = await query(
+      `SELECT DISTINCT YEAR(fecha_hora) as anio
+       FROM mensajes
+       WHERE destinatario_id = ? 
+         AND tipo = 'RECIBIDO'
+         AND borrado = 'NO'
+       ORDER BY anio DESC`,
+      [usuario_id]
+    );
+
+    const aniosEnviados = await query(
+      `SELECT DISTINCT YEAR(fecha_hora) as anio
+       FROM mensajes
+       WHERE remitente_id = ? 
+         AND tipo = 'ENVIADO'
+         AND borrado = 'NO'
+       ORDER BY anio DESC`,
+      [usuario_id]
+    );
+
+    // Combinar y obtener años únicos
+    const todosAnios = new Set();
+    aniosRecibidos.forEach(r => todosAnios.add(r.anio));
+    aniosEnviados.forEach(r => todosAnios.add(r.anio));
+
+    const aniosArray = Array.from(todosAnios).sort((a, b) => b - a);
+
+    res.json({ anios: aniosArray });
+  } catch (error) {
+    console.error('Error obteniendo años disponibles:', error);
+    res.status(500).json({ error: 'Error al obtener años disponibles' });
   }
 });
 
