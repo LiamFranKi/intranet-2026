@@ -1,11 +1,38 @@
-/* VERSIÓN GAMIFICADA DEL AULA VIRTUAL */
+/* VERSIÓN GAMIFICADA DEL AULA VIRTUAL - DISEÑO MEJORADO CON COLORES PASTEL */
 
 .docente-aula-virtual {
   padding: 2rem;
   max-width: 1600px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fce7f3 100%);
   min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decoración de fondo sutil */
+.docente-aula-virtual::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(196, 181, 253, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.docente-aula-virtual::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(251, 207, 232, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .docente-aula-loading {
@@ -13,53 +40,64 @@
   justify-content: center;
   align-items: center;
   min-height: 400px;
-  color: white;
+  color: #6366f1;
+  position: relative;
+  z-index: 1;
 }
 
 /* Estilos específicos solo para Aula Virtual - no afectan otros módulos */
 .docente-aula-virtual .page-header {
   margin-bottom: 2.5rem;
   text-align: center;
-  color: white;
+  position: relative;
+  z-index: 1;
 }
 
 .docente-aula-virtual .btn-back {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(196, 181, 253, 0.3);
   padding: 0.75rem 1.5rem;
-  border-radius: 12px;
+  border-radius: 16px;
   cursor: pointer;
-  color: white;
+  color: #6366f1;
   margin-bottom: 1.5rem;
-  transition: all 0.3s;
-  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 600;
   font-size: 1rem;
   backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.1);
 }
 
 .docente-aula-virtual .btn-back:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(196, 181, 253, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);
+  color: #4f46e5;
 }
 
 .docente-aula-virtual .page-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: white !important;
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin: 0 0 0.5rem 0;
-  text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
   letter-spacing: -0.5px;
   text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
 .docente-aula-virtual .page-header p {
   font-size: 1.125rem;
-  font-weight: 700;
-  color: white !important;
+  font-weight: 600;
+  color: #6b7280 !important;
   margin: 0;
   text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
 /* Bimestre Selector Global */
@@ -69,34 +107,40 @@
   gap: 1rem;
   margin-bottom: 2rem;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 
 .bimestre-tab-global {
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba(196, 181, 253, 0.3);
+  color: #6366f1;
   padding: 0.75rem 1.5rem;
-  border-radius: 12px;
+  border-radius: 16px;
   cursor: pointer;
   font-size: 1rem;
-  font-weight: 700;
-  transition: all 0.3s;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
   min-width: 120px;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.1);
 }
 
 .bimestre-tab-global:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(196, 181, 253, 0.5);
   transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);
+  color: #4f46e5;
 }
 
 .bimestre-tab-global.active {
-  background: white;
-  color: #667eea;
-  border-color: white;
-  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  color: white;
+  border-color: #8b5cf6;
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
   transform: translateY(-3px);
+  font-weight: 700;
 }
 
 /* Grid de Cards Principales */
@@ -105,18 +149,23 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
-/* Card de Sección (Versión Colapsada) */
+/* Card de Sección (Versión Colapsada) - Diseño Mejorado */
 .aula-section-card {
-  background: white;
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.08);
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   overflow: hidden;
+  border: 2px solid rgba(196, 181, 253, 0.2);
+  backdrop-filter: blur(10px);
+  z-index: 1;
 }
 
 .aula-section-card::before {
@@ -125,11 +174,12 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 8px;
+  height: 6px;
   background: linear-gradient(90deg, var(--card-color-1), var(--card-color-2));
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.4s;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 20px 20px 0 0;
 }
 
 .aula-section-card:hover::before {
@@ -137,8 +187,10 @@
 }
 
 .aula-section-card:hover {
-  transform: translateY(-10px) scale(1.02);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 20px 50px rgba(99, 102, 241, 0.15);
+  border-color: rgba(196, 181, 253, 0.4);
+  background: rgba(255, 255, 255, 1);
 }
 
 .aula-section-card.expanded {
@@ -146,34 +198,34 @@
   cursor: default;
 }
 
-/* Card - Temas */
+/* Card - Temas (Azul pastel suave) */
 .aula-section-card.temas-card {
-  --card-color-1: #3b82f6;
-  --card-color-2: #2563eb;
+  --card-color-1: #93c5fd;
+  --card-color-2: #60a5fa;
 }
 
-/* Card - Tareas */
+/* Card - Tareas (Lavanda pastel suave) */
 .aula-section-card.tareas-card {
-  --card-color-1: #8b5cf6;
-  --card-color-2: #7c3aed;
+  --card-color-1: #c4b5fd;
+  --card-color-2: #a78bfa;
 }
 
-/* Card - Exámenes */
+/* Card - Exámenes (Rosa pastel suave) */
 .aula-section-card.examenes-card {
-  --card-color-1: #ef4444;
-  --card-color-2: #dc2626;
+  --card-color-1: #f9a8d4;
+  --card-color-2: #f472b6;
 }
 
-/* Card - Videos */
+/* Card - Videos (Verde menta pastel suave) */
 .aula-section-card.videos-card {
-  --card-color-1: #14b8a6;
-  --card-color-2: #0d9488;
+  --card-color-1: #6ee7b7;
+  --card-color-2: #34d399;
 }
 
-/* Card - Enlaces */
+/* Card - Enlaces (Cyan pastel suave) */
 .aula-section-card.enlaces-card {
-  --card-color-1: #06b6d4;
-  --card-color-2: #0891b2;
+  --card-color-1: #7dd3fc;
+  --card-color-2: #38bdf8;
 }
 
 /* Header del Card */
@@ -220,23 +272,47 @@
   margin-top: 0.15rem;
 }
 
-/* Botón de Acción en Card */
+/* Botón de Acción en Card - Diseño Mejorado */
 .card-action-btn {
   background: linear-gradient(135deg, var(--card-color-1), var(--card-color-2));
   border: none;
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 10px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.8rem;
-  transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  font-size: 0.875rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-action-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.card-action-btn:hover::before {
+  width: 300px;
+  height: 300px;
 }
 
 .card-action-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+.card-action-btn:active {
+  transform: translateY(-1px);
 }
 
 /* Contenido Expandido */
@@ -273,6 +349,8 @@
 .card-content-expanded thead {
   background: linear-gradient(135deg, var(--card-color-1), var(--card-color-2));
   color: white;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
 }
 
 .card-content-expanded th {
@@ -289,8 +367,12 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.card-content-expanded tbody tr {
+  transition: background 0.2s;
+}
+
 .card-content-expanded tbody tr:hover {
-  background: #f9fafb;
+  background: rgba(196, 181, 253, 0.05);
 }
 
 /* Botones de Opciones (igual que antes) */
@@ -375,14 +457,17 @@
   font-size: 1.125rem;
 }
 
-/* Form Modal */
+/* Form Modal - Diseño Mejorado */
 .form-modal {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 2px solid rgba(196, 181, 253, 0.2);
+  border-radius: 20px;
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.1);
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 1;
 }
 
 .form-group {
@@ -409,7 +494,8 @@
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
 }
 
 .form-actions {
@@ -434,13 +520,240 @@
 }
 
 .form-actions button[type="submit"] {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
   color: white;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.form-actions button[type="submit"]:hover {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
 }
 
 .form-actions button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal de Tema */
+.modal-tema-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-tema-container {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 10001;
+}
+
+.modal-tema-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  border-radius: 20px 20px 0 0;
+}
+
+.modal-tema-header h2 {
+  margin: 0;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.modal-tema-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 2rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.modal-tema-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.modal-tema-body {
+  padding: 2rem;
+}
+
+.modal-tema-body .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.modal-tema-body .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.modal-tema-body .form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.modal-tema-body .form-input:focus {
+  outline: none;
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+}
+
+.file-input-wrapper {
+  position: relative;
+}
+
+.form-input-file {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.file-input-label {
+  display: block;
+  padding: 0.75rem;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.file-input-label:hover {
+  border-color: #a78bfa;
+  background: #f3f4f6;
+  color: #4f46e5;
+}
+
+.file-clear-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #ef4444;
+  color: white;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.file-clear-btn:hover {
+  background: #dc2626;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.form-help-text {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.modal-tema-body .form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.btn-cancelar-tema,
+.btn-guardar-tema {
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-cancelar-tema {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-cancelar-tema:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.btn-guardar-tema {
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.btn-guardar-tema:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-cancelar-tema:disabled,
+.btn-guardar-tema:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Drag and Drop Styles */
+.drag-handle {
+  cursor: grab !important;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing !important;
+}
+
+.dragging {
+  opacity: 0.5;
+  background: #f3f4f6 !important;
 }
 
 /* Responsive */
@@ -463,6 +776,23 @@
 
   .card-count {
     font-size: 2.5rem;
+  }
+
+  .modal-tema-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .modal-tema-header {
+    padding: 1rem;
+  }
+
+  .modal-tema-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .modal-tema-body {
+    padding: 1.5rem;
   }
 }
 

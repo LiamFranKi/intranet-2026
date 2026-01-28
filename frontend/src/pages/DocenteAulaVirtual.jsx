@@ -1,10 +1,94 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import Swal from 'sweetalert2';
 import './DocenteAulaVirtual-gamificado.css';
+
+// Componente SortableItem para drag and drop
+function SortableItem({ archivo, onEdit, onDelete, openDropdown, toggleDropdown, dropdownPosition, buttonRef }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: archivo.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'grab',
+  };
+
+  return (
+    <tr 
+      ref={setNodeRef} 
+      style={style}
+      className={isDragging ? 'dragging' : ''}
+    >
+      <td 
+        {...attributes} 
+        {...listeners}
+        className="drag-handle"
+        style={{ cursor: 'grab', userSelect: 'none' }}
+      >
+        {archivo.nombre}
+      </td>
+      <td className="text-center">
+        <div className="btn-group-opciones">
+          <button 
+            className="btn-opciones"
+            ref={(el) => (buttonRef.current[`archivo-${archivo.id}`] = el)}
+            onClick={(e) => toggleDropdown(archivo.id, e, 'archivo')}
+          >
+            Opciones {openDropdown === `archivo-${archivo.id}` ? '▲' : '▼'}
+          </button>
+          {openDropdown === `archivo-${archivo.id}` && dropdownPosition && createPortal(
+            <div 
+              className="dropdown-menu-portal-aula"
+              style={{
+                position: 'fixed',
+                top: `${dropdownPosition.top}px`,
+                right: `${dropdownPosition.right}px`,
+                width: `${dropdownPosition.width}px`,
+                zIndex: 10000
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="dropdown-menu-opciones">
+                {archivo.archivo_url && (
+                  <a href={archivo.archivo_url} target="_blank" rel="noopener noreferrer">
+                    📄 Ver Archivo
+                  </a>
+                )}
+                {archivo.enlace_url && (
+                  <a href={archivo.enlace_url} target="_blank" rel="noopener noreferrer">
+                    🔗 Abrir URL
+                  </a>
+                )}
+                <a href="#" onClick={(e) => { e.preventDefault(); onEdit(archivo); }}>
+                  ✏️ Editar Tema
+                </a>
+                <a href="#" onClick={(e) => { e.preventDefault(); onDelete(archivo); }}>
+                  🗑️ Borrar Tema
+                </a>
+              </div>
+            </div>,
+            document.body
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 function DocenteAulaVirtual() {
   const { cursoId } = useParams(); // En realidad es asignatura_id
@@ -45,10 +129,22 @@ function DocenteAulaVirtual() {
 
   // Formulario de tema
   const [formTema, setFormTema] = useState({
-    tema: '',
-    contenido_html: '',
-    archivo: null
+    nombre: '',
+    archivo: null,
+    archivoNombre: '',
+    enlace: '',
+    ciclo: bimestreGlobal
   });
+  const [temaEditando, setTemaEditando] = useState(null);
+  const [guardandoTema, setGuardandoTema] = useState(false);
+  
+  // Drag and Drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Formulario de tarea
   const [formTarea, setFormTarea] = useState({
@@ -94,14 +190,19 @@ function DocenteAulaVirtual() {
 
   const cargarArchivos = useCallback(async (ciclo) => {
     try {
+      const cicloFiltro = ciclo || cicloArchivos || bimestreGlobal;
       const response = await api.get('/docente/aula-virtual/archivos', {
-        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloArchivos }
+        params: { asignatura_id: asignaturaId, ciclo: cicloFiltro }
       });
-      setArchivos(response.data.archivos || []);
+      // Mantener archivos de otros ciclos y actualizar solo los del ciclo actual
+      setArchivos(prevArchivos => {
+        const otrosCiclos = prevArchivos.filter(a => a.ciclo !== cicloFiltro);
+        return [...otrosCiclos, ...(response.data.archivos || [])];
+      });
     } catch (error) {
       console.error('Error cargando archivos:', error);
     }
-  }, [asignaturaId, cicloArchivos]);
+  }, [asignaturaId, cicloArchivos, bimestreGlobal]);
 
   const cargarTemas = useCallback(async (ciclo) => {
     try {
@@ -174,7 +275,11 @@ function DocenteAulaVirtual() {
     setCicloExamenes(bimestreGlobal);
     setCicloVideos(bimestreGlobal);
     setCicloEnlaces(bimestreGlobal);
-  }, [bimestreGlobal]);
+    // Actualizar ciclo del formulario cuando cambia el bimestre global
+    if (!temaEditando) {
+      setFormTema(prev => ({ ...prev, ciclo: bimestreGlobal }));
+    }
+  }, [bimestreGlobal, temaEditando]);
 
   // Cargar todos los datos inicialmente con ciclo 1
   useEffect(() => {
@@ -193,6 +298,12 @@ function DocenteAulaVirtual() {
     if (!asignaturaId) return;
     cargarArchivos(cicloArchivos);
   }, [cicloArchivos, asignaturaId, cargarArchivos]);
+
+  // Cargar archivos cuando cambia el bimestre global
+  useEffect(() => {
+    if (!asignaturaId) return;
+    cargarArchivos(bimestreGlobal);
+  }, [bimestreGlobal, asignaturaId, cargarArchivos]);
 
   useEffect(() => {
     if (!asignaturaId) return;
@@ -269,47 +380,235 @@ function DocenteAulaVirtual() {
     }
   };
 
-  const handleCrearTema = async (e) => {
+  const handleGuardarTema = async (e) => {
     e.preventDefault();
-    try {
-      const formData = new FormData();
-      formData.append('asignatura_id', asignaturaId);
-      formData.append('tema', formTema.tema);
-      if (formTema.contenido_html) {
-        formData.append('contenido_html', formTema.contenido_html);
-      }
-      if (formTema.archivo) {
-        formData.append('archivo', formTema.archivo);
-      }
-
-      await api.post('/docente/aula-virtual/temas', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      Swal.fire({
-        icon: 'success',
-        title: '¡Tema creado!',
-        text: 'El tema se ha creado correctamente',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true
-      });
-
-      setMostrarFormTema(false);
-      setFormTema({ tema: '', contenido_html: '', archivo: null });
-      await cargarTemas();
-    } catch (error) {
+    
+    // Validar que al menos tenga nombre
+    if (!formTema.nombre.trim()) {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'No se pudo crear el tema',
+        text: 'El nombre del tema es requerido',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
         timer: 3000
       });
+      return;
+    }
+
+    // Validar que tenga al menos archivo o enlace
+    if (!formTema.archivo && !formTema.enlace.trim()) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Debe proporcionar al menos un archivo o una URL',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    setGuardandoTema(true);
+    try {
+      const formData = new FormData();
+      formData.append('asignatura_id', asignaturaId);
+      formData.append('nombre', formTema.nombre.trim());
+      formData.append('ciclo', formTema.ciclo);
+      
+      if (formTema.archivo) {
+        formData.append('archivo', formTema.archivo);
+      }
+      
+      if (formTema.enlace.trim()) {
+        formData.append('enlace', formTema.enlace.trim());
+      }
+
+      if (temaEditando) {
+        // Editar tema existente
+        await api.put(`/docente/aula-virtual/archivos/${temaEditando.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Tema actualizado!',
+          text: 'El tema se ha actualizado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        // Crear nuevo tema
+        await api.post('/docente/aula-virtual/archivos', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Tema creado!',
+          text: 'El tema se ha creado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      }
+
+      setMostrarFormTema(false);
+      setTemaEditando(null);
+      setFormTema({ nombre: '', archivo: null, archivoNombre: '', enlace: '', ciclo: bimestreGlobal });
+      await cargarArchivos(bimestreGlobal);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || (temaEditando ? 'No se pudo actualizar el tema' : 'No se pudo crear el tema'),
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setGuardandoTema(false);
+    }
+  };
+
+  const handleEditarTema = (archivo) => {
+    setTemaEditando(archivo);
+    setFormTema({
+      nombre: archivo.nombre || '',
+      archivo: null,
+      archivoNombre: archivo.archivo ? 'Archivo existente' : '',
+      enlace: archivo.enlace || '',
+      ciclo: archivo.ciclo || bimestreGlobal
+    });
+    setMostrarFormTema(true);
+    setOpenDropdown(null);
+  };
+
+  const handleEliminarTema = async (archivo) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el tema "${archivo.nombre}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/archivos/${archivo.id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Tema eliminado!',
+          text: 'El tema se ha eliminado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setOpenDropdown(null);
+        await cargarArchivos(bimestreGlobal);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar el tema',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Filtrar archivos por el bimestre actual
+      const archivosFiltrados = archivos.filter(archivo => archivo.ciclo === bimestreGlobal);
+      
+      const oldIndex = archivosFiltrados.findIndex(item => item.id === active.id);
+      const newIndex = archivosFiltrados.findIndex(item => item.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) {
+        console.error('Índices no encontrados en archivos filtrados');
+        return;
+      }
+
+      const nuevosArchivosFiltrados = arrayMove(archivosFiltrados, oldIndex, newIndex);
+      
+      // Actualizar el estado con los nuevos órdenes, manteniendo los archivos de otros bimestres
+      const otrosArchivos = archivos.filter(archivo => archivo.ciclo !== bimestreGlobal);
+      const nuevosArchivos = [...otrosArchivos, ...nuevosArchivosFiltrados];
+      setArchivos(nuevosArchivos);
+
+      // Actualizar orden en el backend
+      const ordenes = nuevosArchivosFiltrados
+        .filter(archivo => archivo.ciclo === bimestreGlobal) // Asegurar que todos pertenezcan al ciclo
+        .map((archivo, index) => ({
+          id: parseInt(archivo.id),
+          orden: index + 1
+        }));
+
+      try {
+        if (!asignaturaId || !bimestreGlobal || !ordenes || ordenes.length === 0) {
+          throw new Error('Datos incompletos para actualizar orden');
+        }
+
+        // Verificar que todos los archivos tengan ID válido
+        const archivosInvalidos = ordenes.filter(item => !item.id || isNaN(item.id));
+        if (archivosInvalidos.length > 0) {
+          throw new Error(`Algunos archivos tienen IDs inválidos: ${JSON.stringify(archivosInvalidos)}`);
+        }
+
+        // Asegurar que los datos sean números
+        const datosEnviar = {
+          asignatura_id: parseInt(asignaturaId),
+          ciclo: parseInt(bimestreGlobal),
+          ordenes: ordenes
+        };
+
+        console.log('Enviando datos para ordenar:', datosEnviar);
+        console.log('Cantidad de archivos:', ordenes.length);
+
+        await api.put('/docente/aula-virtual/archivos/ordenar', datosEnviar);
+      } catch (error) {
+        console.error('Error actualizando orden:', error);
+        console.error('Respuesta del servidor:', error.response?.data);
+        console.error('Datos enviados:', {
+          asignatura_id: asignaturaId,
+          ciclo: bimestreGlobal,
+          ordenes: ordenes,
+          cantidad: ordenes.length
+        });
+        // Revertir cambios en caso de error
+        await cargarArchivos(bimestreGlobal);
+        const mensajeError = error.response?.data?.error || error.message || 'No se pudo actualizar el orden de los temas';
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: mensajeError,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 5000
+        });
+      }
     }
   };
 
@@ -443,80 +742,58 @@ function DocenteAulaVirtual() {
     }
   };
 
-  const renderTemasContent = () => (
-    <div className="card-content-expanded">
-      {loading ? (
-        <div className="empty-state">
-          <p>Cargando temas interactivos...</p>
-        </div>
-      ) : archivos.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>NOMBRE</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {archivos.map((archivo) => (
-              <tr key={archivo.id}>
-                <td>{archivo.nombre}</td>
-                <td className="text-center">
-                  <div className="btn-group-opciones">
-                    <button 
-                      className="btn-opciones"
-                      ref={(el) => (buttonRef.current[`archivo-${archivo.id}`] = el)}
-                      onClick={(e) => toggleDropdown(archivo.id, e, 'archivo')}
-                    >
-                      Opciones {openDropdown === `archivo-${archivo.id}` ? '▲' : '▼'}
-                    </button>
-                    {openDropdown === `archivo-${archivo.id}` && dropdownPosition && createPortal(
-                      <div 
-                        className="dropdown-menu-portal-aula"
-                        style={{
-                          position: 'fixed',
-                          top: `${dropdownPosition.top}px`,
-                          right: `${dropdownPosition.right}px`,
-                          width: `${dropdownPosition.width}px`,
-                          zIndex: 10000
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="dropdown-menu-opciones">
-                          {archivo.archivo_url && (
-                            <a href={archivo.archivo_url} target="_blank" rel="noopener noreferrer">
-                              📄 Ver Archivo
-                            </a>
-                          )}
-                          {archivo.enlace_url && (
-                            <a href={archivo.enlace_url} target="_blank" rel="noopener noreferrer">
-                              🔗 Abrir URL
-                            </a>
-                          )}
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tema */ }}>
-                            ✏️ Editar Tema
-                          </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tema */ }}>
-                            🗑️ Borrar Tema
-                          </a>
-                        </div>
-                      </div>,
-                      document.body
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="empty-state">
-          <p>No hay temas interactivos para este bimestre</p>
-        </div>
-      )}
-    </div>
-  );
+  const renderTemasContent = () => {
+    // Filtrar archivos por el bimestre global
+    const archivosFiltrados = archivos.filter(archivo => archivo.ciclo === bimestreGlobal);
+
+    return (
+      <div className="card-content-expanded">
+        {loading ? (
+          <div className="empty-state">
+            <p>Cargando temas interactivos...</p>
+          </div>
+        ) : archivosFiltrados.length > 0 ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>NOMBRE</th>
+                  <th>ACCIONES</th>
+                </tr>
+              </thead>
+              <SortableContext
+                items={archivosFiltrados.map(archivo => archivo.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <tbody>
+                  {archivosFiltrados.map((archivo) => (
+                    <SortableItem
+                      key={archivo.id}
+                      archivo={archivo}
+                      onEdit={handleEditarTema}
+                      onDelete={handleEliminarTema}
+                      openDropdown={openDropdown}
+                      toggleDropdown={toggleDropdown}
+                      dropdownPosition={dropdownPosition}
+                      buttonRef={buttonRef}
+                    />
+                  ))}
+                </tbody>
+              </SortableContext>
+            </table>
+          </DndContext>
+        ) : (
+          <div className="empty-state">
+            <p>No hay temas interactivos para este bimestre</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderTareasContent = () => (
     <div className="card-content-expanded">
@@ -927,12 +1204,17 @@ function DocenteAulaVirtual() {
               <div className="card-icon">📚</div>
               <div className="card-info">
                 <h3 className="card-title">Temas Interactivos</h3>
-                <p className="card-count">{archivos.length}</p>
+                <p className="card-count">{archivos.filter(a => a.ciclo === bimestreGlobal).length}</p>
                 <p className="card-subtitle">Temas disponibles</p>
               </div>
               <button 
                 className="card-action-btn"
-                onClick={(e) => { e.stopPropagation(); setMostrarFormTema(true); }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setTemaEditando(null);
+                  setFormTema({ nombre: '', archivo: null, archivoNombre: '', enlace: '', ciclo: bimestreGlobal });
+                  setMostrarFormTema(true); 
+                }}
               >
                 + Nuevo
               </button>
@@ -1028,6 +1310,165 @@ function DocenteAulaVirtual() {
             {expandedCard === 'enlaces' && renderCardContent('enlaces')}
           </div>
         </div>
+
+        {/* Modal de Formulario de Tema */}
+        {mostrarFormTema && createPortal(
+          <div 
+            className="modal-tema-overlay"
+            onClick={() => {
+              setMostrarFormTema(false);
+              setTemaEditando(null);
+              setFormTema({ nombre: '', archivo: null, archivoNombre: '', enlace: '', ciclo: bimestreGlobal });
+            }}
+          >
+            <div 
+              className="modal-tema-container"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-tema-title"
+            >
+              <div className="modal-tema-header">
+                <h2 id="modal-tema-title">
+                  {temaEditando ? '✏️ Editar Tema Interactivo' : '📚 Nuevo Tema Interactivo'}
+                </h2>
+                <button
+                  className="modal-tema-close"
+                  onClick={() => {
+                    setMostrarFormTema(false);
+                    setTemaEditando(null);
+                    setFormTema({ nombre: '', archivo: null, archivoNombre: '', enlace: '', ciclo: bimestreGlobal });
+                  }}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-tema-body">
+                <form onSubmit={handleGuardarTema}>
+                  {/* Campo Nombre */}
+                  <div className="form-group">
+                    <label htmlFor="tema-nombre">
+                      Nombre del Tema *
+                    </label>
+                    <input
+                      type="text"
+                      id="tema-nombre"
+                      className="form-input"
+                      value={formTema.nombre}
+                      onChange={(e) => setFormTema({ ...formTema, nombre: e.target.value })}
+                      placeholder="Ej: TEMA 1: MÉTODO CIENTÍFICO"
+                      required
+                    />
+                  </div>
+
+                  {/* Campo Bimestre */}
+                  <div className="form-group">
+                    <label htmlFor="tema-ciclo">
+                      Bimestre *
+                    </label>
+                    <select
+                      id="tema-ciclo"
+                      className="form-input"
+                      value={formTema.ciclo}
+                      onChange={(e) => setFormTema({ ...formTema, ciclo: parseInt(e.target.value) })}
+                      required
+                    >
+                      {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                        <option key={bim} value={bim}>
+                          Bimestre {bim}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Campo Archivo */}
+                  <div className="form-group">
+                    <label htmlFor="tema-archivo">
+                      Archivo PDF (Opcional)
+                    </label>
+                    <div className="file-input-wrapper">
+                      <input
+                        type="file"
+                        id="tema-archivo"
+                        className="form-input-file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setFormTema({
+                              ...formTema,
+                              archivo: file,
+                              archivoNombre: file.name
+                            });
+                          }
+                        }}
+                      />
+                      <label htmlFor="tema-archivo" className="file-input-label">
+                        {formTema.archivoNombre || (temaEditando && temaEditando.archivo ? 'Archivo existente' : 'Seleccionar archivo')}
+                      </label>
+                      {formTema.archivoNombre && (
+                        <button
+                          type="button"
+                          className="file-clear-btn"
+                          onClick={() => setFormTema({ ...formTema, archivo: null, archivoNombre: '' })}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <small className="form-help-text">
+                      Puedes subir un archivo PDF o proporcionar una URL, o ambos
+                    </small>
+                  </div>
+
+                  {/* Campo URL */}
+                  <div className="form-group">
+                    <label htmlFor="tema-enlace">
+                      URL (Opcional)
+                    </label>
+                    <input
+                      type="url"
+                      id="tema-enlace"
+                      className="form-input"
+                      value={formTema.enlace}
+                      onChange={(e) => setFormTema({ ...formTema, enlace: e.target.value })}
+                      placeholder="https://ejemplo.com/tema"
+                    />
+                    <small className="form-help-text">
+                      Enlace externo al tema
+                    </small>
+                  </div>
+
+                  {/* Botones de Acción */}
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn-cancelar-tema"
+                      onClick={() => {
+                        setMostrarFormTema(false);
+                        setTemaEditando(null);
+                        setFormTema({ nombre: '', archivo: null, archivoNombre: '', enlace: '', ciclo: bimestreGlobal });
+                      }}
+                      disabled={guardandoTema}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-guardar-tema"
+                      disabled={guardandoTema}
+                    >
+                      {guardandoTema ? '⏳ Guardando...' : (temaEditando ? '💾 Actualizar' : '💾 Guardar Datos')}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       </div>
     </DashboardLayout>
   );
