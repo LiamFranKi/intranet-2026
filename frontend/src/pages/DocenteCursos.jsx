@@ -1775,6 +1775,537 @@ function DocenteCursos() {
     return null;
   };
 
+  // Imprimir notas en PDF
+  const imprimirNotas = () => {
+    if (!datosNotas || !datosNotas.alumnos || datosNotas.alumnos.length === 0) {
+      Swal.fire({
+        title: 'Sin datos',
+        text: 'No hay notas para imprimir',
+        icon: 'info',
+        zIndex: 100001
+      });
+      return;
+    }
+
+    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape para tabla ancha
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+    const contentWidth = pageWidth - (margin * 2);
+    let yPosition = margin;
+
+    // Colores
+    const colorHeader = [245, 249, 242]; // #f5f9f2 (verde claro del header)
+    const colorBorder = [221, 221, 221]; // #ddd (gris claro)
+    const colorText = [51, 51, 51]; // #333
+    const colorBlue = [52, 152, 219]; // #3498db (azul para promedios)
+    const colorBlueBar = [52, 152, 219]; // #3498db (azul de la barra)
+    const colorName = [41, 128, 185]; // #2980b9 (azul para nombres)
+    const colorBelowMin = [231, 76, 60]; // #e74c3c (rojo para notas bajas)
+    const colorBelowMinBg = [253, 233, 217]; // #fde9d9 (fondo rojo claro)
+
+    // ========== TÍTULO ==========
+    const titulo = `${datosNotas.curso.curso_nombre.toUpperCase()} - ${datosNotas.curso.grado}° ${datosNotas.curso.seccion} - ${datosNotas.curso.nivel_nombre.toUpperCase()} - BIMESTRE ${cicloSeleccionadoNotas}`;
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colorText);
+    doc.text(titulo, margin, yPosition);
+    yPosition += 8;
+
+    // ========== BARRA AZUL INFORMATIVA ==========
+    doc.setFillColor(...colorBlueBar);
+    doc.rect(margin, yPosition, contentWidth, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Ingrese notas de: ${datosNotas.curso.nivel.nota_minima} - ${datosNotas.curso.nivel.nota_maxima}.`, margin + contentWidth / 2, yPosition + 4.5, { align: 'center' });
+    yPosition += 10;
+
+    // ========== CALCULAR ANCHOS DE COLUMNAS ==========
+    // Calcular el número máximo de cuadros por criterio
+    const calcularAnchoCriterio = (criterio) => {
+      if (!criterio.indicadores || criterio.indicadores.length === 0) {
+        return 12; // Ancho mínimo para nota directa
+      }
+      // Sumar todos los cuadros de todos los indicadores + espacio para promedio
+      const totalCuadros = criterio.indicadores.reduce((sum, ind) => sum + (ind.cuadros || 1), 0);
+      // Cada cuadro necesita ~4mm + 1mm de espacio + 6mm para el promedio
+      return Math.max(12, (totalCuadros * 4) + totalCuadros + 6);
+    };
+
+    const colN = 8; // Ancho columna N°
+    const colNombre = 45; // Ancho columna Nombre (reducido para dar más espacio a criterios)
+    const colProm = 15; // Ancho columna PROM
+    
+    // Calcular ancho total de criterios
+    let anchoTotalCriterios = 0;
+    const anchosCriterios = datosNotas.criterios.map(criterio => {
+      const ancho = calcularAnchoCriterio(criterio);
+      anchoTotalCriterios += ancho;
+      return { criterio, ancho };
+    });
+    
+    // Ancho para examen mensual (si aplica)
+    let anchoExamenMensual = 0;
+    if (datosNotas.curso.examen_mensual) {
+      anchoExamenMensual = 20; // 2 exámenes + promedio
+      anchoTotalCriterios += anchoExamenMensual;
+    }
+    
+    // Ancho disponible para criterios
+    const anchoDisponible = contentWidth - colN - colNombre - colProm;
+    
+    // Si los criterios calculados son más anchos que el disponible, escalar proporcionalmente
+    let factorEscala = 1;
+    if (anchoTotalCriterios > anchoDisponible) {
+      factorEscala = anchoDisponible / anchoTotalCriterios;
+    }
+    
+    // Aplicar factor de escala y ajustar para que ocupe todo el espacio
+    let anchoTotalAjustado = 0;
+    anchosCriterios.forEach(item => {
+      item.ancho = Math.max(12, item.ancho * factorEscala);
+      anchoTotalAjustado += item.ancho;
+    });
+    if (datosNotas.curso.examen_mensual) {
+      anchoExamenMensual = Math.max(15, anchoExamenMensual * factorEscala);
+      anchoTotalAjustado += anchoExamenMensual;
+    }
+    
+    // Ajustar para ocupar todo el espacio disponible
+    const diferencia = anchoDisponible - anchoTotalAjustado;
+    if (diferencia > 0 && anchosCriterios.length > 0) {
+      const ajustePorCriterio = diferencia / (anchosCriterios.length + (datosNotas.curso.examen_mensual ? 1 : 0));
+      anchosCriterios.forEach(item => {
+        item.ancho += ajustePorCriterio;
+      });
+      if (datosNotas.curso.examen_mensual) {
+        anchoExamenMensual += ajustePorCriterio;
+      }
+    }
+
+    // Fila 1: N° y NOMBRE
+    doc.setFillColor(...colorHeader);
+    doc.rect(margin, yPosition, colN, 12, 'F');
+    doc.rect(margin + colN, yPosition, colNombre, 12, 'F');
+    
+    // Fila 1: Criterios (con nombre arriba, porcentaje abajo)
+    let xPos = margin + colN + colNombre;
+    anchosCriterios.forEach(item => {
+      doc.setFillColor(...colorHeader);
+      doc.rect(xPos, yPosition, item.ancho, 12, 'F');
+      xPos += item.ancho;
+    });
+    
+    // Fila 1: Examen Mensual (si aplica)
+    if (datosNotas.curso.examen_mensual) {
+      doc.setFillColor(...colorHeader);
+      doc.rect(xPos, yPosition, anchoExamenMensual, 12, 'F');
+      xPos += anchoExamenMensual;
+    }
+    
+    // Fila 1: PROM
+    doc.setFillColor(...colorHeader);
+    doc.rect(xPos, yPosition, colProm, 12, 'F');
+
+    // Bordes
+    doc.setDrawColor(...colorBorder);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPosition, contentWidth, 12);
+
+    // Texto encabezados
+    doc.setTextColor(...colorText);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('N°', margin + colN / 2, yPosition + 4, { align: 'center' });
+    doc.text('APELLIDOS Y NOMBRES', margin + colN + colNombre / 2, yPosition + 4, { align: 'center' });
+
+    // Criterios - nombre arriba
+    xPos = margin + colN + colNombre;
+    anchosCriterios.forEach(item => {
+      const nombreCriterio = doc.splitTextToSize(item.criterio.descripcion.toUpperCase(), item.ancho - 2);
+      doc.text(nombreCriterio[0] || item.criterio.descripcion.toUpperCase(), xPos + item.ancho / 2, yPosition + 3.5, { align: 'center' });
+      // Porcentaje abajo
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`(${item.criterio.peso}%)`, xPos + item.ancho / 2, yPosition + 8, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      xPos += item.ancho;
+    });
+
+    // Examen Mensual (si aplica)
+    if (datosNotas.curso.examen_mensual) {
+      const nombreExamen = doc.splitTextToSize('EXAMEN MENSUAL', anchoExamenMensual - 2);
+      doc.text(nombreExamen[0] || 'EXAMEN MENSUAL', xPos + anchoExamenMensual / 2, yPosition + 3.5, { align: 'center' });
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`(${datosNotas.curso.peso_examen_mensual}%)`, xPos + anchoExamenMensual / 2, yPosition + 8, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      xPos += anchoExamenMensual;
+    }
+
+    // PROM
+    doc.text('PROM.', xPos + colProm / 2, yPosition + 4, { align: 'center' });
+
+    // Líneas divisorias verticales
+    doc.setLineWidth(0.2);
+    let xDiv = margin + colN;
+    doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+    xDiv += colNombre;
+    doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+    anchosCriterios.forEach(item => {
+      xDiv += item.ancho;
+      doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+    });
+    if (datosNotas.curso.examen_mensual) {
+      xDiv += anchoExamenMensual;
+      doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+    }
+
+    yPosition += 12;
+
+    // ========== DATOS DE ALUMNOS ==========
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    const alturaFila = 8;
+
+    datosNotas.alumnos.forEach((alumno, index) => {
+      // Verificar si necesitamos nueva página
+      if (yPosition + alturaFila > pageHeight - 15) {
+        doc.addPage();
+        yPosition = margin;
+        
+        // Repetir encabezados
+        doc.setFillColor(...colorHeader);
+        doc.rect(margin, yPosition, colN, 12, 'F');
+        doc.rect(margin + colN, yPosition, colNombre, 12, 'F');
+        xPos = margin + colN + colNombre;
+        anchosCriterios.forEach(item => {
+          doc.rect(xPos, yPosition, item.ancho, 12, 'F');
+          xPos += item.ancho;
+        });
+        if (datosNotas.curso.examen_mensual) {
+          doc.rect(xPos, yPosition, anchoExamenMensual, 12, 'F');
+          xPos += anchoExamenMensual;
+        }
+        doc.rect(xPos, yPosition, colProm, 12, 'F');
+        
+        doc.setDrawColor(...colorBorder);
+        doc.rect(margin, yPosition, contentWidth, 12);
+        
+        doc.setTextColor(...colorText);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('N°', margin + colN / 2, yPosition + 4, { align: 'center' });
+        doc.text('APELLIDOS Y NOMBRES', margin + colN + colNombre / 2, yPosition + 4, { align: 'center' });
+        xPos = margin + colN + colNombre;
+        anchosCriterios.forEach(item => {
+          const nombreCriterio = doc.splitTextToSize(item.criterio.descripcion.toUpperCase(), item.ancho - 2);
+          doc.text(nombreCriterio[0] || item.criterio.descripcion.toUpperCase(), xPos + item.ancho / 2, yPosition + 3.5, { align: 'center' });
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`(${item.criterio.peso}%)`, xPos + item.ancho / 2, yPosition + 8, { align: 'center' });
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          xPos += item.ancho;
+        });
+        if (datosNotas.curso.examen_mensual) {
+          const nombreExamen = doc.splitTextToSize('EXAMEN MENSUAL', anchoExamenMensual - 2);
+          doc.text(nombreExamen[0] || 'EXAMEN MENSUAL', xPos + anchoExamenMensual / 2, yPosition + 3.5, { align: 'center' });
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`(${datosNotas.curso.peso_examen_mensual}%)`, xPos + anchoExamenMensual / 2, yPosition + 8, { align: 'center' });
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          xPos += anchoExamenMensual;
+        }
+        doc.text('PROM.', xPos + colProm / 2, yPosition + 4, { align: 'center' });
+        
+        // Líneas divisorias
+        doc.setLineWidth(0.2);
+        xDiv = margin + colN;
+        doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+        xDiv += colNombre;
+        doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+        anchosCriterios.forEach(item => {
+          xDiv += item.ancho;
+          doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+        });
+        if (datosNotas.curso.examen_mensual) {
+          xDiv += anchoExamenMensual;
+          doc.line(xDiv, yPosition, xDiv, yPosition + 12);
+        }
+        
+        yPosition += 12;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+      }
+
+      // Fondo alternado
+      if (index % 2 === 0) {
+        doc.setFillColor(252, 252, 252); // #fcfcfc
+        doc.rect(margin, yPosition, contentWidth, alturaFila, 'F');
+      }
+
+      // Borde de fila
+      doc.setDrawColor(...colorBorder);
+      doc.setLineWidth(0.2);
+      doc.rect(margin, yPosition, contentWidth, alturaFila);
+
+      // Líneas divisorias verticales
+      doc.setLineWidth(0.1);
+      xDiv = margin + colN;
+      doc.line(xDiv, yPosition, xDiv, yPosition + alturaFila);
+      xDiv += colNombre;
+      doc.line(xDiv, yPosition, xDiv, yPosition + alturaFila);
+      anchosCriterios.forEach(item => {
+        xDiv += item.ancho;
+        doc.line(xDiv, yPosition, xDiv, yPosition + alturaFila);
+      });
+      if (datosNotas.curso.examen_mensual) {
+        xDiv += anchoExamenMensual;
+        doc.line(xDiv, yPosition, xDiv, yPosition + alturaFila);
+      }
+
+      // N°
+      doc.setTextColor(...colorText);
+      doc.text(alumno.numero.toString(), margin + colN / 2, yPosition + 5.5, { align: 'center' });
+
+      // Nombre
+      doc.setTextColor(...colorName);
+      const nombreLines = doc.splitTextToSize(alumno.nombre_completo, colNombre - 4);
+      doc.text(nombreLines[0] || alumno.nombre_completo, margin + colN + 2, yPosition + 5.5);
+
+      // Criterios - mostrar TODAS las notas individuales
+      xPos = margin + colN + colNombre;
+      anchosCriterios.forEach(item => {
+        const criterio = item.criterio;
+        const anchoCriterio = item.ancho;
+        const tieneIndicadores = criterio.indicadores && criterio.indicadores.length > 0;
+        
+        if (tieneIndicadores) {
+          // Calcular total de cuadros para centrar correctamente
+          const totalCuadros = criterio.indicadores.reduce((sum, ind) => sum + (ind.cuadros || 1), 0);
+          const anchoCuadro = 4.5; // Ancho de cada cuadro de nota (más grande)
+          const altoCuadro = 5.5; // Alto de cada cuadro
+          const espacioEntreCuadros = 0.5; // Espacio entre cuadros
+          const anchoPromedio = 5.5; // Ancho del cuadro de promedio
+          const espacioAntesPromedio = 1; // Espacio antes del promedio
+          const paddingLateralCuadros = 1.5; // Padding lateral adicional para los cuadros
+          
+          // Calcular ancho total de todos los cuadros + espacios + promedio
+          const anchoTotalCuadros = (totalCuadros * anchoCuadro) + ((totalCuadros - 1) * espacioEntreCuadros) + espacioAntesPromedio + anchoPromedio;
+          const paddingLateral = Math.max(paddingLateralCuadros, (anchoCriterio - anchoTotalCuadros) / 2); // Padding para centrar (mínimo 1.5mm)
+          const paddingVertical = (alturaFila - altoCuadro) / 2; // Padding vertical
+          
+          // Mostrar TODAS las notas individuales de cada indicador (incluso vacías)
+          let xNota = xPos + paddingLateral;
+          let cuadroIndex = 0;
+          
+          criterio.indicadores.forEach(indicador => {
+            const cuadros = indicador.cuadros || 1;
+            for (let i = 0; i < cuadros; i++) {
+              const valor = notasEditadas[alumno.matricula_id]?.[criterio.id]?.[indicador.id]?.[i] || 
+                           alumno.notas_detalladas?.[criterio.id]?.[indicador.id]?.[i] || '';
+              
+              // Dibujar cuadro SIEMPRE (incluso si está vacío)
+              doc.setDrawColor(...colorBorder);
+              doc.setLineWidth(0.15);
+              doc.rect(xNota, yPosition + paddingVertical, anchoCuadro, altoCuadro);
+              
+              // Mostrar valor solo si existe
+              if (valor !== '') {
+                doc.setTextColor(...colorText);
+                doc.setFontSize(8);
+                doc.text(valor.toString(), xNota + anchoCuadro / 2, yPosition + paddingVertical + altoCuadro / 2 + 1.5, { align: 'center' });
+              }
+              
+              xNota += anchoCuadro + espacioEntreCuadros;
+              cuadroIndex++;
+            }
+          });
+          
+          // Mostrar promedio del criterio al final (centrado)
+          const promedioCriterio = calcularPromedioCriterio(alumno.matricula_id, criterio.id);
+          const xPromedio = xNota + espacioAntesPromedio;
+          
+          if (promedioCriterio !== null) {
+            const esBajo = promedioCriterio < datosNotas.curso.nivel.nota_aprobatoria;
+            
+            if (esBajo) {
+              doc.setFillColor(...colorBelowMinBg);
+              doc.rect(xPromedio, yPosition + paddingVertical, anchoPromedio, altoCuadro, 'F');
+              doc.setTextColor(...colorBelowMin);
+            } else {
+              doc.setFillColor(249, 249, 249); // #f9f9f9
+              doc.rect(xPromedio, yPosition + paddingVertical, anchoPromedio, altoCuadro, 'F');
+              doc.setTextColor(...colorBlue);
+            }
+            doc.setDrawColor(...colorBorder);
+            doc.setLineWidth(0.15);
+            doc.rect(xPromedio, yPosition + paddingVertical, anchoPromedio, altoCuadro);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text(promedioCriterio.toString(), xPromedio + anchoPromedio / 2, yPosition + paddingVertical + altoCuadro / 2 + 1.5, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+          } else {
+            // Dibujar cuadro vacío para el promedio si no hay valor
+            doc.setDrawColor(...colorBorder);
+            doc.setLineWidth(0.15);
+            doc.rect(xPromedio, yPosition + paddingVertical, anchoPromedio, altoCuadro);
+          }
+        } else {
+          // Nota directa
+          const notaDirecta = notasEditadas[alumno.matricula_id]?.[criterio.id]?.directa || 
+                             alumno.notas_criterios?.[criterio.id] || '';
+          if (notaDirecta !== '') {
+            doc.setTextColor(...colorText);
+            doc.setFontSize(8);
+            doc.text(notaDirecta, xPos + anchoCriterio / 2, yPosition + 5.5, { align: 'center' });
+          }
+        }
+        
+        xPos += anchoCriterio;
+      });
+
+      // Examen Mensual (si aplica) - mostrar ambos exámenes (siempre, incluso vacíos)
+      if (datosNotas.curso.examen_mensual) {
+        const examen1 = notasEditadas[alumno.matricula_id]?.examen_mensual?.[1] || 
+                       alumno.examenes_mensuales?.[1] || '';
+        const examen2 = notasEditadas[alumno.matricula_id]?.examen_mensual?.[2] || 
+                       alumno.examenes_mensuales?.[2] || '';
+        const promedioExamen = (() => {
+          const e1 = parseFloat(examen1);
+          const e2 = parseFloat(examen2);
+          if (!isNaN(e1) && !isNaN(e2) && e1 > 0 && e2 > 0) {
+            return Math.round((e1 + e2) / 2);
+          }
+          return null;
+        })();
+
+        // Calcular para centrar
+        const anchoCuadro = 4.5;
+        const altoCuadro = 5.5;
+        const espacioEntreCuadros = 0.5;
+        const anchoPromedio = 5.5;
+        const espacioAntesPromedio = 1;
+        const totalExamenes = 2; // Siempre 2 exámenes
+        const paddingLateralCuadros = 1.5; // Padding lateral adicional para los cuadros
+        
+        const anchoTotal = (totalExamenes * anchoCuadro) + ((totalExamenes - 1) * espacioEntreCuadros) + espacioAntesPromedio + anchoPromedio;
+        const paddingLateral = Math.max(paddingLateralCuadros, (anchoExamenMensual - anchoTotal) / 2); // Padding para centrar (mínimo 1.5mm)
+        const paddingVertical = (alturaFila - altoCuadro) / 2;
+        
+        // Mostrar ambos exámenes (siempre, incluso si están vacíos)
+        let xExamen = xPos + paddingLateral;
+        
+        // Examen 1
+        doc.setDrawColor(...colorBorder);
+        doc.setLineWidth(0.15);
+        doc.rect(xExamen, yPosition + paddingVertical, anchoCuadro, altoCuadro);
+        if (examen1 !== '') {
+          doc.setTextColor(...colorText);
+          doc.setFontSize(8);
+          doc.text(examen1.toString(), xExamen + anchoCuadro / 2, yPosition + paddingVertical + altoCuadro / 2 + 1.5, { align: 'center' });
+        }
+        xExamen += anchoCuadro + espacioEntreCuadros;
+        
+        // Examen 2
+        doc.setDrawColor(...colorBorder);
+        doc.setLineWidth(0.15);
+        doc.rect(xExamen, yPosition + paddingVertical, anchoCuadro, altoCuadro);
+        if (examen2 !== '') {
+          doc.setTextColor(...colorText);
+          doc.setFontSize(8);
+          doc.text(examen2.toString(), xExamen + anchoCuadro / 2, yPosition + paddingVertical + altoCuadro / 2 + 1.5, { align: 'center' });
+        }
+        xExamen += anchoCuadro + espacioAntesPromedio;
+        
+        // Mostrar promedio al final (centrado)
+        if (promedioExamen !== null) {
+          doc.setFillColor(249, 249, 249);
+          doc.rect(xExamen, yPosition + paddingVertical, anchoPromedio, altoCuadro, 'F');
+          doc.setDrawColor(...colorBorder);
+          doc.setLineWidth(0.15);
+          doc.rect(xExamen, yPosition + paddingVertical, anchoPromedio, altoCuadro);
+          doc.setTextColor(...colorBlue);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.text(promedioExamen.toString(), xExamen + anchoPromedio / 2, yPosition + paddingVertical + altoCuadro / 2 + 1.5, { align: 'center' });
+          doc.setFont('helvetica', 'normal');
+        } else {
+          // Dibujar cuadro vacío para el promedio
+          doc.setDrawColor(...colorBorder);
+          doc.setLineWidth(0.15);
+          doc.rect(xExamen, yPosition + paddingVertical, anchoPromedio, altoCuadro);
+        }
+        
+        xPos += anchoExamenMensual;
+      }
+
+      // PROMEDIO FINAL (centrado con padding - más estrecho)
+      const promedioFinal = calcularPromedioFinal(alumno.matricula_id) || alumno.promedio_final;
+      const anchoPromedioFinal = 5.5; // Ancho fijo más estrecho (igual que otros promedios)
+      const altoPromedioFinal = 5.5;
+      const paddingLateralProm = (colProm - anchoPromedioFinal) / 2; // Centrar el cuadro más estrecho
+      const paddingVerticalProm = (alturaFila - altoPromedioFinal) / 2;
+      
+      if (promedioFinal) {
+        const esBajo = parseFloat(promedioFinal) < datosNotas.curso.nivel.nota_aprobatoria;
+        if (esBajo) {
+          doc.setFillColor(...colorBelowMinBg);
+          doc.rect(xPos + paddingLateralProm, yPosition + paddingVerticalProm, anchoPromedioFinal, altoPromedioFinal, 'F');
+          doc.setTextColor(...colorBelowMin);
+        } else {
+          doc.setFillColor(249, 249, 249);
+          doc.rect(xPos + paddingLateralProm, yPosition + paddingVerticalProm, anchoPromedioFinal, altoPromedioFinal, 'F');
+          doc.setTextColor(...colorBlue);
+        }
+        doc.setDrawColor(...colorBorder);
+        doc.setLineWidth(0.15);
+        doc.rect(xPos + paddingLateralProm, yPosition + paddingVerticalProm, anchoPromedioFinal, altoPromedioFinal);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(promedioFinal.toString(), xPos + colProm / 2, yPosition + paddingVerticalProm + altoPromedioFinal / 2 + 1.5, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+      } else {
+        // Dibujar cuadro vacío si no hay promedio
+        doc.setDrawColor(...colorBorder);
+        doc.setLineWidth(0.15);
+        doc.rect(xPos + paddingLateralProm, yPosition + paddingVerticalProm, anchoPromedioFinal, altoPromedioFinal);
+      }
+
+      yPosition += alturaFila;
+    });
+
+    // ========== PIE DE PÁGINA ==========
+    const fechaGeneracion = new Date().toLocaleDateString('es-PE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text(`Generado el: ${fechaGeneracion}`, margin, pageHeight - 8);
+
+    // Guardar PDF
+    const nombresBimestres = ['I', 'II', 'III', 'IV'];
+    const nombreArchivo = `Notas_${datosNotas.curso.curso_nombre.replace(/\s+/g, '_')}_${datosNotas.curso.grado}°_${datosNotas.curso.seccion}_Bimestre_${nombresBimestres[cicloSeleccionadoNotas - 1]}_${new Date().getTime()}.pdf`;
+    doc.save(nombreArchivo);
+
+    Swal.fire({
+      title: '¡PDF Generado!',
+      text: 'El reporte de notas se ha descargado correctamente',
+      icon: 'success',
+      zIndex: 100001
+    });
+  };
+
   // Guardar notas
   const guardarNotas = async () => {
     if (!cursoParaNotas || !datosNotas) {
@@ -3430,11 +3961,8 @@ function DocenteCursos() {
                         </button>
                         <button
                           className="btn-imprimir-notas"
-                          onClick={() => {
-                            // TODO: Implementar impresión
-                            Swal.fire('Info', 'Funcionalidad de impresión próximamente', 'info');
-                          }}
-                          disabled={guardandoNotas}
+                          onClick={imprimirNotas}
+                          disabled={guardandoNotas || !datosNotas}
                         >
                           🖨️ Imprimir
                         </button>
