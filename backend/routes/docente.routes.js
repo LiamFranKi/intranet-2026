@@ -2126,12 +2126,18 @@ router.put('/cursos/:cursoId/aula-virtual', async (req, res) => {
 
     // Registrar acción
     await registrarAccion({
-      usuario_id,
-      colegio_id,
+      usuario_id: usuario_id,
+      colegio_id: colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
       accion: 'ACTUALIZAR_AULA_VIRTUAL',
+      modulo: 'CURSOS',
+      entidad: 'asignaturas',
+      entidad_id: cursoId,
       descripcion: `Docente actualizó link del aula virtual del curso ID: ${cursoId}`,
-      tabla_afectada: 'asignaturas',
-      registro_id: cursoId
+      datos_nuevos: {
+        aula_virtual: aula_virtual || '',
+        habilitar_aula: habilitar_aula
+      }
     });
 
     // Obtener datos actualizados
