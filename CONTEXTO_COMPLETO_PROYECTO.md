@@ -1492,6 +1492,45 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ## 📝 HISTORIAL DE CAMBIOS
 
+### Versión 1.0.4 - Enero 2026 - Protección contra Doble Envío de Mensajes
+
+**Commit:** `0c4bc3e` - Fix: Protección contra doble envío de mensajes y logs de debugging
+
+#### Cambios Realizados:
+
+1. **Protección contra Doble Envío en Frontend:**
+   - ✅ Agregado estado `enviando` para prevenir múltiples envíos simultáneos
+   - ✅ Botón de envío deshabilitado durante el procesamiento
+   - ✅ Indicador visual "⏳ Enviando..." para feedback al usuario
+   - ✅ Validación para evitar que se ejecute `enviarMensaje` si ya está en proceso
+
+2. **Logs de Debugging en Backend:**
+   - ✅ Agregados logs detallados en el endpoint `/api/docente/mensajes/enviar`
+   - ✅ Logs de inicio de procesamiento con timestamp
+   - ✅ Logs de cada mensaje creado (ENVIADO y RECIBIDO) con sus IDs
+   - ✅ Logs de archivos adjuntos insertados
+   - ✅ Facilita la identificación de problemas de duplicación
+
+3. **Aclaración sobre Comportamiento del Sistema:**
+   - ✅ Documentado que el sistema está diseñado para crear 2 mensajes por envío:
+     - 1 mensaje ENVIADO (para el remitente)
+     - 1 mensaje RECIBIDO (para el destinatario)
+   - ✅ Los archivos adjuntos se insertan para ambos mensajes (comportamiento correcto)
+   - ✅ Esto coincide con el diseño del sistema anterior PHP
+
+#### Archivos Modificados:
+
+- `frontend/src/pages/DocenteMensajes.jsx`: Protección contra doble clic y estado de envío
+- `backend/routes/docente.routes.js`: Logs de debugging en endpoint de envío
+
+#### Notas Técnicas:
+
+- El comportamiento de crear 2 mensajes es intencional y correcto según el diseño del sistema
+- Los logs permiten verificar si el frontend está enviando el mensaje dos veces (problema) o si es el comportamiento esperado
+- La protección contra doble clic previene envíos accidentales por múltiples clics del usuario
+
+---
+
 ### Versión 1.0.3 - Enero 2026 - Scripts SQL para Importación de Actividades
 
 **Commit:** `b9643b6` - feat: Agregar scripts SQL para importar y gestionar actividades desde calendarizacion.json
