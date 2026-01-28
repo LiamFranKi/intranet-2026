@@ -2,7 +2,7 @@
 
 **Fecha de Documentación:** Enero 2026  
 **Estado:** Desarrollo Activo  
-**Versión:** 1.0.0
+**Versión:** 1.0.4
 
 ---
 
