@@ -21,7 +21,7 @@
 
 .sidebar-header {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -177,7 +177,7 @@
 .dashboard-header {
   background: #d7eafe;
   border-bottom: 1px solid #e5e7eb;
-  padding: 1rem 2rem;
+  padding: 0.75rem 2rem;
   display: flex;
   align-items: center;
   gap: 1.5rem;
@@ -186,6 +186,7 @@
   z-index: 100;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   justify-content: space-between;
+  min-height: auto;
 }
 
 .header-menu-btn {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
@@ -48,6 +48,21 @@ function DocenteCursos() {
   const [archivosAdjuntosMensaje, setArchivosAdjuntosMensaje] = useState([]);
   const [enviandoMensaje, setEnviandoMensaje] = useState(false);
   const quillRefMensaje = useRef(null);
+
+  // Estados para modal de horario
+  const [mostrarModalHorario, setMostrarModalHorario] = useState(false);
+  const [cursoParaHorario, setCursoParaHorario] = useState(null);
+  const [horarioCurso, setHorarioCurso] = useState([]);
+  const [loadingHorario, setLoadingHorario] = useState(false);
+  const [infoCursoHorario, setInfoCursoHorario] = useState(null);
+
+  // Estados para modal de aula virtual
+  const [mostrarModalAulaVirtual, setMostrarModalAulaVirtual] = useState(false);
+  const [cursoParaAulaVirtual, setCursoParaAulaVirtual] = useState(null);
+  const [linkAulaVirtual, setLinkAulaVirtual] = useState('');
+  const [habilitarAula, setHabilitarAula] = useState('NO');
+  const [loadingAulaVirtual, setLoadingAulaVirtual] = useState(false);
+  const [guardandoAulaVirtual, setGuardandoAulaVirtual] = useState(false);
 
   useEffect(() => {
     cargarCursos();
@@ -1519,23 +1534,21 @@ function DocenteCursos() {
       case 'notas':
         navigate(`/docente/cursos/${curso.id}/notas`);
         break;
-      case 'asistencia':
-        navigate(`/docente/cursos/${curso.id}/asistencia`);
-        break;
       case 'enlaces':
-        navigate(`/docente/cursos/${curso.id}/enlaces`);
+        // Abrir modal de aula virtual para el curso
+        setCursoParaAulaVirtual(curso);
+        setMostrarModalAulaVirtual(true);
+        cargarLinkAulaVirtual(curso.id);
         break;
       case 'copiar':
         // TODO: Implementar funcionalidad de copiar contenido
         console.log('Copiar contenido del curso:', curso.id);
         break;
-      case 'enviar-mensaje':
-        // Abrir modal de mensaje para el grupo del curso
-        setCursoParaMensaje(curso);
-        setMostrarModalMensaje(true);
-        setAsuntoMensaje('');
-        setContenidoMensaje('');
-        setArchivosAdjuntosMensaje([]);
+      case 'horario':
+        // Abrir modal de horario para el curso
+        setCursoParaHorario(curso);
+        setMostrarModalHorario(true);
+        cargarHorarioCurso(curso.id);
         break;
       default:
         break;
@@ -1550,6 +1563,102 @@ function DocenteCursos() {
     } catch (error) {
       console.error('Error obteniendo grupo_id del curso:', error);
       return null;
+    }
+  };
+
+  // Cargar link del aula virtual de un curso
+  const cargarLinkAulaVirtual = async (cursoId) => {
+    try {
+      setLoadingAulaVirtual(true);
+      const response = await api.get(`/docente/cursos/${cursoId}/aula-virtual`);
+      setLinkAulaVirtual(response.data.aula_virtual || '');
+      setHabilitarAula(response.data.habilitar_aula || 'NO');
+    } catch (error) {
+      console.error('Error cargando link del aula virtual:', error);
+      Swal.fire('Error', 'No se pudo cargar el link del aula virtual', 'error');
+      setLinkAulaVirtual('');
+      setHabilitarAula('NO');
+    } finally {
+      setLoadingAulaVirtual(false);
+    }
+  };
+
+  // Guardar link del aula virtual
+  const guardarLinkAulaVirtual = async () => {
+    if (!cursoParaAulaVirtual) {
+      Swal.fire('Error', 'No se ha seleccionado un curso', 'error');
+      return;
+    }
+
+    // Prevenir doble envío
+    if (guardandoAulaVirtual) {
+      return;
+    }
+
+    setGuardandoAulaVirtual(true);
+
+    try {
+      const response = await api.put(`/docente/cursos/${cursoParaAulaVirtual.id}/aula-virtual`, {
+        aula_virtual: linkAulaVirtual.trim(),
+        habilitar_aula: habilitarAula
+      });
+
+      Swal.fire({
+        title: '¡Guardado!',
+        text: response.data.message || 'Link del aula virtual guardado correctamente',
+        icon: 'success',
+        confirmButtonText: 'Aceptar'
+      });
+
+      // Cerrar modal
+      setMostrarModalAulaVirtual(false);
+      setCursoParaAulaVirtual(null);
+      setLinkAulaVirtual('');
+      setHabilitarAula('NO');
+    } catch (error) {
+      console.error('Error guardando link del aula virtual:', error);
+      Swal.fire('Error', error.response?.data?.error || 'Error al guardar el link del aula virtual', 'error');
+    } finally {
+      setGuardandoAulaVirtual(false);
+    }
+  };
+
+  // Cargar horario de un curso específico
+  const cargarHorarioCurso = async (cursoId) => {
+    try {
+      setLoadingHorario(true);
+      const response = await api.get(`/docente/cursos/${cursoId}/horario`);
+      const horariosRecibidos = response.data.horario || [];
+      const cursoInfo = response.data.curso || null;
+      
+      // Normalizar días (similar a DocenteHorario.jsx)
+      const dias = horariosRecibidos
+        .map((c) => typeof c.dia === 'number' ? c.dia : null)
+        .filter((d) => d !== null);
+
+      let horarioNormalizado = horariosRecibidos;
+      if (dias.length > 0) {
+        const minDia = Math.min(...dias);
+        const maxDia = Math.max(...dias);
+        const usaCeroCuatroComoLunesViernes = minDia === 0 && maxDia <= 4;
+
+        horarioNormalizado = horariosRecibidos.map((c) => ({
+          ...c,
+          diaNormalizado: usaCeroCuatroComoLunesViernes
+            ? (typeof c.dia === 'number' ? c.dia + 1 : c.dia)
+            : c.dia
+        }));
+      }
+
+      setHorarioCurso(horarioNormalizado);
+      setInfoCursoHorario(cursoInfo);
+    } catch (error) {
+      console.error('Error cargando horario del curso:', error);
+      Swal.fire('Error', 'No se pudo cargar el horario del curso', 'error');
+      setHorarioCurso([]);
+      setInfoCursoHorario(null);
+    } finally {
+      setLoadingHorario(false);
     }
   };
 
@@ -1637,6 +1746,132 @@ function DocenteCursos() {
     } finally {
       setEnviandoMensaje(false);
     }
+  };
+
+  // Funciones auxiliares para formatear horario (similar a DocenteHorario.jsx)
+  const diasSemana = [
+    { id: 1, nombre: 'Lunes', abrev: 'LUNES' },
+    { id: 2, nombre: 'Martes', abrev: 'MARTES' },
+    { id: 3, nombre: 'Miércoles', abrev: 'MIÉRCOLES' },
+    { id: 4, nombre: 'Jueves', abrev: 'JUEVES' },
+    { id: 5, nombre: 'Viernes', abrev: 'VIERNES' }
+  ];
+
+  // Función para convertir hora a formato HH:MM AM/PM
+  const formatearHora = (hora) => {
+    if (!hora) return '';
+    
+    const horaUpper = hora.toUpperCase().trim();
+    if (horaUpper.includes('AM') || horaUpper.includes('PM')) {
+      return hora.trim();
+    }
+    
+    const partes = hora.split(':');
+    if (partes.length < 2) return hora;
+    
+    const h = parseInt(partes[0], 10);
+    const m = partes[1] ? partes[1].split(' ')[0] : '00';
+    const minutos = m.padStart(2, '0');
+    
+    if (isNaN(h)) return hora;
+    
+    if (h === 0) return `12:${minutos} AM`;
+    if (h < 12) return `${h}:${minutos} AM`;
+    if (h === 12) return `12:${minutos} PM`;
+    return `${h - 12}:${minutos} PM`;
+  };
+
+  // Convertir hora HH:MM:SS a minutos para ordenar
+  const horaAMinutos = (hora) => {
+    if (!hora) return 0;
+    const [h, m] = hora.split(':');
+    return parseInt(h) * 60 + parseInt(m || 0);
+  };
+
+  // Obtener todos los bloques de horarios únicos ordenados
+  const horariosUnicos = useMemo(() => {
+    if (!horarioCurso || horarioCurso.length === 0) return [];
+    
+    const bloques = horarioCurso.map(c => ({
+      inicio: c.inicio || c.hora_inicio || '',
+      fin: c.fin || c.hora_final || ''
+    })).filter(b => b.inicio && b.fin);
+    
+    const unicos = {};
+    bloques.forEach(b => {
+      const key = `${b.inicio}-${b.fin}`;
+      if (!unicos[key]) {
+        unicos[key] = b;
+      }
+    });
+    
+    return Object.values(unicos).sort((a, b) => horaAMinutos(a.inicio) - horaAMinutos(b.inicio));
+  }, [horarioCurso]);
+
+  // Función para obtener clase en un día y bloque de horario específico
+  const obtenerClase = (dia, horaInicio, horaFin) => {
+    const clase = horarioCurso.find(c => {
+      if (c.diaNormalizado !== dia) return false;
+      const inicioClase = c.inicio || c.hora_inicio || '';
+      const finClase = c.fin || c.hora_final || '';
+      return inicioClase === horaInicio && finClase === horaFin;
+    });
+    return clase;
+  };
+
+  // Función para formatear el texto de la clase
+  const formatearClase = (clase) => {
+    if (!clase) return null;
+    const titulo = clase.titulo || '';
+    const grupo = clase.grupo || '';
+    
+    if (!titulo && !grupo) return null;
+    if (!grupo) return titulo;
+    if (!titulo) return grupo;
+    
+    return `${titulo} - ${grupo}`;
+  };
+
+  // Paleta de colores pastel (similar a DocenteHorario.jsx)
+  const colorPalette = [
+    '#FFF9C4', '#BBDEFB', '#F3E5F5', '#C8E6C9', '#E0F7FA',
+    '#FFF3E0', '#FCE4EC', '#E1F5FE', '#F1F8E9', '#FFEBEE',
+    '#E8EAF6', '#E0F2F1', '#E1BEE7', '#FFE0B2', '#FFCCBC',
+    '#D1C4E9', '#F8BBD0', '#B2DFDB', '#C5E1A5', '#FFE082'
+  ];
+
+  const hashString = (str) => {
+    let hash = 0;
+    const normalized = str.trim().toLowerCase();
+    for (let i = 0; i < normalized.length; i++) {
+      const char = normalized.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash + (hash << 10);
+      hash = hash ^ (hash >> 6);
+    }
+    hash = hash + (hash << 3);
+    hash = hash ^ (hash >> 11);
+    hash = hash + (hash << 15);
+    return Math.abs(hash);
+  };
+
+  const getColorForCourse = (titulo) => {
+    if (!titulo || !titulo.trim()) return null;
+    const tituloNormalizado = titulo.trim();
+    const hash = hashString(tituloNormalizado);
+    const index = hash % colorPalette.length;
+    return colorPalette[index];
+  };
+
+  const aclararColor = (colorHex, factor = 0.4) => {
+    if (!colorHex) return '#ffffff';
+    const r = parseInt(colorHex.slice(1, 3), 16);
+    const g = parseInt(colorHex.slice(3, 5), 16);
+    const b = parseInt(colorHex.slice(5, 7), 16);
+    const rNuevo = Math.round(r + (255 - r) * factor);
+    const gNuevo = Math.round(g + (255 - g) * factor);
+    const bNuevo = Math.round(b + (255 - b) * factor);
+    return `#${rNuevo.toString(16).padStart(2, '0')}${gNuevo.toString(16).padStart(2, '0')}${bNuevo.toString(16).padStart(2, '0')}`;
   };
 
   const toggleDropdown = (cursoId, event) => {
@@ -1750,9 +1985,6 @@ function DocenteCursos() {
                           <button onClick={() => handleCursoAction(curso, 'notas')}>
                             📝 Registrar Notas
                           </button>
-                          <button onClick={() => handleCursoAction(curso, 'asistencia')}>
-                            ✅ Registrar Asistencia
-                          </button>
                           <button onClick={() => handleCursoAction(curso, 'horario')}>
                             📅 Ver Horario
                           </button>
@@ -1761,9 +1993,6 @@ function DocenteCursos() {
                           </button>
                           <button onClick={() => handleCursoAction(curso, 'copiar')}>
                             📋 Copiar Contenido
-                          </button>
-                          <button onClick={() => handleCursoAction(curso, 'enviar-mensaje')}>
-                            ✉️ Enviar Mensaje
                           </button>
                         </div>
                       </div>,
@@ -2621,6 +2850,256 @@ function DocenteCursos() {
                     {enviandoMensaje ? '⏳ Enviando...' : '✉️ Enviar Mensaje'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Modal de Horario del Curso */}
+        {mostrarModalHorario && createPortal(
+          <div 
+            className="modal-horario-overlay"
+            onClick={() => setMostrarModalHorario(false)}
+          >
+            <div 
+              className="modal-horario-container"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-horario-title"
+            >
+              <div className="modal-horario-header">
+                <h2 id="modal-horario-title">
+                  📅 Horario - {cursoParaHorario?.curso_nombre || 'Curso'}
+                </h2>
+                <button
+                  className="modal-horario-close"
+                  onClick={() => {
+                    setMostrarModalHorario(false);
+                    setCursoParaHorario(null);
+                    setHorarioCurso([]);
+                    setInfoCursoHorario(null);
+                  }}
+                  type="button"
+                  aria-label="Cerrar modal"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="modal-horario-body">
+                {infoCursoHorario && (
+                  <div className="horario-curso-info">
+                    <p><strong>Curso:</strong> {infoCursoHorario.curso_nombre}</p>
+                    <p><strong>Grupo:</strong> {infoCursoHorario.nivel_nombre} - {infoCursoHorario.grado}° {infoCursoHorario.seccion}</p>
+                  </div>
+                )}
+
+                {loadingHorario ? (
+                  <div className="horario-loading">
+                    <div className="loading-spinner">Cargando horario...</div>
+                  </div>
+                ) : horarioCurso.length > 0 ? (
+                  <div className="horario-container-modal">
+                    <div className="horario-table-wrapper">
+                      <table className="horario-table">
+                        <thead>
+                          <tr>
+                            <th className="horario-hora-col">Hora</th>
+                            {diasSemana.map((dia) => (
+                              <th key={dia.id} className="horario-dia-col">{dia.abrev}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {horariosUnicos.map((bloque, idx) => {
+                            const claseLunes = obtenerClase(1, bloque.inicio, bloque.fin);
+                            const claseMartes = obtenerClase(2, bloque.inicio, bloque.fin);
+                            const claseMiercoles = obtenerClase(3, bloque.inicio, bloque.fin);
+                            const claseJueves = obtenerClase(4, bloque.inicio, bloque.fin);
+                            const claseViernes = obtenerClase(5, bloque.inicio, bloque.fin);
+                            
+                            const tieneClase = claseLunes || claseMartes || claseMiercoles || claseJueves || claseViernes;
+                            
+                            if (!tieneClase) return null;
+                            
+                            return (
+                              <tr key={idx}>
+                                <td className="horario-hora-cell">
+                                  {formatearHora(bloque.inicio)} - {formatearHora(bloque.fin)}
+                                </td>
+                                <td
+                                  className={`horario-clase-cell ${!claseLunes ? 'horario-cell-empty' : ''}`}
+                                  style={claseLunes ? { backgroundColor: aclararColor(getColorForCourse(claseLunes.titulo), 0.5) } : {}}
+                                >
+                                  {formatearClase(claseLunes) || ''}
+                                </td>
+                                <td
+                                  className={`horario-clase-cell ${!claseMartes ? 'horario-cell-empty' : ''}`}
+                                  style={claseMartes ? { backgroundColor: aclararColor(getColorForCourse(claseMartes.titulo), 0.5) } : {}}
+                                >
+                                  {formatearClase(claseMartes) || ''}
+                                </td>
+                                <td
+                                  className={`horario-clase-cell ${!claseMiercoles ? 'horario-cell-empty' : ''}`}
+                                  style={claseMiercoles ? { backgroundColor: aclararColor(getColorForCourse(claseMiercoles.titulo), 0.5) } : {}}
+                                >
+                                  {formatearClase(claseMiercoles) || ''}
+                                </td>
+                                <td
+                                  className={`horario-clase-cell ${!claseJueves ? 'horario-cell-empty' : ''}`}
+                                  style={claseJueves ? { backgroundColor: aclararColor(getColorForCourse(claseJueves.titulo), 0.5) } : {}}
+                                >
+                                  {formatearClase(claseJueves) || ''}
+                                </td>
+                                <td
+                                  className={`horario-clase-cell ${!claseViernes ? 'horario-cell-empty' : ''}`}
+                                  style={claseViernes ? { backgroundColor: aclararColor(getColorForCourse(claseViernes.titulo), 0.5) } : {}}
+                                >
+                                  {formatearClase(claseViernes) || ''}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <p>No se encontró horario para este curso</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Modal de Link Aula Virtual */}
+        {mostrarModalAulaVirtual && createPortal(
+          <div 
+            className="modal-aula-virtual-overlay"
+            onClick={() => setMostrarModalAulaVirtual(false)}
+          >
+            <div 
+              className="modal-aula-virtual-container"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-aula-virtual-title"
+            >
+              <div className="modal-aula-virtual-header">
+                <h2 id="modal-aula-virtual-title">
+                  🔗 Link Aula Virtual
+                </h2>
+                <button
+                  className="modal-aula-virtual-close"
+                  onClick={() => {
+                    setMostrarModalAulaVirtual(false);
+                    setCursoParaAulaVirtual(null);
+                    setLinkAulaVirtual('');
+                    setHabilitarAula('NO');
+                  }}
+                  type="button"
+                  aria-label="Cerrar modal"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="modal-aula-virtual-body">
+                {cursoParaAulaVirtual && (
+                  <div className="aula-virtual-curso-info">
+                    <p><strong>Curso:</strong> {cursoParaAulaVirtual.curso_nombre}</p>
+                    <p><strong>Grupo:</strong> {cursoParaAulaVirtual.nivel_nombre} - {cursoParaAulaVirtual.grado}° {cursoParaAulaVirtual.seccion}</p>
+                  </div>
+                )}
+
+                {loadingAulaVirtual ? (
+                  <div className="aula-virtual-loading">
+                    <div className="loading-spinner">Cargando...</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Campo Link Aula Virtual */}
+                    <div className="form-group-aula-virtual">
+                      <label htmlFor="link-aula-virtual">
+                        Link Aula Virtual
+                        <span className="label-hint">(Zoom, Meet, Teams, etc.)</span>
+                      </label>
+                      <div className="input-wrapper-aula-virtual">
+                        <input
+                          type="url"
+                          id="link-aula-virtual"
+                          className="form-input-aula-virtual"
+                          value={linkAulaVirtual}
+                          onChange={(e) => setLinkAulaVirtual(e.target.value)}
+                          placeholder="https://zoom.us/j/123456789 o https://meet.google.com/abc-defg-hij"
+                        />
+                        {linkAulaVirtual && (
+                          <button
+                            type="button"
+                            className="input-clear-btn"
+                            onClick={() => setLinkAulaVirtual('')}
+                            aria-label="Limpiar campo"
+                            title="Limpiar"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <p className="form-hint">
+                        Puedes dejar este campo en blanco para eliminar el link guardado.
+                      </p>
+                    </div>
+
+                    {/* Toggle para habilitar/deshabilitar para alumnos */}
+                    <div className="form-group-aula-virtual">
+                      <label className="toggle-label">
+                        <span className="toggle-label-text">
+                          Habilitar para alumnos
+                          <span className="label-hint">(Los alumnos podrán ver y acceder al link)</span>
+                        </span>
+                        <div className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            id="habilitar-aula"
+                            checked={habilitarAula === 'SI'}
+                            onChange={(e) => setHabilitarAula(e.target.checked ? 'SI' : 'NO')}
+                          />
+                          <span className="toggle-slider"></span>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Botones */}
+                    <div className="form-actions-aula-virtual">
+                      <button
+                        className="btn-cancelar-aula-virtual"
+                        onClick={() => {
+                          setMostrarModalAulaVirtual(false);
+                          setCursoParaAulaVirtual(null);
+                          setLinkAulaVirtual('');
+                          setHabilitarAula('NO');
+                        }}
+                        type="button"
+                        disabled={guardandoAulaVirtual}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        className="btn-guardar-aula-virtual"
+                        onClick={guardarLinkAulaVirtual}
+                        disabled={guardandoAulaVirtual}
+                        type="button"
+                      >
+                        {guardandoAulaVirtual ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>,

@@ -2054,3 +2054,641 @@
   cursor: not-allowed;
 }
 
+/* Modal de Horario */
+.modal-horario-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.modal-horario-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 1000px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.modal-horario-header {
+  background: linear-gradient(135deg, #4a83c1 0%, #3b6fa8 100%);
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+}
+
+.modal-horario-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
+
+.modal-horario-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.modal-horario-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.modal-horario-body {
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.horario-curso-info {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border: 1px solid rgba(74, 131, 193, 0.18);
+  border-radius: 12px;
+}
+
+.horario-curso-info p {
+  margin: 0.5rem 0;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.horario-curso-info strong {
+  color: #4a83c1;
+  font-weight: 700;
+}
+
+.horario-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.horario-container-modal {
+  background: linear-gradient(145deg, #eef2ff, #ffffff);
+  border: 1px solid rgba(74, 131, 193, 0.18);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(74, 131, 193, 0.12);
+  overflow-x: auto;
+}
+
+.horario-container-modal .horario-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.horario-container-modal .horario-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-size: 0.8rem;
+  border: 2px solid #4a83c1;
+}
+
+.horario-container-modal .horario-table thead {
+  background: linear-gradient(135deg, #4a83c1 0%, #2d5a8f 100%);
+  color: white;
+}
+
+.horario-container-modal .horario-table thead th {
+  padding: 0.5rem 0.4rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 2px solid #4a83c1;
+}
+
+.horario-container-modal .horario-table thead th:last-child {
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.horario-container-modal .horario-table thead th:first-child {
+  text-align: left;
+  padding-left: 0.75rem;
+}
+
+.horario-container-modal .horario-hora-col {
+  width: 120px;
+  min-width: 110px;
+}
+
+.horario-container-modal .horario-dia-col {
+  min-width: 120px;
+  width: auto;
+}
+
+.horario-container-modal .horario-table tbody tr {
+  border-bottom: 1px solid #4a83c1;
+  transition: background-color 0.2s;
+}
+
+.horario-container-modal .horario-table tbody tr:first-child td {
+  border-top: 1px solid #4a83c1;
+}
+
+.horario-container-modal .horario-table tbody tr:hover {
+  background-color: rgba(74, 131, 193, 0.05);
+}
+
+.horario-container-modal .horario-table tbody tr:last-child {
+  border-bottom: 2px solid #4a83c1;
+}
+
+.horario-container-modal .horario-hora-cell {
+  padding: 0.6rem 0.8rem;
+  font-weight: 700;
+  color: #4a83c1;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  background-color: #f9fafb;
+  border: 1px solid #4a83c1;
+  border-right: 2px solid #4a83c1;
+  border-top: 1px solid #4a83c1;
+  border-bottom: 1px solid #4a83c1;
+}
+
+.horario-container-modal .horario-clase-cell {
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #1f2937;
+  line-height: 1.5;
+  vertical-align: middle;
+  min-height: 60px;
+  border: 1px solid #4a83c1;
+  border-top: 1px solid #4a83c1;
+  border-bottom: 1px solid #4a83c1;
+  border-right: 1px solid #4a83c1;
+}
+
+.horario-container-modal .horario-cell-empty {
+  background-color: #E3F2FD !important;
+}
+
+.horario-container-modal .horario-clase-cell:not(.horario-cell-empty) {
+  font-weight: 500;
+}
+
+.horario-container-modal .empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+.horario-container-modal .empty-state p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+/* Responsive para modal de horario */
+@media (max-width: 768px) {
+  .modal-horario-overlay {
+    padding: 1rem;
+  }
+
+  .modal-horario-container {
+    max-width: 95%;
+    max-height: 95vh;
+  }
+
+  .modal-horario-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-horario-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .modal-horario-body {
+    padding: 1.5rem;
+  }
+
+  .horario-container-modal {
+    padding: 1rem;
+  }
+
+  .horario-container-modal .horario-table {
+    font-size: 0.85rem;
+  }
+
+  .horario-container-modal .horario-table thead th {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .horario-container-modal .horario-hora-cell {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .horario-container-modal .horario-clase-cell {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .horario-container-modal .horario-hora-col {
+    width: 120px;
+    min-width: 100px;
+  }
+
+  .horario-container-modal .horario-dia-col {
+    min-width: 120px;
+  }
+}
+
+/* Modal de Link Aula Virtual */
+.modal-aula-virtual-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 2rem;
+  overflow-y: auto;
+  backdrop-filter: blur(4px);
+}
+
+.modal-aula-virtual-container {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-aula-virtual-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.modal-aula-virtual-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-aula-virtual-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.modal-aula-virtual-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.modal-aula-virtual-body {
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.aula-virtual-curso-info {
+  margin-bottom: 0.5rem;
+  padding: 1rem;
+  background: linear-gradient(145deg, #f0f4ff, #ffffff);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.aula-virtual-curso-info p {
+  margin: 0.5rem 0;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.aula-virtual-curso-info strong {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.aula-virtual-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.form-group-aula-virtual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form-group-aula-virtual label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.label-hint {
+  font-weight: 400;
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.input-wrapper-aula-virtual {
+  position: relative;
+  width: 100%;
+}
+
+.form-input-aula-virtual {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  padding-right: 2.5rem; /* Espacio para el botón de limpiar */
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  background: white;
+  font-family: inherit;
+}
+
+.form-input-aula-virtual:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-clear-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #e5e7eb;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+}
+
+.input-clear-btn:hover {
+  background: #dc2626;
+  color: white;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.input-clear-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.form-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.toggle-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 1rem;
+  background: linear-gradient(145deg, #f9fafb, #ffffff);
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.toggle-label:hover {
+  border-color: #667eea;
+  background: linear-gradient(145deg, #f0f4ff, #ffffff);
+}
+
+.toggle-label-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 56px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.3s;
+  border-radius: 32px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 24px;
+  width: 24px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.form-actions-aula-virtual {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-cancelar-aula-virtual {
+  padding: 0.75rem 1.5rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancelar-aula-virtual:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #374151;
+  transform: translateY(-1px);
+}
+
+.btn-cancelar-aula-virtual:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-guardar-aula-virtual {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-guardar-aula-virtual:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-guardar-aula-virtual:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive para modal de aula virtual */
+@media (max-width: 768px) {
+  .modal-aula-virtual-overlay {
+    padding: 1rem;
+  }
+
+  .modal-aula-virtual-container {
+    max-width: 95%;
+    max-height: 95vh;
+  }
+
+  .modal-aula-virtual-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-aula-virtual-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .modal-aula-virtual-body {
+    padding: 1.5rem;
+  }
+
+  .form-actions-aula-virtual {
+    flex-direction: column;
+  }
+
+  .btn-cancelar-aula-virtual,
+  .btn-guardar-aula-virtual {
+    width: 100%;
+  }
+}
+

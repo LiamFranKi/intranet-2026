@@ -1900,6 +1900,274 @@ router.get('/horario', async (req, res) => {
 });
 
 /**
+ * GET /api/docente/cursos/:cursoId/horario
+ * Obtener horario de un curso específico
+ */
+router.get('/cursos/:cursoId/horario', async (req, res) => {
+  try {
+    const { cursoId } = req.params;
+    const { colegio_id, anio_activo } = req.user;
+    const personalId = req.user.personal_id;
+
+    if (!personalId) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    if (!cursoId) {
+      return res.status(400).json({ error: 'ID de curso es requerido' });
+    }
+
+    // Verificar que el docente tiene acceso a este curso (asignatura)
+    const asignatura = await query(
+      `SELECT a.*, c.id as curso_id, c.nombre as curso_nombre,
+              g.id as grupo_id, g.grado, g.seccion, g.anio,
+              n.nombre as nivel_nombre
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personalId, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    const cursoInfo = asignatura[0];
+    const anioActivoInt = parseInt(anio_activo);
+
+    // Obtener horario específico de este curso
+    const horarioCrudo = await query(
+      `SELECT 
+         gh.id,
+         gh.dia,
+         gh.hora_inicio,
+         gh.hora_final,
+         gh.anio,
+         c.nombre        AS curso_nombre,
+         gh.descripcion  AS descripcion,
+         g.grado,
+         g.seccion,
+         n.nombre        AS nivel_nombre
+       FROM grupos_horarios gh
+       LEFT JOIN asignaturas a ON a.id = gh.asignatura_id
+       LEFT JOIN grupos g      ON g.id = a.grupo_id
+       LEFT JOIN niveles n     ON n.id = g.nivel_id
+       LEFT JOIN cursos c      ON c.id = a.curso_id
+       WHERE gh.anio = ?
+         AND a.id = ?
+         AND (a.personal_id = ? OR gh.personal_id = ?)
+       ORDER BY gh.dia, STR_TO_DATE(gh.hora_inicio, '%l:%i %p')`,
+      [anioActivoInt, cursoId, personalId, personalId]
+    );
+
+    // Mapear a un formato estándar para el frontend
+    const horario = (horarioCrudo || []).map((row) => {
+      // Texto del grupo: NIVEL - X° SECCION - AÑO
+      let grupoTexto = '';
+      if (row.nivel_nombre || row.grado || row.seccion) {
+        const gradoTexto = row.grado ? `${row.grado}°` : '';
+        grupoTexto = `${row.nivel_nombre || ''} ${gradoTexto} ${row.seccion || ''}`.trim();
+        if (row.anio) {
+          grupoTexto = `${grupoTexto} - ${row.anio}`;
+        }
+      }
+
+      const titulo = row.curso_nombre || row.descripcion || '';
+
+      return {
+        id: row.id,
+        dia: typeof row.dia === 'number' ? row.dia : parseInt(row.dia || 0, 10),
+        inicio: row.hora_inicio,
+        fin: row.hora_final,
+        anio: row.anio,
+        titulo,
+        grupo: grupoTexto
+      };
+    });
+
+    res.json({ 
+      horario,
+      curso: {
+        id: cursoInfo.id,
+        curso_nombre: cursoInfo.curso_nombre,
+        grado: cursoInfo.grado,
+        seccion: cursoInfo.seccion,
+        nivel_nombre: cursoInfo.nivel_nombre,
+        grupo_id: cursoInfo.grupo_id
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo horario del curso:', error);
+    res.status(500).json({ error: 'Error al obtener horario del curso' });
+  }
+});
+
+/**
+ * GET /api/docente/cursos/:cursoId/aula-virtual
+ * Obtener link del aula virtual de un curso
+ */
+router.get('/cursos/:cursoId/aula-virtual', async (req, res) => {
+  try {
+    const { cursoId } = req.params;
+    const { colegio_id, anio_activo } = req.user;
+    const personalId = req.user.personal_id;
+
+    if (!personalId) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    if (!cursoId) {
+      return res.status(400).json({ error: 'ID de curso es requerido' });
+    }
+
+    // Verificar que el docente tiene acceso a este curso (asignatura)
+    const asignatura = await query(
+      `SELECT a.id, a.aula_virtual, a.habilitar_aula,
+              c.nombre as curso_nombre,
+              g.grado, g.seccion,
+              n.nombre as nivel_nombre
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personalId, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    const cursoInfo = asignatura[0];
+
+    res.json({ 
+      aula_virtual: cursoInfo.aula_virtual || '',
+      habilitar_aula: cursoInfo.habilitar_aula || 'NO',
+      curso: {
+        id: cursoInfo.id,
+        curso_nombre: cursoInfo.curso_nombre,
+        grado: cursoInfo.grado,
+        seccion: cursoInfo.seccion,
+        nivel_nombre: cursoInfo.nivel_nombre
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo link del aula virtual:', error);
+    res.status(500).json({ error: 'Error al obtener link del aula virtual' });
+  }
+});
+
+/**
+ * PUT /api/docente/cursos/:cursoId/aula-virtual
+ * Actualizar link del aula virtual de un curso
+ */
+router.put('/cursos/:cursoId/aula-virtual', async (req, res) => {
+  try {
+    const { cursoId } = req.params;
+    const { colegio_id, anio_activo, usuario_id } = req.user;
+    const personalId = req.user.personal_id;
+    const { aula_virtual, habilitar_aula } = req.body;
+
+    if (!personalId) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    if (!cursoId) {
+      return res.status(400).json({ error: 'ID de curso es requerido' });
+    }
+
+    // Validar habilitar_aula
+    if (habilitar_aula !== undefined && habilitar_aula !== 'SI' && habilitar_aula !== 'NO') {
+      return res.status(400).json({ error: 'habilitar_aula debe ser "SI" o "NO"' });
+    }
+
+    // Verificar que el docente tiene acceso a este curso (asignatura)
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personalId, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    // Construir query de actualización
+    const updates = [];
+    const params = [];
+
+    if (aula_virtual !== undefined) {
+      updates.push('a.aula_virtual = ?');
+      params.push(aula_virtual || ''); // Permitir guardar en blanco
+    }
+
+    if (habilitar_aula !== undefined) {
+      updates.push('a.habilitar_aula = ?');
+      params.push(habilitar_aula);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    params.push(cursoId, personalId, colegio_id, anio_activo);
+
+    // Actualizar asignatura (usar alias 'a' para las columnas en SET)
+    await execute(
+      `UPDATE asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       SET ${updates.join(', ')}
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      params
+    );
+
+    // Registrar acción
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      accion: 'ACTUALIZAR_AULA_VIRTUAL',
+      descripcion: `Docente actualizó link del aula virtual del curso ID: ${cursoId}`,
+      tabla_afectada: 'asignaturas',
+      registro_id: cursoId
+    });
+
+    // Obtener datos actualizados
+    const asignaturaActualizada = await query(
+      `SELECT a.aula_virtual, a.habilitar_aula,
+              c.nombre as curso_nombre,
+              g.grado, g.seccion,
+              n.nombre as nivel_nombre
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE a.id = ?`,
+      [cursoId]
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Link del aula virtual actualizado correctamente',
+      aula_virtual: asignaturaActualizada[0]?.aula_virtual || '',
+      habilitar_aula: asignaturaActualizada[0]?.habilitar_aula || 'NO',
+      curso: {
+        id: cursoId,
+        curso_nombre: asignaturaActualizada[0]?.curso_nombre,
+        grado: asignaturaActualizada[0]?.grado,
+        seccion: asignaturaActualizada[0]?.seccion,
+        nivel_nombre: asignaturaActualizada[0]?.nivel_nombre
+      }
+    });
+  } catch (error) {
+    console.error('Error actualizando link del aula virtual:', error);
+    res.status(500).json({ error: 'Error al actualizar link del aula virtual' });
+  }
+});
+
+/**
  * GET /api/docente/tutoria
  * Verificar si el docente es tutor y obtener grupo
  */
