@@ -1789,6 +1789,590 @@ router.get('/cursos/:cursoId/alumnos/:alumnoId/notas-detalladas', async (req, re
 });
 
 /**
+ * GET /api/docente/cursos/:cursoId/notas
+ * Obtener todos los alumnos del curso con sus notas para un ciclo específico
+ */
+router.get('/cursos/:cursoId/notas', async (req, res) => {
+  try {
+    const { cursoId } = req.params;
+    const { colegio_id, anio_activo, personal_id } = req.user;
+    const { ciclo = 1 } = req.query; // Ciclo por defecto: 1
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    if (!cursoId) {
+      return res.status(400).json({ error: 'ID de curso es requerido' });
+    }
+
+    const cicloInt = parseInt(ciclo);
+
+    // Verificar que el docente tiene acceso a este curso
+    const asignatura = await query(
+      `SELECT a.*, g.id as grupo_id, g.grado, g.seccion, g.anio, g.nivel_id,
+              n.nombre as nivel_nombre, n.tipo_calificacion, n.tipo_calificacion_final,
+              n.nota_aprobatoria, n.nota_maxima, n.nota_minima,
+              c.nombre as curso_nombre, c.peso_examen_mensual, c.examen_mensual
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    const cursoInfo = asignatura[0];
+
+    // Obtener criterios del curso para este ciclo (ciclo = 0 significa todos los ciclos)
+    const criterios = await query(
+      `SELECT * FROM asignaturas_criterios
+       WHERE asignatura_id = ? AND colegio_id = ? AND (ciclo = ? OR ciclo = 0)
+       ORDER BY orden ASC`,
+      [cursoId, colegio_id, cicloInt]
+    );
+
+    // Obtener indicadores para todos los criterios
+    const criterioIds = criterios.map(c => c.id);
+    let todosIndicadores = [];
+    if (criterioIds.length > 0) {
+      todosIndicadores = await query(
+        `SELECT * FROM asignaturas_indicadores
+         WHERE criterio_id IN (${criterioIds.map(() => '?').join(',')})
+         ORDER BY criterio_id ASC, id ASC`,
+        criterioIds
+      );
+    }
+
+    // Agrupar indicadores por criterio
+    const indicadoresPorCriterio = {};
+    todosIndicadores.forEach(indicador => {
+      if (!indicadoresPorCriterio[indicador.criterio_id]) {
+        indicadoresPorCriterio[indicador.criterio_id] = [];
+      }
+      indicadoresPorCriterio[indicador.criterio_id].push(indicador);
+    });
+
+    // Agregar indicadores a cada criterio
+    const criteriosConIndicadores = criterios.map(criterio => ({
+      ...criterio,
+      indicadores: indicadoresPorCriterio[criterio.id] || []
+    }));
+
+    // Obtener alumnos del grupo
+    const alumnos = await query(
+      `SELECT a.id as alumno_id,
+              a.nombres,
+              a.apellido_paterno,
+              a.apellido_materno,
+              CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
+              m.id as matricula_id
+       FROM alumnos a
+       INNER JOIN matriculas m ON m.alumno_id = a.id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.grupo_id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?
+       ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres`,
+      [cursoInfo.grupo_id, colegio_id, anio_activo]
+    );
+
+    // Obtener todas las notas detalladas de todos los alumnos
+    const matriculaIds = alumnos.map(a => a.matricula_id);
+    let todasNotasDetalles = [];
+    if (matriculaIds.length > 0) {
+      todasNotasDetalles = await query(
+        `SELECT matricula_id, data FROM notas_detalles
+         WHERE asignatura_id = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')}) AND ciclo = ?`,
+        [cursoId, ...matriculaIds, cicloInt]
+      );
+    }
+
+    // Obtener todas las notas de criterios
+    let todasNotasCriterios = [];
+    if (matriculaIds.length > 0) {
+      todasNotasCriterios = await query(
+        `SELECT matricula_id, criterio_id, nota FROM notas
+         WHERE asignatura_id = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')}) AND ciclo = ?`,
+        [cursoId, ...matriculaIds, cicloInt]
+      );
+    }
+
+    // Obtener todos los exámenes mensuales
+    let todasExamenesMensuales = [];
+    if (cursoInfo.examen_mensual === 'SI' && matriculaIds.length > 0) {
+      todasExamenesMensuales = await query(
+        `SELECT matricula_id, nro, nota FROM notas_examen_mensual
+         WHERE asignatura_id = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')}) AND ciclo = ?
+         ORDER BY matricula_id ASC, nro ASC`,
+        [cursoId, ...matriculaIds, cicloInt]
+      );
+    }
+
+    // Obtener todos los promedios finales
+    let todosPromedios = [];
+    if (matriculaIds.length > 0) {
+      todosPromedios = await query(
+        `SELECT matricula_id, promedio FROM promedios
+         WHERE asignatura_id = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')}) AND ciclo = ?`,
+        [cursoId, ...matriculaIds, cicloInt]
+      );
+    }
+
+    // Organizar datos por alumno
+    const alumnosConNotas = alumnos.map((alumno, index) => {
+      const matriculaId = alumno.matricula_id;
+
+      // Obtener notas detalladas del alumno
+      const notaDetalle = todasNotasDetalles.find(nd => nd.matricula_id === matriculaId);
+      let notasDetalladas = {};
+      if (notaDetalle && notaDetalle.data) {
+        notasDetalladas = deserializarNotasDetalles(notaDetalle.data);
+      }
+
+      // Obtener notas de criterios del alumno
+      const notasCriterios = todasNotasCriterios.filter(n => n.matricula_id === matriculaId);
+      const notasMap = {};
+      notasCriterios.forEach(nota => {
+        notasMap[nota.criterio_id] = nota.nota;
+      });
+
+      // Obtener exámenes mensuales del alumno
+      const examenesAlumno = todasExamenesMensuales.filter(e => e.matricula_id === matriculaId);
+      const examenesMap = {};
+      examenesAlumno.forEach(examen => {
+        examenesMap[examen.nro] = examen.nota;
+      });
+
+      // Obtener promedio final del alumno
+      const promedioAlumno = todosPromedios.find(p => p.matricula_id === matriculaId);
+      const promedioFinal = promedioAlumno ? promedioAlumno.promedio : null;
+
+      return {
+        ...alumno,
+        numero: index + 1,
+        notas_detalladas: notasDetalladas,
+        notas_criterios: notasMap,
+        examenes_mensuales: examenesMap,
+        promedio_final: promedioFinal
+      };
+    });
+
+    res.json({
+      curso: {
+        id: cursoInfo.id,
+        curso_nombre: cursoInfo.curso_nombre,
+        grado: cursoInfo.grado,
+        seccion: cursoInfo.seccion,
+        nivel_nombre: cursoInfo.nivel_nombre,
+        grupo_id: cursoInfo.grupo_id,
+        nivel: {
+          tipo_calificacion: cursoInfo.tipo_calificacion,
+          tipo_calificacion_final: cursoInfo.tipo_calificacion_final,
+          nota_aprobatoria: cursoInfo.nota_aprobatoria,
+          nota_maxima: cursoInfo.nota_maxima,
+          nota_minima: cursoInfo.nota_minima
+        },
+        examen_mensual: cursoInfo.examen_mensual === 'SI',
+        peso_examen_mensual: cursoInfo.peso_examen_mensual || 0
+      },
+      criterios: criteriosConIndicadores,
+      alumnos: alumnosConNotas,
+      ciclo: cicloInt
+    });
+  } catch (error) {
+    console.error('Error obteniendo notas del curso:', error);
+    res.status(500).json({ error: 'Error al obtener notas del curso' });
+  }
+});
+
+/**
+ * POST /api/docente/cursos/:cursoId/notas
+ * Guardar notas de todos los alumnos del curso para un ciclo específico
+ */
+router.post('/cursos/:cursoId/notas', async (req, res) => {
+  try {
+    const { cursoId } = req.params;
+    const { colegio_id, anio_activo, usuario_id, personal_id } = req.user;
+    const { ciclo, notas } = req.body; // notas: { matricula_id: { criterio_id: { indicador_id: [notas...] } } }
+
+    if (!personal_id) {
+      return res.status(404).json({ error: 'Docente no encontrado' });
+    }
+
+    if (!cursoId || !ciclo || !notas) {
+      return res.status(400).json({ error: 'Datos incompletos' });
+    }
+
+    const cicloInt = parseInt(ciclo);
+
+    // Verificar que el docente tiene acceso a este curso
+    const asignatura = await query(
+      `SELECT a.*, g.id as grupo_id, g.nivel_id, n.tipo_calificacion,
+              c.peso_examen_mensual, c.examen_mensual
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (!asignatura || asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    const cursoInfo = asignatura[0];
+
+    // Obtener criterios del curso
+    const criterios = await query(
+      `SELECT * FROM asignaturas_criterios
+       WHERE asignatura_id = ? AND colegio_id = ? AND (ciclo = ? OR ciclo = 0)
+       ORDER BY orden ASC`,
+      [cursoId, colegio_id, cicloInt]
+    );
+
+    // Obtener indicadores
+    const criterioIds = criterios.map(c => c.id);
+    let todosIndicadores = [];
+    if (criterioIds.length > 0) {
+      todosIndicadores = await query(
+        `SELECT * FROM asignaturas_indicadores
+         WHERE criterio_id IN (${criterioIds.map(() => '?').join(',')})`,
+        criterioIds
+      );
+    }
+
+    const phpSerialize = require('php-serialize');
+
+    // Preparar arrays para operaciones en batch
+    const insertsNotasDetalles = [];
+    const deletesNotasDetalles = [];
+    const insertsNotas = [];
+    const deletesNotas = [];
+    const insertsExamenesMensuales = [];
+    const deletesExamenesMensuales = [];
+    const insertsPromedios = [];
+    const deletesPromedios = [];
+    
+    // Mapa para calcular promedios finales después
+    const promediosCriteriosPorAlumno = {}; // { matricula_id: { criterio_id: nota } }
+
+    // Procesar notas de cada alumno (solo cálculos, sin queries)
+    for (const matriculaId in notas) {
+      const matriculaIdInt = parseInt(matriculaId);
+      const notasAlumno = notas[matriculaId];
+
+      // Construir estructura de datos para notas_detalles
+      const dataNotas = {};
+      const promediosCriterios = {};
+
+      for (const criterio of criterios) {
+        const criterioId = criterio.id;
+        const notasCriterio = notasAlumno[criterioId];
+
+        if (!notasCriterio) continue;
+
+        // Obtener indicadores de este criterio
+        const indicadoresCriterio = todosIndicadores.filter(i => i.criterio_id === criterioId);
+
+        if (indicadoresCriterio.length > 0) {
+          // Hay indicadores: calcular promedio de cada indicador, luego promedio de criterio
+          dataNotas[criterioId] = {};
+          const promediosIndicadores = [];
+
+          for (const indicador of indicadoresCriterio) {
+            const indicadorId = indicador.id;
+            const notasIndicador = notasCriterio[indicadorId];
+
+            if (!notasIndicador || !Array.isArray(notasIndicador)) continue;
+
+            // Filtrar notas válidas (no vacías)
+            const notasValidas = notasIndicador
+              .map(n => {
+                const nota = parseFloat(n);
+                return isNaN(nota) ? null : nota;
+              })
+              .filter(n => n !== null);
+
+            if (notasValidas.length > 0) {
+              dataNotas[criterioId][indicadorId] = notasIndicador;
+
+              // Calcular promedio del indicador
+              const promedioIndicador = Math.round(
+                notasValidas.reduce((sum, n) => sum + n, 0) / notasValidas.length
+              );
+              promediosIndicadores.push(promedioIndicador);
+            }
+          }
+
+          // Calcular promedio del criterio (promedio de los promedios de indicadores)
+          if (promediosIndicadores.length > 0) {
+            const promedioCriterio = Math.round(
+              promediosIndicadores.reduce((sum, p) => sum + p, 0) / promediosIndicadores.length
+            );
+            promediosCriterios[criterioId] = promedioCriterio.toString();
+          }
+        } else {
+          // No hay indicadores: la nota se ingresa directamente
+          const notaDirecta = notasCriterio.directa || notasCriterio[0];
+          if (notaDirecta && notaDirecta !== '') {
+            const nota = parseFloat(notaDirecta);
+            if (!isNaN(nota)) {
+              promediosCriterios[criterioId] = Math.round(nota).toString();
+            }
+          }
+        }
+      }
+
+      // Guardar para cálculo de promedios finales
+      promediosCriteriosPorAlumno[matriculaIdInt] = promediosCriterios;
+
+      // Preparar DELETE e INSERT para notas_detalles
+      deletesNotasDetalles.push([cursoId, matriculaIdInt, cicloInt]);
+      const dataSerializado = phpSerialize.serialize(dataNotas);
+      insertsNotasDetalles.push([cursoId, matriculaIdInt, cicloInt, dataSerializado]);
+
+      // Preparar DELETE e INSERT para notas de criterios
+      for (const criterioId in promediosCriterios) {
+        const notaCriterio = promediosCriterios[criterioId];
+        deletesNotas.push([matriculaIdInt, criterioId, cursoId, cicloInt]);
+        insertsNotas.push([matriculaIdInt, criterioId, cicloInt, cursoId, notaCriterio]);
+      }
+
+      // Preparar DELETE e INSERT para exámenes mensuales
+      if (cursoInfo.examen_mensual === 'SI' && notasAlumno.examen_mensual) {
+        const examenes = notasAlumno.examen_mensual;
+        deletesExamenesMensuales.push([matriculaIdInt, cursoId, cicloInt]);
+        
+        for (const nro in examenes) {
+          const notaExamen = parseFloat(examenes[nro]);
+          if (!isNaN(notaExamen)) {
+            insertsExamenesMensuales.push([matriculaIdInt, cursoId, cicloInt, parseInt(nro), notaExamen]);
+          }
+        }
+      }
+
+      // Preparar DELETE para promedios (INSERT se hará después de calcular)
+      deletesPromedios.push([matriculaIdInt, cursoId, cicloInt]);
+    }
+
+    // Ejecutar DELETE en batch
+    if (deletesNotasDetalles.length > 0) {
+      const matriculaIds = [...new Set(deletesNotasDetalles.map(d => d[1]))];
+      await execute(
+        `DELETE FROM notas_detalles
+         WHERE asignatura_id = ? AND ciclo = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')})`,
+        [cursoId, cicloInt, ...matriculaIds]
+      );
+    }
+
+    if (deletesNotas.length > 0) {
+      const matriculaIds = [...new Set(deletesNotas.map(d => d[0]))];
+      await execute(
+        `DELETE FROM notas
+         WHERE asignatura_id = ? AND ciclo = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')})`,
+        [cursoId, cicloInt, ...matriculaIds]
+      );
+    }
+
+    if (deletesExamenesMensuales.length > 0) {
+      const matriculaIds = [...new Set(deletesExamenesMensuales.map(d => d[0]))];
+      await execute(
+        `DELETE FROM notas_examen_mensual
+         WHERE asignatura_id = ? AND ciclo = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')})`,
+        [cursoId, cicloInt, ...matriculaIds]
+      );
+    }
+
+    if (deletesPromedios.length > 0) {
+      const matriculaIds = [...new Set(deletesPromedios.map(d => d[0]))];
+      await execute(
+        `DELETE FROM promedios
+         WHERE asignatura_id = ? AND ciclo = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')})`,
+        [cursoId, cicloInt, ...matriculaIds]
+      );
+    }
+
+    // Ejecutar INSERT en batch
+    if (insertsNotasDetalles.length > 0) {
+      const values = insertsNotasDetalles.map(() => '(?, ?, ?, ?)').join(', ');
+      const params = insertsNotasDetalles.flat();
+      await execute(
+        `INSERT INTO notas_detalles (asignatura_id, matricula_id, ciclo, data) VALUES ${values}`,
+        params
+      );
+    }
+
+    if (insertsNotas.length > 0) {
+      const values = insertsNotas.map(() => '(?, ?, ?, ?, ?)').join(', ');
+      const params = insertsNotas.flat();
+      await execute(
+        `INSERT INTO notas (matricula_id, criterio_id, ciclo, asignatura_id, nota) VALUES ${values}`,
+        params
+      );
+    }
+
+    if (insertsExamenesMensuales.length > 0) {
+      const values = insertsExamenesMensuales.map(() => '(?, ?, ?, ?, ?)').join(', ');
+      const params = insertsExamenesMensuales.flat();
+      await execute(
+        `INSERT INTO notas_examen_mensual (matricula_id, asignatura_id, ciclo, nro, nota) VALUES ${values}`,
+        params
+      );
+    }
+
+    // Calcular y guardar promedios finales en batch
+    const matriculaIds = Object.keys(promediosCriteriosPorAlumno).map(id => parseInt(id));
+    
+    if (matriculaIds.length > 0) {
+      // Obtener todas las notas de criterios de una vez
+      const todasNotasFinales = await query(
+        `SELECT n.matricula_id, n.criterio_id, n.nota, ac.peso
+         FROM notas n
+         INNER JOIN asignaturas_criterios ac ON ac.id = n.criterio_id
+         WHERE n.asignatura_id = ? AND n.ciclo = ? AND n.matricula_id IN (${matriculaIds.map(() => '?').join(',')})`,
+        [cursoId, cicloInt, ...matriculaIds]
+      );
+
+      // Obtener todos los exámenes mensuales de una vez
+      let todasExamenesMensuales = [];
+      if (cursoInfo.examen_mensual === 'SI') {
+        todasExamenesMensuales = await query(
+          `SELECT matricula_id, nro, nota FROM notas_examen_mensual
+           WHERE asignatura_id = ? AND ciclo = ? AND matricula_id IN (${matriculaIds.map(() => '?').join(',')})
+           ORDER BY matricula_id ASC, nro ASC`,
+          [cursoId, cicloInt, ...matriculaIds]
+        );
+      }
+
+      // Agrupar notas por matricula_id
+      const notasPorAlumno = {};
+      todasNotasFinales.forEach(row => {
+        if (!notasPorAlumno[row.matricula_id]) {
+          notasPorAlumno[row.matricula_id] = [];
+        }
+        notasPorAlumno[row.matricula_id].push(row);
+      });
+
+      // Agrupar exámenes por matricula_id
+      const examenesPorAlumno = {};
+      todasExamenesMensuales.forEach(row => {
+        if (!examenesPorAlumno[row.matricula_id]) {
+          examenesPorAlumno[row.matricula_id] = [];
+        }
+        examenesPorAlumno[row.matricula_id].push(row);
+      });
+
+      // Calcular promedios finales para cada alumno
+      for (const matriculaIdInt of matriculaIds) {
+        const notasFinales = notasPorAlumno[matriculaIdInt] || [];
+        let promedioFinal = null;
+
+        if (notasFinales.length > 0) {
+          if (cursoInfo.tipo_calificacion_final === 1) {
+            // Porcentual: sumar (nota × peso / 100)
+            let sumaPonderada = 0;
+            let sumaPesos = 0;
+
+            for (const notaRow of notasFinales) {
+              const nota = parseFloat(notaRow.nota);
+              const peso = parseFloat(notaRow.peso) || 0;
+              
+              if (!isNaN(nota) && peso > 0) {
+                sumaPonderada += (nota * peso / 100);
+                sumaPesos += peso;
+              }
+            }
+
+            if (sumaPesos > 0) {
+              if (Math.abs(sumaPesos - 100) < 0.01) {
+                promedioFinal = Math.round(sumaPonderada);
+              } else {
+                promedioFinal = Math.round((sumaPonderada / sumaPesos) * 100);
+              }
+            }
+          } else {
+            // Promedio simple
+            const notasValidas = notasFinales
+              .map(n => parseFloat(n.nota))
+              .filter(n => !isNaN(n));
+
+            if (notasValidas.length > 0) {
+              promedioFinal = Math.round(
+                notasValidas.reduce((sum, n) => sum + n, 0) / notasValidas.length
+              );
+            }
+          }
+
+          // Agregar examen mensual si aplica
+          if (cursoInfo.examen_mensual === 'SI' && promedioFinal !== null) {
+            const examenesAlumno = examenesPorAlumno[matriculaIdInt] || [];
+            if (examenesAlumno.length > 0) {
+              const notasExamenes = examenesAlumno.map(e => parseFloat(e.nota)).filter(n => !isNaN(n));
+              if (notasExamenes.length > 0) {
+                const promedioExamen = Math.round(
+                  notasExamenes.reduce((sum, n) => sum + n, 0) / notasExamenes.length
+                );
+                const pesoExamen = cursoInfo.peso_examen_mensual || 0;
+                if (pesoExamen > 0) {
+                  promedioFinal = Math.round(
+                    promedioFinal * (100 - pesoExamen) / 100 + promedioExamen * pesoExamen / 100
+                  );
+                } else {
+                  promedioFinal = Math.round((promedioFinal + promedioExamen) / 2);
+                }
+              }
+            }
+          }
+        }
+
+        // Agregar a inserts de promedios
+        if (promedioFinal !== null) {
+          insertsPromedios.push([matriculaIdInt, cursoId, cicloInt, promedioFinal.toString()]);
+        }
+      }
+
+      // Insertar promedios en batch
+      if (insertsPromedios.length > 0) {
+        const values = insertsPromedios.map(() => '(?, ?, ?, ?)').join(', ');
+        const params = insertsPromedios.flat();
+        await execute(
+          `INSERT INTO promedios (matricula_id, asignatura_id, ciclo, promedio) VALUES ${values}`,
+          params
+        );
+      }
+    }
+
+    // Registrar acción
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'REGISTRAR_NOTAS',
+      modulo: 'CURSOS',
+      entidad: 'notas',
+      entidad_id: cursoId,
+      descripcion: `Docente registró notas del curso ID: ${cursoId} para el ciclo ${cicloInt}`,
+      datos_nuevos: { ciclo: cicloInt, total_alumnos: Object.keys(notas).length }
+    });
+
+    res.json({
+      success: true,
+      message: 'Notas guardadas correctamente'
+    });
+  } catch (error) {
+    console.error('Error guardando notas:', error);
+    res.status(500).json({ error: 'Error al guardar notas' });
+  }
+});
+
+/**
  * GET /api/docente/horario
  * Obtener horario del docente
  */

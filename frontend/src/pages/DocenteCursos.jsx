@@ -64,6 +64,16 @@ function DocenteCursos() {
   const [loadingAulaVirtual, setLoadingAulaVirtual] = useState(false);
   const [guardandoAulaVirtual, setGuardandoAulaVirtual] = useState(false);
 
+  // Estados para modal de notas
+  const [mostrarModalNotas, setMostrarModalNotas] = useState(false);
+  const [cursoParaNotas, setCursoParaNotas] = useState(null);
+  const [datosNotas, setDatosNotas] = useState(null); // { curso, criterios, alumnos, ciclo }
+  const [cicloSeleccionadoNotas, setCicloSeleccionadoNotas] = useState(1);
+  const [loadingNotas, setLoadingNotas] = useState(false);
+  const [guardandoNotas, setGuardandoNotas] = useState(false);
+  const [notasEditadas, setNotasEditadas] = useState({}); // { matricula_id: { criterio_id: { indicador_id: [notas...] } } }
+  const [forceUpdate, setForceUpdate] = useState(0); // Para forzar re-render cuando cambien las notas
+
   useEffect(() => {
     cargarCursos();
   }, []);
@@ -1532,7 +1542,10 @@ function DocenteCursos() {
         cargarAlumnos(curso.id);
         break;
       case 'notas':
-        navigate(`/docente/cursos/${curso.id}/notas`);
+        // Abrir modal de registrar notas para el curso
+        setCursoParaNotas(curso);
+        setMostrarModalNotas(true);
+        cargarNotasCurso(curso.id);
         break;
       case 'enlaces':
         // Abrir modal de aula virtual para el curso
@@ -1563,6 +1576,240 @@ function DocenteCursos() {
     } catch (error) {
       console.error('Error obteniendo grupo_id del curso:', error);
       return null;
+    }
+  };
+
+  // Cargar notas del curso
+  const cargarNotasCurso = async (cursoId, ciclo = null) => {
+    try {
+      setLoadingNotas(true);
+      const cicloACargar = ciclo !== null ? ciclo : cicloSeleccionadoNotas;
+      const response = await api.get(`/docente/cursos/${cursoId}/notas`, {
+        params: { ciclo: cicloACargar }
+      });
+      
+      setDatosNotas(response.data);
+      
+      // Inicializar notasEditadas con los datos recibidos
+      const notasIniciales = {};
+      response.data.alumnos.forEach(alumno => {
+        notasIniciales[alumno.matricula_id] = {};
+        response.data.criterios.forEach(criterio => {
+          notasIniciales[alumno.matricula_id][criterio.id] = {};
+          
+          if (criterio.indicadores && criterio.indicadores.length > 0) {
+            criterio.indicadores.forEach(indicador => {
+              const notasIndicador = alumno.notas_detalladas?.[criterio.id]?.[indicador.id] || [];
+              notasIniciales[alumno.matricula_id][criterio.id][indicador.id] = [...notasIndicador];
+            });
+          }
+        });
+        
+        // Agregar exámenes mensuales si aplica
+        if (response.data.curso.examen_mensual && alumno.examenes_mensuales) {
+          notasIniciales[alumno.matricula_id].examen_mensual = { ...alumno.examenes_mensuales };
+        }
+      });
+      
+      setNotasEditadas(notasIniciales);
+    } catch (error) {
+      console.error('Error cargando notas del curso:', error);
+      Swal.fire('Error', 'No se pudo cargar las notas del curso', 'error');
+      setDatosNotas(null);
+    } finally {
+      setLoadingNotas(false);
+    }
+  };
+
+  // Cambiar ciclo y recargar notas
+  const cambiarCicloNotas = async (nuevoCiclo) => {
+    setCicloSeleccionadoNotas(nuevoCiclo);
+    if (cursoParaNotas) {
+      await cargarNotasCurso(cursoParaNotas.id, nuevoCiclo);
+    }
+  };
+
+  // Actualizar nota en el estado local
+  const actualizarNota = (matriculaId, criterioId, indicadorId, indice, valor) => {
+    setNotasEditadas(prev => {
+      const nuevo = { ...prev };
+      if (!nuevo[matriculaId]) nuevo[matriculaId] = {};
+      if (!nuevo[matriculaId][criterioId]) nuevo[matriculaId][criterioId] = {};
+      if (!nuevo[matriculaId][criterioId][indicadorId]) {
+        nuevo[matriculaId][criterioId][indicadorId] = [];
+      }
+      
+      const notasIndicador = [...(nuevo[matriculaId][criterioId][indicadorId] || [])];
+      while (notasIndicador.length <= indice) {
+        notasIndicador.push('');
+      }
+      notasIndicador[indice] = valor;
+      nuevo[matriculaId][criterioId][indicadorId] = notasIndicador;
+      
+      return nuevo;
+    });
+    // Forzar re-render para actualizar promedios
+    setForceUpdate(prev => prev + 1);
+  };
+
+  // Calcular promedio de un indicador
+  const calcularPromedioIndicador = (matriculaId, criterioId, indicadorId) => {
+    const notas = notasEditadas[matriculaId]?.[criterioId]?.[indicadorId] || [];
+    const notasValidas = notas
+      .map(n => parseFloat(n))
+      .filter(n => !isNaN(n) && n !== null && n !== '');
+    
+    if (notasValidas.length === 0) return null;
+    
+    return Math.round(notasValidas.reduce((sum, n) => sum + n, 0) / notasValidas.length);
+  };
+
+  // Calcular promedio de un criterio
+  const calcularPromedioCriterio = (matriculaId, criterioId) => {
+    const criterio = datosNotas?.criterios?.find(c => c.id === criterioId);
+    if (!criterio) return null;
+
+    if (criterio.indicadores && criterio.indicadores.length > 0) {
+      const promediosIndicadores = criterio.indicadores
+        .map(indicador => calcularPromedioIndicador(matriculaId, criterioId, indicador.id))
+        .filter(p => p !== null);
+      
+      if (promediosIndicadores.length === 0) return null;
+      
+      return Math.round(
+        promediosIndicadores.reduce((sum, p) => sum + p, 0) / promediosIndicadores.length
+      );
+    } else {
+      // Si no hay indicadores, usar la nota directa
+      const notaDirecta = notasEditadas[matriculaId]?.[criterioId]?.directa;
+      if (notaDirecta && notaDirecta !== '') {
+        const nota = parseFloat(notaDirecta);
+        return !isNaN(nota) ? Math.round(nota) : null;
+      }
+      // Si no hay en notasEditadas, buscar en los datos originales
+      const alumno = datosNotas?.alumnos?.find(a => a.matricula_id === matriculaId);
+      if (alumno?.notas_criterios?.[criterioId]) {
+        const nota = parseFloat(alumno.notas_criterios[criterioId]);
+        return !isNaN(nota) ? Math.round(nota) : null;
+      }
+    }
+    
+    return null;
+  };
+
+  // Calcular promedio final del curso usando los pesos de los criterios
+  const calcularPromedioFinal = (matriculaId) => {
+    if (!datosNotas || !datosNotas.criterios) return null;
+
+    const tipoCalificacionFinal = datosNotas.curso?.nivel?.tipo_calificacion_final || 0;
+    
+    if (tipoCalificacionFinal === 1) {
+      // Porcentual: usar pesos de los criterios
+      let sumaPonderada = 0;
+      let sumaPesos = 0;
+
+      datosNotas.criterios.forEach(criterio => {
+        const promedioCriterio = calcularPromedioCriterio(matriculaId, criterio.id);
+        const peso = parseFloat(criterio.peso) || 0;
+        
+        if (promedioCriterio !== null && peso > 0) {
+          sumaPonderada += (promedioCriterio * peso / 100);
+          sumaPesos += peso;
+        }
+      });
+
+      // Agregar examen mensual si aplica
+      if (datosNotas.curso.examen_mensual) {
+        const examen1 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[1] || 
+                                   datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[1] || 0);
+        const examen2 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[2] || 
+                                   datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[2] || 0);
+        
+        if (!isNaN(examen1) && !isNaN(examen2) && examen1 > 0 && examen2 > 0) {
+          const promedioExamen = Math.round((examen1 + examen2) / 2);
+          const pesoExamen = datosNotas.curso.peso_examen_mensual || 0;
+          
+          if (pesoExamen > 0) {
+            sumaPonderada += (promedioExamen * pesoExamen / 100);
+            sumaPesos += pesoExamen;
+          }
+        }
+      }
+
+      if (sumaPesos > 0) {
+        // Si los pesos suman 100, usar directamente; si no, normalizar
+        if (Math.abs(sumaPesos - 100) < 0.01) {
+          return Math.round(sumaPonderada);
+        } else {
+          return Math.round((sumaPonderada / sumaPesos) * 100);
+        }
+      }
+    } else {
+      // Promedio simple
+      const promediosCriterios = datosNotas.criterios
+        .map(criterio => calcularPromedioCriterio(matriculaId, criterio.id))
+        .filter(p => p !== null);
+
+      if (promediosCriterios.length > 0) {
+        let suma = promediosCriterios.reduce((sum, p) => sum + p, 0);
+        let count = promediosCriterios.length;
+
+        // Agregar examen mensual si aplica
+        if (datosNotas.curso.examen_mensual) {
+          const examen1 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[1] || 
+                                     datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[1] || 0);
+          const examen2 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[2] || 
+                                     datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[2] || 0);
+          
+          if (!isNaN(examen1) && !isNaN(examen2) && examen1 > 0 && examen2 > 0) {
+            const promedioExamen = Math.round((examen1 + examen2) / 2);
+            suma += promedioExamen;
+            count += 1;
+          }
+        }
+
+        return Math.round(suma / count);
+      }
+    }
+
+    return null;
+  };
+
+  // Guardar notas
+  const guardarNotas = async () => {
+    if (!cursoParaNotas || !datosNotas) {
+      Swal.fire('Error', 'No se ha seleccionado un curso', 'error');
+      return;
+    }
+
+    if (guardandoNotas) {
+      return;
+    }
+
+    setGuardandoNotas(true);
+
+    try {
+      await api.post(`/docente/cursos/${cursoParaNotas.id}/notas`, {
+        ciclo: cicloSeleccionadoNotas,
+        notas: notasEditadas
+      }, {
+        timeout: 120000 // 2 minutos para guardar notas (puede haber muchos alumnos)
+      });
+
+      Swal.fire({
+        title: '¡Guardado!',
+        text: 'Las notas se han guardado correctamente',
+        icon: 'success',
+        confirmButtonText: 'Aceptar'
+      });
+
+      // Recargar notas
+      await cargarNotasCurso(cursoParaNotas.id);
+    } catch (error) {
+      console.error('Error guardando notas:', error);
+      Swal.fire('Error', error.response?.data?.error || 'Error al guardar las notas', 'error');
+    } finally {
+      setGuardandoNotas(false);
     }
   };
 
@@ -3101,6 +3348,311 @@ function DocenteCursos() {
                   </>
                 )}
               </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Modal de Registrar Notas */}
+        {mostrarModalNotas && createPortal(
+          <div className="modal-notas-overlay" onClick={(e) => {
+            if (e.target.classList.contains('modal-notas-overlay')) {
+              setMostrarModalNotas(false);
+            }
+          }}>
+            <div className="modal-notas-container" onClick={(e) => e.stopPropagation()}>
+              {loadingNotas ? (
+                <div className="loading-overlay-notas">
+                  <div className="loading-spinner-notas">
+                    <div className="spinner-ring"></div>
+                    <div className="spinner-ring"></div>
+                    <div className="spinner-ring"></div>
+                    <div className="spinner-ring"></div>
+                  </div>
+                  <p className="loading-text-notas">Cargando notas...</p>
+                </div>
+              ) : datosNotas ? (
+                <>
+                  <div className="modal-notas-header">
+                    <h2>
+                      {datosNotas.curso.curso_nombre.toUpperCase()} - {datosNotas.curso.grado}° {datosNotas.curso.seccion} - {datosNotas.curso.nivel_nombre.toUpperCase()} - BIMESTRE {cicloSeleccionadoNotas}
+                    </h2>
+                    <button
+                      className="modal-close-btn"
+                      onClick={() => {
+                        setMostrarModalNotas(false);
+                        setCursoParaNotas(null);
+                        setDatosNotas(null);
+                        setNotasEditadas({});
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="modal-notas-body">
+                    {/* Selector de Bimestre y Botones */}
+                    <div className="notas-controls">
+                      <div className="bimestre-selector">
+                        <label>Seleccionar Bimestre:</label>
+                        <select
+                          value={cicloSeleccionadoNotas}
+                          onChange={(e) => cambiarCicloNotas(parseInt(e.target.value))}
+                          disabled={loadingNotas}
+                        >
+                          <option value={1}>Bimestre 1</option>
+                          <option value={2}>Bimestre 2</option>
+                          <option value={3}>Bimestre 3</option>
+                          <option value={4}>Bimestre 4</option>
+                        </select>
+                      </div>
+                      
+                      {/* Botones de acción */}
+                      <div className="notas-actions-top">
+                        <button
+                          className="btn-cancelar-notas"
+                          onClick={() => {
+                            setMostrarModalNotas(false);
+                            setCursoParaNotas(null);
+                            setDatosNotas(null);
+                            setNotasEditadas({});
+                          }}
+                          disabled={guardandoNotas}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          className="btn-guardar-notas"
+                          onClick={guardarNotas}
+                          disabled={guardandoNotas}
+                        >
+                          {guardandoNotas ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                        </button>
+                        <button
+                          className="btn-imprimir-notas"
+                          onClick={() => {
+                            // TODO: Implementar impresión
+                            Swal.fire('Info', 'Funcionalidad de impresión próximamente', 'info');
+                          }}
+                          disabled={guardandoNotas}
+                        >
+                          🖨️ Imprimir
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Barra azul informativa */}
+                    <div className="blue-bar-notas">
+                      Ingrese notas de: {datosNotas.curso.nivel.nota_minima} - {datosNotas.curso.nivel.nota_maxima}.
+                    </div>
+
+                    {/* Tabla de notas */}
+                    <div className="notas-table-wrapper">
+                      <table className="notas-table">
+                        <thead>
+                          <tr>
+                            <th>N°</th>
+                            <th className="col-name">APELLIDOS Y NOMBRES</th>
+                            {datosNotas.criterios.map(criterio => (
+                              <th key={criterio.id}>
+                                <div className="th-criterio-content">
+                                  <div className="th-criterio-nombre">{criterio.descripcion.toUpperCase()}</div>
+                                  <div className="th-criterio-peso">({criterio.peso}%)</div>
+                                </div>
+                              </th>
+                            ))}
+                            {datosNotas.curso.examen_mensual && (
+                              <th>EXAMEN MENSUAL ({datosNotas.curso.peso_examen_mensual}%)</th>
+                            )}
+                            <th>PROM.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datosNotas.alumnos.map((alumno) => (
+                            <tr key={alumno.matricula_id}>
+                              <td>{alumno.numero}</td>
+                              <td className="col-name">{alumno.nombre_completo}</td>
+                              {datosNotas.criterios.map(criterio => {
+                                const promedioCriterio = calcularPromedioCriterio(alumno.matricula_id, criterio.id);
+                                const tieneIndicadores = criterio.indicadores && criterio.indicadores.length > 0;
+                                
+                                return (
+                                  <td key={criterio.id}>
+                                    {tieneIndicadores ? (
+                                      <div className="box-row">
+                                        {criterio.indicadores.map(indicador => {
+                                          const cuadros = indicador.cuadros || 1;
+                                          return Array.from({ length: cuadros }, (_, i) => {
+                                            const valor = notasEditadas[alumno.matricula_id]?.[criterio.id]?.[indicador.id]?.[i] || '';
+                                            return (
+                                              <input
+                                                key={`${indicador.id}-${i}`}
+                                                type="text"
+                                                className="box"
+                                                value={valor}
+                                                onChange={(e) => {
+                                                  const nuevoValor = e.target.value;
+                                                  // Validar que sea un número entre nota_minima y nota_maxima
+                                                  if (nuevoValor === '' || 
+                                                      (!isNaN(nuevoValor) && 
+                                                       parseFloat(nuevoValor) >= datosNotas.curso.nivel.nota_minima && 
+                                                       parseFloat(nuevoValor) <= datosNotas.curso.nivel.nota_maxima)) {
+                                                    actualizarNota(alumno.matricula_id, criterio.id, indicador.id, i, nuevoValor);
+                                                  }
+                                                }}
+                                                onBlur={(e) => {
+                                                  // Formatear el valor al perder el foco
+                                                  const valor = parseFloat(e.target.value);
+                                                  if (!isNaN(valor)) {
+                                                    const valorFormateado = Math.round(valor).toString();
+                                                    actualizarNota(alumno.matricula_id, criterio.id, indicador.id, i, valorFormateado);
+                                                  }
+                                                }}
+                                                placeholder=""
+                                                maxLength={2}
+                                              />
+                                            );
+                                          });
+                                        })}
+                                        <div className={`box avg ${promedioCriterio !== null && promedioCriterio < datosNotas.curso.nivel.nota_aprobatoria ? 'below-min' : ''}`}>
+                                          {promedioCriterio !== null ? promedioCriterio : ''}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="box-row">
+                                        <input
+                                          type="text"
+                                          className="box"
+                                          value={notasEditadas[alumno.matricula_id]?.[criterio.id]?.directa || 
+                                                 alumno.notas_criterios?.[criterio.id] || ''}
+                                          onChange={(e) => {
+                                            const nuevoValor = e.target.value;
+                                            if (nuevoValor === '' || 
+                                                (!isNaN(nuevoValor) && 
+                                                 parseFloat(nuevoValor) >= datosNotas.curso.nivel.nota_minima && 
+                                                 parseFloat(nuevoValor) <= datosNotas.curso.nivel.nota_maxima)) {
+                                              setNotasEditadas(prev => {
+                                                const nuevo = { ...prev };
+                                                if (!nuevo[alumno.matricula_id]) nuevo[alumno.matricula_id] = {};
+                                                if (!nuevo[alumno.matricula_id][criterio.id]) nuevo[alumno.matricula_id][criterio.id] = {};
+                                                nuevo[alumno.matricula_id][criterio.id].directa = nuevoValor;
+                                                return nuevo;
+                                              });
+                                              setForceUpdate(prev => prev + 1);
+                                            }
+                                          }}
+                                          onBlur={(e) => {
+                                            const valor = parseFloat(e.target.value);
+                                            if (!isNaN(valor)) {
+                                              const valorFormateado = Math.round(valor).toString();
+                                              setNotasEditadas(prev => {
+                                                const nuevo = { ...prev };
+                                                if (!nuevo[alumno.matricula_id]) nuevo[alumno.matricula_id] = {};
+                                                if (!nuevo[alumno.matricula_id][criterio.id]) nuevo[alumno.matricula_id][criterio.id] = {};
+                                                nuevo[alumno.matricula_id][criterio.id].directa = valorFormateado;
+                                                return nuevo;
+                                              });
+                                              setForceUpdate(prev => prev + 1);
+                                            }
+                                          }}
+                                          placeholder=""
+                                          maxLength={2}
+                                        />
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              {datosNotas.curso.examen_mensual && (
+                                <td>
+                                  <div className="box-row">
+                                    <input
+                                      type="text"
+                                      className="box"
+                                      value={notasEditadas[alumno.matricula_id]?.examen_mensual?.[1] || 
+                                             alumno.examenes_mensuales?.[1] || ''}
+                                      onChange={(e) => {
+                                        const nuevoValor = e.target.value;
+                                        if (nuevoValor === '' || 
+                                            (!isNaN(nuevoValor) && 
+                                             parseFloat(nuevoValor) >= datosNotas.curso.nivel.nota_minima && 
+                                             parseFloat(nuevoValor) <= datosNotas.curso.nivel.nota_maxima)) {
+                                          setNotasEditadas(prev => {
+                                            const nuevo = { ...prev };
+                                            if (!nuevo[alumno.matricula_id]) nuevo[alumno.matricula_id] = {};
+                                            if (!nuevo[alumno.matricula_id].examen_mensual) nuevo[alumno.matricula_id].examen_mensual = {};
+                                            nuevo[alumno.matricula_id].examen_mensual[1] = nuevoValor;
+                                            return nuevo;
+                                          });
+                                          setForceUpdate(prev => prev + 1);
+                                        }
+                                      }}
+                                      placeholder=""
+                                      maxLength={2}
+                                    />
+                                    <input
+                                      type="text"
+                                      className="box"
+                                      value={notasEditadas[alumno.matricula_id]?.examen_mensual?.[2] || 
+                                             alumno.examenes_mensuales?.[2] || ''}
+                                      onChange={(e) => {
+                                        const nuevoValor = e.target.value;
+                                        if (nuevoValor === '' || 
+                                            (!isNaN(nuevoValor) && 
+                                             parseFloat(nuevoValor) >= datosNotas.curso.nivel.nota_minima && 
+                                             parseFloat(nuevoValor) <= datosNotas.curso.nivel.nota_maxima)) {
+                                          setNotasEditadas(prev => {
+                                            const nuevo = { ...prev };
+                                            if (!nuevo[alumno.matricula_id]) nuevo[alumno.matricula_id] = {};
+                                            if (!nuevo[alumno.matricula_id].examen_mensual) nuevo[alumno.matricula_id].examen_mensual = {};
+                                            nuevo[alumno.matricula_id].examen_mensual[2] = nuevoValor;
+                                            return nuevo;
+                                          });
+                                          setForceUpdate(prev => prev + 1);
+                                        }
+                                      }}
+                                      placeholder=""
+                                      maxLength={2}
+                                    />
+                                    <div className="box avg">
+                                      {(() => {
+                                        const examen1 = parseFloat(notasEditadas[alumno.matricula_id]?.examen_mensual?.[1] || alumno.examenes_mensuales?.[1] || 0);
+                                        const examen2 = parseFloat(notasEditadas[alumno.matricula_id]?.examen_mensual?.[2] || alumno.examenes_mensuales?.[2] || 0);
+                                        if (!isNaN(examen1) && !isNaN(examen2) && examen1 > 0 && examen2 > 0) {
+                                          return Math.round((examen1 + examen2) / 2);
+                                        }
+                                        return '';
+                                      })()}
+                                    </div>
+                                  </div>
+                                </td>
+                              )}
+                              <td>
+                                <div className={`box avg final ${(() => {
+                                  const promedioFinal = calcularPromedioFinal(alumno.matricula_id);
+                                  return promedioFinal !== null && promedioFinal < datosNotas.curso.nivel.nota_aprobatoria ? 'below-min' : '';
+                                })()}`}>
+                                  {calcularPromedioFinal(alumno.matricula_id) || alumno.promedio_final || ''}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="loading-overlay-notas">
+                  <div className="loading-spinner-notas">
+                    <div className="spinner-ring"></div>
+                    <div className="spinner-ring"></div>
+                    <div className="spinner-ring"></div>
+                    <div className="spinner-ring"></div>
+                  </div>
+                  <p className="loading-text-notas">No se pudieron cargar las notas</p>
+                </div>
+              )}
             </div>
           </div>,
           document.body

@@ -2685,10 +2685,467 @@
   .form-actions-aula-virtual {
     flex-direction: column;
   }
+}
 
-  .btn-cancelar-aula-virtual,
-  .btn-guardar-aula-virtual {
+/* ========== MODAL DE NOTAS ========== */
+.modal-notas-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.modal-notas-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 95%;
+  width: 100%;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.modal-notas-header {
+  background: linear-gradient(135deg, #4a83c1 0%, #3b6fa8 100%);
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-notas-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
+
+.modal-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.modal-notas-body {
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Controles de notas */
+.notas-controls {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.notas-actions-top {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.bimestre-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bimestre-selector label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.bimestre-selector select {
+  padding: 0.5rem 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bimestre-selector select:hover {
+  border-color: #4a83c1;
+}
+
+.bimestre-selector select:focus {
+  outline: none;
+  border-color: #4a83c1;
+  box-shadow: 0 0 0 3px rgba(74, 131, 193, 0.1);
+}
+
+/* Barra azul informativa */
+.blue-bar-notas {
+  background-color: #3498db;
+  color: white;
+  text-align: center;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+}
+
+/* Tabla de notas */
+.notas-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.notas-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 13px;
+}
+
+.notas-table th {
+  background-color: #f5f9f2;
+  border: 1px solid #ddd;
+  padding: 12px 5px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.th-criterio-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.th-criterio-nombre {
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.th-criterio-peso {
+  font-size: 11px;
+  font-weight: normal;
+  color: #666;
+}
+
+.notas-table td {
+  border: 1px solid #eee;
+  padding: 8px 5px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.notas-table .col-name {
+  text-align: left;
+  padding-left: 15px;
+  color: #2980b9;
+  width: 250px;
+  font-weight: 500;
+}
+
+.notas-table tr:hover {
+  background-color: #fcfcfc;
+}
+
+/* Contenedor de cuadros */
+.box-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* Clase unificada: Todo cuadro mide y se ve igual */
+.box {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: 13px;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  border: 1px solid #999;
+  box-sizing: border-box;
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  background: white;
+  outline: none;
+  border-radius: 0;
+}
+
+/* Inputs específicos: quitamos estilos de navegador */
+input.box {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: text;
+}
+
+input.box:focus {
+  border-color: #4a83c1;
+  box-shadow: 0 0 0 2px rgba(74, 131, 193, 0.2);
+}
+
+/* Averages: mismo tamaño/borde, solo cambia color de fuente */
+.box.avg {
+  color: #3498db;
+  font-weight: bold;
+  background-color: #f9f9f9;
+  cursor: default;
+}
+
+.box.avg.below-min {
+  color: #e74c3c;
+  background-color: #fde9d9;
+  border-color: #e74c3c;
+}
+
+/* El promedio final ya NO tiene borde distinto, es igual a los demás */
+.box.final {
+  color: #3498db;
+  font-weight: bold;
+  cursor: default;
+}
+
+.box.final.below-min {
+  color: #e74c3c;
+  background-color: #fde9d9;
+  border-color: #e74c3c;
+}
+
+/* Botones de acción (ya no se usan en la parte inferior, pero los mantenemos por si acaso) */
+.notas-actions {
+  display: none; /* Ocultos porque ahora están arriba */
+}
+
+.btn-cancelar-notas,
+.btn-guardar-notas,
+.btn-imprimir-notas {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-cancelar-notas {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-cancelar-notas:hover {
+  background: #e5e7eb;
+}
+
+.btn-guardar-notas {
+  background: linear-gradient(135deg, #4a83c1 0%, #3b6fa8 100%);
+  color: white;
+}
+
+.btn-guardar-notas:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 131, 193, 0.4);
+}
+
+.btn-guardar-notas:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-imprimir-notas {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-imprimir-notas:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-imprimir-notas:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Animación de carga mejorada */
+.loading-overlay-notas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.98);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  border-radius: 16px;
+  backdrop-filter: blur(2px);
+}
+
+.loading-spinner-notas {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.loading-spinner-notas::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 5px solid #e3f2fd;
+  border-top-color: #4a83c1;
+  border-right-color: #667eea;
+  border-radius: 50%;
+  animation: spin-loading 0.8s linear infinite;
+}
+
+.loading-spinner-notas::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  border: 4px solid transparent;
+  border-top-color: #764ba2;
+  border-radius: 50%;
+  animation: spin-loading 1s linear infinite reverse;
+}
+
+@keyframes spin-loading {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text-notas {
+  font-size: 1.1rem;
+  color: #4a83c1;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loading-text-notas::after {
+  content: '...';
+  animation: dots-loading 1.5s steps(4, end) infinite;
+  width: 20px;
+  display: inline-block;
+}
+
+@keyframes dots-loading {
+  0%, 20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60%, 100% {
+    content: '...';
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .modal-notas-overlay {
+    padding: 1rem;
+  }
+
+  .modal-notas-container {
+    max-width: 100%;
+    max-height: 100vh;
+  }
+
+  .modal-notas-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-notas-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .modal-notas-body {
+    padding: 1.5rem;
+  }
+
+  .notas-table-wrapper {
+    overflow-x: scroll;
+  }
+
+  .notas-table {
+    font-size: 11px;
+  }
+
+  .box {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+    line-height: 24px;
+  }
+
+  .notas-actions {
+    flex-direction: column;
+  }
+
+  .btn-cancelar-notas,
+  .btn-guardar-notas,
+  .btn-imprimir-notas {
     width: 100%;
+    justify-content: center;
   }
 }
 
