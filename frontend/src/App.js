@@ -12,7 +12,6 @@ import DocentePerfil from './pages/DocentePerfil';
 import DocenteGrupos from './pages/DocenteGrupos';
 import DocenteCursos from './pages/DocenteCursos';
 import DocenteHorario from './pages/DocenteHorario';
-import DocenteTutoria from './pages/DocenteTutoria';
 import DocenteComunicados from './pages/DocenteComunicados';
 import DocenteActividades from './pages/DocenteActividades';
 import DocenteMensajes from './pages/DocenteMensajes';
@@ -128,14 +127,6 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <DocenteHorario />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/docente/tutoria"
-        element={
-          <PrivateRoute>
-            <DocenteTutoria />
           </PrivateRoute>
         }
       />
