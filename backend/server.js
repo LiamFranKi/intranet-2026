@@ -95,11 +95,12 @@ const uploadsPath = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
   // Crear subdirectorios necesarios
-  fs.mkdirSync(path.join(uploadsPath, 'mensajes'), { recursive: true });
-  fs.mkdirSync(path.join(uploadsPath, 'personal'), { recursive: true });
-  fs.mkdirSync(path.join(uploadsPath, 'publicaciones'), { recursive: true });
-  fs.mkdirSync(path.join(uploadsPath, 'comunicados'), { recursive: true }); // Para comunicados del sistema nuevo
-}
+      fs.mkdirSync(path.join(uploadsPath, 'mensajes'), { recursive: true });
+      fs.mkdirSync(path.join(uploadsPath, 'personal'), { recursive: true });
+      fs.mkdirSync(path.join(uploadsPath, 'publicaciones'), { recursive: true });
+      fs.mkdirSync(path.join(uploadsPath, 'comunicados'), { recursive: true }); // Para comunicados del sistema nuevo
+      fs.mkdirSync(path.join(uploadsPath, 'aula-virtual'), { recursive: true }); // Para archivos del aula virtual
+    }
 app.use('/uploads', express.static(uploadsPath, {
   setHeaders: (res, filePath) => {
     res.set('Access-Control-Allow-Origin', '*');

@@ -94,6 +94,39 @@ const uploadArchivos = multer({
   fileFilter: fileFilterArchivos
 });
 
+// Configurar multer para subir archivos del aula virtual (temas)
+const aulaVirtualStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../backend/uploads/aula-virtual');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `tema-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const fileFilterAulaVirtual = (req, file, cb) => {
+  const allowedTypes = /pdf/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = file.mimetype === 'application/pdf';
+  
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Solo se permiten archivos PDF'));
+  }
+};
+
+const uploadAulaVirtual = multer({
+  storage: aulaVirtualStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: fileFilterAulaVirtual
+});
+
 // Configurar multer para subir archivos de mensajes
 const mensajesStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -4337,7 +4370,7 @@ router.get('/aula-virtual/archivos', async (req, res) => {
       [asignatura_id, cicloFiltro]
     );
 
-    // Construir URLs completas para los archivos
+    // Construir URLs completas para los archivos (igual que en Publicaciones)
     const isProduction = process.env.NODE_ENV === 'production';
     const archivosConUrls = archivos.map(archivo => {
       let archivoUrl = null;
@@ -4345,12 +4378,26 @@ router.get('/aula-virtual/archivos', async (req, res) => {
 
       if (archivo.archivo && archivo.archivo !== '') {
         if (archivo.archivo.startsWith('http')) {
+          // Ya es una URL completa
           archivoUrl = archivo.archivo;
+        } else if (archivo.archivo.startsWith('/uploads/')) {
+          // Ruta relativa desde /uploads/ (formato nuevo)
+          archivoUrl = isProduction 
+            ? `https://vanguardschools.edu.pe${archivo.archivo}`
+            : `http://localhost:5000${archivo.archivo}`;
+          console.log('📄 [AULA VIRTUAL] URL construida para archivo:', {
+            id: archivo.id,
+            nombre: archivo.nombre,
+            ruta_original: archivo.archivo,
+            url_final: archivoUrl
+          });
         } else if (archivo.archivo.startsWith('/Static/')) {
+          // Ruta del sistema antiguo (compatibilidad)
           archivoUrl = isProduction 
             ? `https://vanguardschools.edu.pe${archivo.archivo}`
             : `http://localhost:5000${archivo.archivo}`;
         } else {
+          // Solo el nombre del archivo (compatibilidad con sistema antiguo)
           archivoUrl = isProduction
             ? `https://vanguardschools.edu.pe/Static/Archivos/${archivo.archivo}`
             : `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
@@ -4372,6 +4419,316 @@ router.get('/aula-virtual/archivos', async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo archivos:', error);
     res.status(500).json({ error: 'Error al obtener archivos' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/archivos/ordenar
+ * Actualizar el orden de los temas
+ * IMPORTANTE: Esta ruta debe estar ANTES de /aula-virtual/archivos/:id
+ */
+router.put('/aula-virtual/archivos/ordenar', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { asignatura_id, ciclo, ordenes } = req.body;
+
+    console.log('Datos recibidos para ordenar:', { asignatura_id, ciclo, ordenes, tipo_ciclo: typeof ciclo });
+
+    if (!asignatura_id || ciclo === undefined || ciclo === null || !ordenes || !Array.isArray(ordenes)) {
+      return res.status(400).json({ 
+        error: 'asignatura_id, ciclo y ordenes (array) son requeridos',
+        recibido: { asignatura_id, ciclo, ordenes: Array.isArray(ordenes) ? ordenes.length : 'no es array' }
+      });
+    }
+
+    if (ordenes.length === 0) {
+      return res.status(400).json({ error: 'El array de ordenes no puede estar vacío' });
+    }
+
+    // Asegurar que ciclo sea un número
+    const cicloNum = parseInt(ciclo);
+    if (isNaN(cicloNum)) {
+      return res.status(400).json({ error: 'ciclo debe ser un número válido' });
+    }
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Validar que cada ordenItem tenga id y orden
+    for (const ordenItem of ordenes) {
+      if (!ordenItem.id || ordenItem.orden === undefined || ordenItem.orden === null) {
+        return res.status(400).json({ 
+          error: 'Cada elemento de ordenes debe tener id y orden',
+          item_invalido: ordenItem
+        });
+      }
+    }
+
+    // Verificar que todos los archivos existan y pertenezcan a esta asignatura y ciclo
+    const archivosIds = ordenes.map(item => parseInt(item.id));
+    const archivosExistentes = await query(
+      `SELECT id FROM asignaturas_archivos 
+       WHERE id IN (${archivosIds.map(() => '?').join(',')}) 
+       AND asignatura_id = ? AND ciclo = ?`,
+      [...archivosIds, parseInt(asignatura_id), cicloNum]
+    );
+
+    if (archivosExistentes.length !== archivosIds.length) {
+      const idsExistentes = archivosExistentes.map(a => a.id);
+      const idsFaltantes = archivosIds.filter(id => !idsExistentes.includes(id));
+      return res.status(400).json({ 
+        error: 'Algunos archivos no existen o no pertenecen a esta asignatura/ciclo',
+        ids_faltantes: idsFaltantes,
+        ids_enviados: archivosIds,
+        ids_encontrados: idsExistentes
+      });
+    }
+
+    // Actualizar el orden de cada tema en una transacción
+    try {
+      for (const ordenItem of ordenes) {
+        const resultado = await execute(
+          `UPDATE asignaturas_archivos 
+           SET orden = ? 
+           WHERE id = ? AND asignatura_id = ? AND ciclo = ?`,
+          [parseInt(ordenItem.orden), parseInt(ordenItem.id), parseInt(asignatura_id), cicloNum]
+        );
+        
+        if (resultado.affectedRows === 0) {
+          console.warn(`No se actualizó el archivo ${ordenItem.id} - puede que no pertenezca al ciclo ${cicloNum}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error actualizando orden individual:', error);
+      throw error;
+    }
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR',
+      entidad: 'asignaturas_archivos',
+      entidad_id: null,
+      datos_nuevos: JSON.stringify({ accion: 'REORDENAR', ordenes }),
+      colegio_id
+    });
+
+    res.json({ message: 'Orden actualizado correctamente' });
+  } catch (error) {
+    console.error('Error actualizando orden:', error);
+    res.status(500).json({ error: 'Error al actualizar el orden' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/archivos
+ * Crear un nuevo tema interactivo (archivo)
+ */
+router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { asignatura_id, nombre, enlace, ciclo } = req.body;
+
+    if (!asignatura_id || !nombre) {
+      return res.status(400).json({ error: 'asignatura_id y nombre son requeridos' });
+    }
+
+    if (!req.file && !enlace) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
+    }
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Obtener el máximo orden para este ciclo
+    const maxOrden = await query(
+      `SELECT COALESCE(MAX(orden), 0) as max_orden FROM asignaturas_archivos
+       WHERE asignatura_id = ? AND ciclo = ?`,
+      [asignatura_id, ciclo || 1]
+    );
+
+    const nuevoOrden = (maxOrden[0]?.max_orden || 0) + 1;
+
+    // Construir la ruta del archivo (igual que en Publicaciones)
+    let archivoPath = '';
+    if (req.file) {
+      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
+      console.log('📄 [AULA VIRTUAL] Archivo guardado:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        path: archivoPath,
+        size: req.file.size
+      });
+    }
+
+    // Insertar el nuevo tema
+    const result = await execute(
+      `INSERT INTO asignaturas_archivos 
+       (asignatura_id, trabajador_id, nombre, archivo, visto, fecha_hora, ciclo, enlace, orden)
+       VALUES (?, ?, ?, ?, '', NOW(), ?, ?, ?)`,
+      [
+        asignatura_id,
+        personal_id,
+        nombre,
+        archivoPath,
+        ciclo || 1,
+        enlace || '',
+        nuevoOrden
+      ]
+    );
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'CREAR',
+      entidad: 'asignaturas_archivos',
+      entidad_id: result.insertId,
+      datos_nuevos: JSON.stringify({ nombre, ciclo, archivo: archivoPath, enlace }),
+      colegio_id
+    });
+
+    res.json({ 
+      message: 'Tema creado correctamente',
+      id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando tema:', error);
+    res.status(500).json({ error: 'Error al crear el tema' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/archivos/:id
+ * Actualizar un tema interactivo
+ */
+router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { id } = req.params;
+    const { asignatura_id, nombre, enlace, ciclo } = req.body;
+
+    if (!nombre) {
+      return res.status(400).json({ error: 'nombre es requerido' });
+    }
+
+    // Verificar que el tema existe y pertenece a una asignatura del docente
+    const tema = await query(
+      `SELECT aa.* FROM asignaturas_archivos aa
+       INNER JOIN asignaturas a ON a.id = aa.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE aa.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tema.length === 0) {
+      return res.status(404).json({ error: 'Tema no encontrado o sin permisos' });
+    }
+
+    const temaActual = tema[0];
+    let archivoPath = temaActual.archivo;
+
+    // Si se subió un nuevo archivo, actualizar la ruta (igual que en Publicaciones)
+    if (req.file) {
+      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
+    }
+
+    // Si no hay archivo nuevo y no hay enlace, mantener el archivo existente
+    if (!req.file && !enlace && !temaActual.archivo && !temaActual.enlace) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
+    }
+
+    // Actualizar el tema
+    await execute(
+      `UPDATE asignaturas_archivos 
+       SET nombre = ?, archivo = ?, enlace = ?, ciclo = ?
+       WHERE id = ?`,
+      [
+        nombre,
+        archivoPath,
+        enlace || '',
+        ciclo || temaActual.ciclo,
+        id
+      ]
+    );
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR',
+      entidad: 'asignaturas_archivos',
+      entidad_id: id,
+      datos_anteriores: JSON.stringify(temaActual),
+      datos_nuevos: JSON.stringify({ nombre, ciclo, archivo: archivoPath, enlace }),
+      colegio_id
+    });
+
+    res.json({ message: 'Tema actualizado correctamente' });
+  } catch (error) {
+    console.error('Error actualizando tema:', error);
+    res.status(500).json({ error: 'Error al actualizar el tema' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/archivos/:id
+ * Eliminar un tema interactivo
+ */
+router.delete('/aula-virtual/archivos/:id', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { id } = req.params;
+
+    // Verificar que el tema existe y pertenece a una asignatura del docente
+    const tema = await query(
+      `SELECT aa.* FROM asignaturas_archivos aa
+       INNER JOIN asignaturas a ON a.id = aa.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE aa.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tema.length === 0) {
+      return res.status(404).json({ error: 'Tema no encontrado o sin permisos' });
+    }
+
+    // Eliminar el tema
+    await execute(
+      `DELETE FROM asignaturas_archivos WHERE id = ?`,
+      [id]
+    );
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      entidad: 'asignaturas_archivos',
+      entidad_id: id,
+      datos_anteriores: JSON.stringify(tema[0]),
+      colegio_id
+    });
+
+    res.json({ message: 'Tema eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando tema:', error);
+    res.status(500).json({ error: 'Error al eliminar el tema' });
   }
 });
 
