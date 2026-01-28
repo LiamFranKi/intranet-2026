@@ -90,6 +90,12 @@ function DocenteMensajes() {
       }
       const response = await api.get('/docente/mensajes/recibidos', { params });
       const mensajes = response.data.mensajes || [];
+      // Debug: verificar archivos en mensajes
+      mensajes.forEach((mensaje, index) => {
+        if (mensaje.archivos && mensaje.archivos.length > 0) {
+          console.log(`📎 [FRONTEND] Mensaje recibido ${index} (ID: ${mensaje.id}) tiene ${mensaje.archivos.length} archivo(s):`, mensaje.archivos);
+        }
+      });
       setMensajesRecibidos(mensajes);
       setMensajesSeleccionados(new Set()); // Limpiar selección al cargar
       
@@ -116,6 +122,12 @@ function DocenteMensajes() {
       }
       const response = await api.get('/docente/mensajes/enviados', { params });
       const mensajes = response.data.mensajes || [];
+      // Debug: verificar archivos en mensajes
+      mensajes.forEach((mensaje, index) => {
+        if (mensaje.archivos && mensaje.archivos.length > 0) {
+          console.log(`📎 [FRONTEND] Mensaje ${index} (ID: ${mensaje.id}) tiene ${mensaje.archivos.length} archivo(s):`, mensaje.archivos);
+        }
+      });
       setMensajesEnviados(mensajes);
       setMensajesSeleccionados(new Set()); // Limpiar selección al cargar
       
@@ -736,7 +748,11 @@ function DocenteMensajes() {
                         <div
                           key={mensaje.id}
                           className={`mensaje-row ${esNoLeido ? 'no-leido' : ''} ${estaSeleccionado ? 'seleccionado' : ''}`}
-                          onClick={() => setMensajeSeleccionado(mensaje)}
+                          onClick={() => {
+                            console.log('🔍 [DEBUG] Mensaje seleccionado:', mensaje);
+                            console.log('🔍 [DEBUG] Archivos del mensaje:', mensaje.archivos);
+                            setMensajeSeleccionado(mensaje);
+                          }}
                         >
                           <div className="mensaje-checkbox" onClick={(e) => e.stopPropagation()}>
                             <input
@@ -802,28 +818,48 @@ function DocenteMensajes() {
                 />
                 
                 {/* Archivos Adjuntos */}
-                {mensajeSeleccionado.archivos && mensajeSeleccionado.archivos.length > 0 && (
-                  <div className="mensaje-archivos">
-                    <h4>Archivos Adjuntos ({mensajeSeleccionado.archivos.length}):</h4>
-                    <div className="archivos-lista-modal">
-                      {mensajeSeleccionado.archivos.map((archivo) => {
+                {(() => {
+                  console.log('🔍 [DEBUG MODAL] mensajeSeleccionado:', mensajeSeleccionado);
+                  console.log('🔍 [DEBUG MODAL] mensajeSeleccionado.archivos:', mensajeSeleccionado.archivos);
+                  console.log('🔍 [DEBUG MODAL] Es array?', Array.isArray(mensajeSeleccionado.archivos));
+                  console.log('🔍 [DEBUG MODAL] Longitud:', mensajeSeleccionado.archivos?.length);
+                  
+                  if (mensajeSeleccionado.archivos && Array.isArray(mensajeSeleccionado.archivos) && mensajeSeleccionado.archivos.length > 0) {
+                    return (
+                      <div className="mensaje-archivos">
+                        <h4>Archivos Adjuntos ({mensajeSeleccionado.archivos.length}):</h4>
+                        <div className="archivos-lista-modal">
+                          {mensajeSeleccionado.archivos.map((archivo, index) => {
                         // Construir URL completa del archivo
                         const baseURL = api.defaults.baseURL.replace('/api', '');
+                        // El backend devuelve archivo_url como ruta relativa (/uploads/mensajes/filename)
                         const archivoUrl = archivo.archivo_url 
                           ? `${baseURL}${archivo.archivo_url}`
-                          : `${baseURL}/uploads/mensajes/${archivo.archivo}`;
+                          : archivo.archivo
+                          ? `${baseURL}/uploads/mensajes/${archivo.archivo}`
+                          : null;
+                        
+                        if (!archivoUrl) {
+                          console.warn('⚠️ [DEBUG] Archivo sin URL válida:', archivo);
+                          return null;
+                        }
                         
                         // Determinar si es imagen
-                        const esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(archivo.nombre_archivo || archivo.archivo);
+                        const nombreArchivo = archivo.nombre_archivo || archivo.archivo || '';
+                        const esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(nombreArchivo);
                         
                         return (
-                          <div key={archivo.id} className="archivo-item-modal">
+                          <div key={archivo.id || `archivo-${index}`} className="archivo-item-modal">
                             {esImagen ? (
                               <div className="archivo-imagen">
                                 <img 
                                   src={archivoUrl} 
-                                  alt={archivo.nombre_archivo || 'Imagen adjunta'}
+                                  alt={nombreArchivo || 'Imagen adjunta'}
                                   style={{ maxWidth: '300px', maxHeight: '300px', borderRadius: '8px' }}
+                                  onError={(e) => {
+                                    console.error('❌ Error cargando imagen:', archivoUrl, archivo);
+                                    e.target.style.display = 'none';
+                                  }}
                                 />
                                 <a
                                   href={archivoUrl}
@@ -832,7 +868,7 @@ function DocenteMensajes() {
                                   className="archivo-enlace"
                                   download
                                 >
-                                  📎 {archivo.nombre_archivo || archivo.archivo}
+                                  📎 {nombreArchivo}
                                 </a>
                               </div>
                             ) : (
@@ -843,7 +879,7 @@ function DocenteMensajes() {
                                 className="archivo-enlace"
                                 download
                               >
-                                📎 {archivo.nombre_archivo || archivo.archivo}
+                                📎 {nombreArchivo}
                               </a>
                             )}
                           </div>
@@ -851,7 +887,10 @@ function DocenteMensajes() {
                       })}
                     </div>
                   </div>
-                )}
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </div>

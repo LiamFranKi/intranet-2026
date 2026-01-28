@@ -2271,6 +2271,12 @@ router.get('/mensajes/enviados', async (req, res) => {
           archivo_url: rutaArchivo // Ruta relativa, el frontend construirá la URL completa
         };
       });
+      // Debug: verificar archivos para mensajes enviados
+      if (archivos && archivos.length > 0) {
+        console.log(`📎 [MENSAJES ENVIADOS] Mensaje ID ${mensaje.id} (asunto: "${mensaje.asunto}") tiene ${archivos.length} archivo(s):`, archivos.map(a => a.nombre_archivo || a.archivo));
+      } else {
+        console.log(`⚠️ [MENSAJES ENVIADOS] Mensaje ID ${mensaje.id} (asunto: "${mensaje.asunto}") NO tiene archivos`);
+      }
     }
 
     // Contar total con mismo filtro de año
@@ -2454,6 +2460,41 @@ router.get('/mensajes/buscar-destinatarios', async (req, res) => {
 });
 
 /**
+ * GET /api/docente/mensajes/alumno/:alumnoId/usuario
+ * Obtener usuario_id asociado a un alumnoId para envío de mensajes
+ */
+router.get('/mensajes/alumno/:alumnoId/usuario', async (req, res) => {
+  try {
+    const { alumnoId } = req.params;
+    const { colegio_id } = req.user;
+
+    if (!alumnoId) {
+      return res.status(400).json({ error: 'ID de alumno es requerido' });
+    }
+
+    // Obtener usuario_id del alumno
+    const usuario = await query(
+      `SELECT u.id as usuario_id,
+              CONCAT(a.nombres, ' ', a.apellido_paterno, ' ', a.apellido_materno) as nombre_completo,
+              a.id as alumno_id
+       FROM alumnos a
+       INNER JOIN usuarios u ON u.alumno_id = a.id AND u.estado = 'ACTIVO'
+       WHERE a.id = ? AND a.colegio_id = ?`,
+      [alumnoId, colegio_id]
+    );
+
+    if (!usuario || usuario.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado o sin usuario activo' });
+    }
+
+    res.json({ usuario: usuario[0] });
+  } catch (error) {
+    console.error('Error obteniendo usuario del alumno:', error);
+    res.status(500).json({ error: 'Error al obtener usuario del alumno' });
+  }
+});
+
+/**
  * POST /api/docente/mensajes/subir-imagen
  * Subir imagen desde el editor de texto enriquecido
  */
@@ -2572,6 +2613,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
         // NO se suben al servidor PHP porque el servidor Node.js los sirve directamente
         if (req.files && req.files.length > 0) {
           console.log(`📎 [ENVIAR MENSAJE] Procesando ${req.files.length} archivo(s) para ${mensajesIds.length} mensaje(s)`);
+          console.log(`📎 [ENVIAR MENSAJE] IDs de mensajes a asociar archivos:`, mensajesIds);
           for (const file of req.files) {
             try {
               // Insertar archivo para cada mensaje creado
@@ -2582,13 +2624,16 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
                    VALUES (?, ?, ?)`,
                   [mensajeId, file.originalname, file.filename]
                 );
-                console.log(`📎 [ENVIAR MENSAJE] Archivo insertado - mensaje_id: ${mensajeId}, archivo: ${file.filename}`);
+                console.log(`📎 [ENVIAR MENSAJE] Archivo insertado - mensaje_id: ${mensajeId}, archivo: ${file.filename}, nombre: ${file.originalname}`);
               }
             } catch (error) {
-              console.error(`Error guardando archivo ${file.originalname}:`, error);
+              console.error(`❌ [ENVIAR MENSAJE] Error guardando archivo ${file.originalname}:`, error);
               // Continuar con los demás archivos aunque uno falle
             }
           }
+          console.log(`📎 [ENVIAR MENSAJE] Total de archivos procesados: ${req.files.length} archivo(s) × ${mensajesIds.length} mensaje(s) = ${req.files.length * mensajesIds.length} registros en mensajes_archivos`);
+        } else {
+          console.log(`📎 [ENVIAR MENSAJE] No hay archivos adjuntos en la solicitud`);
         }
 
         // Registrar en auditoría (con formato correcto)
