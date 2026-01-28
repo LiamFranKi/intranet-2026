@@ -2,7 +2,7 @@
 
 **Fecha de Documentación:** Enero 2026  
 **Estado:** Desarrollo Activo  
-**Versión:** 1.0.6
+**Versión:** 1.0.7
 
 ---
 
@@ -1492,6 +1492,65 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ## 📝 HISTORIAL DE CAMBIOS
 
+### Versión 1.0.7 - Enero 2026 - Función de Impresión PDF de Notas con Diseño Completo
+
+**Fecha:** Enero 2026
+
+**Commit:** `e4aefb2` - feat: Mejorar función de impresión PDF de notas con diseño completo
+
+#### Nuevas Funcionalidades:
+
+1. **Función de Impresión PDF Completa**
+   - ✅ Implementada función `imprimirNotas()` que genera PDF con diseño idéntico al modal
+   - ✅ Muestra TODAS las notas individuales de cada indicador (incluso cuadros vacíos)
+   - ✅ Cuadros más grandes (4.5mm x 5.5mm) para mejor legibilidad
+   - ✅ Padding lateral de 1.5mm en todos los cuadros para mejor espaciado
+   - ✅ Todos los elementos centrados dentro de cada columna
+   - ✅ Promedios de criterios y exámenes mensuales con diseño consistente
+   - ✅ Cuadro de promedio final más estrecho (5.5mm) y mejor proporcionado
+
+2. **Cálculo Dinámico de Anchos**
+   - ✅ Anchos de columnas calculados dinámicamente basados en número de cuadros por criterio
+   - ✅ Escalado proporcional si los criterios exceden el ancho disponible
+   - ✅ Ajuste automático para ocupar todo el ancho disponible sin espacios en blanco
+   - ✅ Soporte para criterios con múltiples indicadores y diferentes números de cuadros
+
+3. **Diseño Visual Mejorado**
+   - ✅ Todos los cuadros visibles (incluso vacíos) para mantener consistencia visual
+   - ✅ Padding vertical para centrar cuadros en las filas
+   - ✅ Espaciado uniforme entre cuadros (0.5mm)
+   - ✅ Colores consistentes: azul para promedios normales, rojo para notas bajas
+   - ✅ Bordes y líneas divisorias bien definidas
+
+4. **Paginación Automática**
+   - ✅ Creación automática de nuevas páginas cuando hay muchos alumnos
+   - ✅ Repetición de encabezados en cada nueva página
+   - ✅ Mantenimiento de formato y diseño en todas las páginas
+
+#### Características Técnicas:
+
+- **Formato PDF:** Landscape (horizontal) para acomodar tabla ancha
+- **Tamaño de Cuadros:** 4.5mm x 5.5mm (notas individuales)
+- **Tamaño de Promedios:** 5.5mm x 5.5mm (criterios y final)
+- **Padding Lateral:** 1.5mm mínimo en todos los cuadros
+- **Padding Vertical:** Calculado automáticamente para centrar
+- **Espacio entre Cuadros:** 0.5mm uniforme
+
+#### Archivos Modificados:
+
+- `frontend/src/pages/DocenteCursos.jsx` - Función `imprimirNotas()` completa con diseño mejorado
+- `frontend/src/pages/DocenteCursos.css` - (Sin cambios, usa estilos existentes del modal)
+
+#### Notas Técnicas:
+
+- La función calcula el ancho necesario para cada criterio basándose en el número total de cuadros
+- Si los criterios son muy anchos, se escalan proporcionalmente para que quepan en la página
+- El ancho se ajusta automáticamente para ocupar todo el espacio disponible sin dejar espacios en blanco
+- Todos los cuadros se dibujan siempre, incluso si están vacíos, para mantener la consistencia visual
+- Los promedios se calculan en tiempo real usando las mismas funciones del modal
+
+---
+
 ### Versión 1.0.6 - Enero 2026 - Modales de Link Aula Virtual y Ver Horario en Cursos Asignados
 
 **Fecha:** Enero 2026
@@ -1744,7 +1803,7 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 ---
 
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.6  
+**Versión del Documento:** 1.0.7  
 **Mantenido por:** Equipo de Desarrollo
 
 ---
