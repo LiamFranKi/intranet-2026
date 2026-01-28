@@ -2,7 +2,7 @@
 
 **Fecha de Documentación:** Enero 2026  
 **Estado:** Desarrollo Activo  
-**Versión:** 1.0.5
+**Versión:** 1.0.6
 
 ---
 
@@ -1492,6 +1492,66 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ## 📝 HISTORIAL DE CAMBIOS
 
+### Versión 1.0.6 - Enero 2026 - Modales de Link Aula Virtual y Ver Horario en Cursos Asignados
+
+**Fecha:** Enero 2026
+
+**Commit:** `4905c00` - feat: Implementar modal de Link Aula Virtual y Ver Horario en Cursos Asignados
+
+#### Nuevas Funcionalidades:
+
+1. **Modal de Link Aula Virtual**
+   - ✅ Modal moderno para gestionar el link del aula virtual (Zoom, Meet, Teams, etc.)
+   - ✅ Campo de texto con botón "X" integrado para limpiar rápidamente
+   - ✅ Opción para guardar en blanco (eliminar link guardado)
+   - ✅ Toggle switch para habilitar/deshabilitar visibilidad para alumnos
+   - ✅ Diseño con gradientes morados, animaciones y efectos hover
+   - ✅ Diseño responsive para móviles y tablets
+   - ✅ Información del curso (nombre, grupo, nivel) visible en el modal
+
+2. **Modal de Ver Horario del Curso**
+   - ✅ Modal que muestra el horario específico del curso seleccionado
+   - ✅ Mismo diseño y formato que el menú "Mi Horario"
+   - ✅ Tabla con días de la semana (Lunes a Viernes) y bloques horarios
+   - ✅ Colores pastel para identificar el curso
+   - ✅ Formato de horas en AM/PM
+   - ✅ Diseño responsive
+
+3. **Limpieza del Menú de Opciones**
+   - ✅ Eliminadas opciones "Registrar Asistencia" y "Enviar Mensaje" del submenú de Cursos Asignados
+   - ✅ Menú más limpio y enfocado
+
+#### Nuevos Endpoints Backend:
+
+- `GET /api/docente/cursos/:cursoId/aula-virtual` - Obtener link del aula virtual y estado de habilitación
+- `PUT /api/docente/cursos/:cursoId/aula-virtual` - Actualizar link del aula virtual y estado de habilitación
+- `GET /api/docente/cursos/:cursoId/horario` - Obtener horario específico del curso
+
+#### Correcciones:
+
+1. **Error SQL Ambiguous Column**
+   - ✅ Corregido error "Column 'aula_virtual' in SET is ambiguous" en UPDATE con JOIN
+   - ✅ Especificados alias de tabla (`a.aula_virtual`, `a.habilitar_aula`) en el SET
+
+2. **Redirección Incorrecta**
+   - ✅ Corregido caso duplicado 'enlaces' en switch que causaba redirección a otra página
+   - ✅ Ahora abre el modal correctamente
+
+#### Archivos Modificados:
+
+- `backend/routes/docente.routes.js` - Nuevos endpoints y corrección de query SQL
+- `frontend/src/pages/DocenteCursos.jsx` - Modales de Link Aula Virtual y Ver Horario
+- `frontend/src/pages/DocenteCursos.css` - Estilos para los nuevos modales
+
+#### Detalles Técnicos:
+
+- **Tabla de Base de Datos:** `asignaturas` (campos `aula_virtual`, `habilitar_aula`)
+- **Validación:** `habilitar_aula` debe ser 'SI' o 'NO'
+- **Permite guardar en blanco:** El campo `aula_virtual` puede guardarse como string vacío
+- **Auditoría:** Se registra la acción de actualización del link del aula virtual
+
+---
+
 ### Versión 1.0.5 - Enero 2026 - Envío de Mensajes a Alumnos Individuales y Correcciones
 
 **Fecha:** Enero 2026
@@ -1684,7 +1744,7 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 ---
 
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.5  
+**Versión del Documento:** 1.0.6  
 **Mantenido por:** Equipo de Desarrollo
 
 ---
