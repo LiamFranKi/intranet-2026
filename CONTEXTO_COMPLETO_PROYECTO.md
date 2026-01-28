@@ -2,7 +2,7 @@
 
 **Fecha de Documentación:** Enero 2026  
 **Estado:** Desarrollo Activo  
-**Versión:** 1.0.4
+**Versión:** 1.0.5
 
 ---
 
@@ -1492,6 +1492,43 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 
 ## 📝 HISTORIAL DE CAMBIOS
 
+### Versión 1.0.5 - Enero 2026 - Envío de Mensajes a Alumnos Individuales y Correcciones
+
+**Fecha:** Enero 2026
+
+#### Nuevas Funcionalidades
+
+1. **Envío de Mensajes a Alumnos Individuales:**
+   - Implementado modal completo de envío de mensaje a alumno individual desde "Grupos Asignados" > "Lista de Alumnos" > "Opciones" > "Enviar Mensaje"
+   - Nuevo endpoint `GET /api/docente/mensajes/alumno/:alumnoId/usuario` para obtener el `usuario_id` asociado a un `alumnoId`
+   - Modal incluye editor ReactQuill con soporte para imágenes, archivos adjuntos y validaciones completas
+   - Funcionalidad idéntica a la de envío de mensajes a grupos y cursos
+
+2. **Correcciones en Handlers de Imágenes:**
+   - Corregidos handlers de imágenes en ReactQuill para modales de mensajes a grupos y alumnos individuales
+   - Agregados `useEffect` que configuran correctamente el handler personalizado para el botón de imagen en ReactQuill
+   - Las imágenes insertadas en el textarea ahora se envían correctamente junto con el mensaje
+
+3. **Mejoras en Visualización de Archivos Adjuntos:**
+   - Agregadas validaciones adicionales para verificar que los archivos existan antes de mostrarlos
+   - Mejorado manejo de errores al cargar imágenes en mensajes
+   - Agregados logs de depuración para identificar problemas con archivos adjuntos
+
+#### Archivos Modificados
+
+- `backend/routes/docente.routes.js`: Nuevo endpoint para obtener usuario de alumno, logs de depuración mejorados
+- `frontend/src/pages/DocenteGrupos.jsx`: Implementación completa de modal de mensaje a alumno, corrección de handlers de imágenes
+- `frontend/src/pages/DocenteGrupos.css`: Estilos para editor ReactQuill en modal de alumno
+- `frontend/src/pages/DocenteMensajes.jsx`: Mejoras en visualización de archivos adjuntos, logs de depuración
+
+#### Notas Técnicas
+
+- Los handlers de imágenes en ReactQuill deben configurarse mediante `useEffect` cuando el modal está abierto
+- El endpoint de obtención de usuario de alumno valida que el alumno tenga una cuenta activa antes de permitir el envío
+- Los archivos adjuntos se validan tanto en el frontend como en el backend antes de mostrarse
+
+---
+
 ### Versión 1.0.4 - Enero 2026 - Protección contra Doble Envío de Mensajes
 
 **Commit:** `0c4bc3e` - Fix: Protección contra doble envío de mensajes y logs de debugging
@@ -1647,7 +1684,7 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 ---
 
 **Última Actualización:** Enero 2026  
-**Versión del Documento:** 1.0.3  
+**Versión del Documento:** 1.0.5  
 **Mantenido por:** Equipo de Desarrollo
 
 ---
