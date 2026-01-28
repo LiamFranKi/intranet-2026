@@ -5,6 +5,8 @@ import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import Swal from 'sweetalert2';
 import jsPDF from 'jspdf';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import './DocenteCursos.css';
 
 function DocenteCursos() {
@@ -37,10 +39,73 @@ function DocenteCursos() {
   const [cicloSeleccionado, setCicloSeleccionado] = useState(1); // 1-4 = Bimestres
   const dropdownRef = useRef({});
   const buttonRef = useRef({});
+  
+  // Estados para modal de mensaje
+  const [mostrarModalMensaje, setMostrarModalMensaje] = useState(false);
+  const [cursoParaMensaje, setCursoParaMensaje] = useState(null); // Curso seleccionado para enviar mensaje
+  const [asuntoMensaje, setAsuntoMensaje] = useState('');
+  const [contenidoMensaje, setContenidoMensaje] = useState('');
+  const [archivosAdjuntosMensaje, setArchivosAdjuntosMensaje] = useState([]);
+  const [enviandoMensaje, setEnviandoMensaje] = useState(false);
+  const quillRefMensaje = useRef(null);
 
   useEffect(() => {
     cargarCursos();
   }, []);
+
+  // Configurar handler de imágenes para ReactQuill en modal de mensaje
+  useEffect(() => {
+    if (quillRefMensaje.current && mostrarModalMensaje) {
+      const quill = quillRefMensaje.current.getEditor();
+      const toolbar = quill.getModule('toolbar');
+      
+      toolbar.addHandler('image', async () => {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+
+        input.onchange = async () => {
+          const file = input.files[0];
+          if (!file) return;
+
+          // Validar tamaño (máximo 5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            Swal.fire('Error', 'La imagen no puede ser mayor a 5MB', 'error');
+            return;
+          }
+
+          // Validar tipo
+          if (!file.type.startsWith('image/')) {
+            Swal.fire('Error', 'Solo se permiten archivos de imagen', 'error');
+            return;
+          }
+
+          try {
+            const formData = new FormData();
+            formData.append('imagen', file);
+
+            const response = await api.post('/docente/mensajes/subir-imagen', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+
+            // Obtener la URL completa de la imagen
+            const imagenUrl = `${api.defaults.baseURL.replace('/api', '')}${response.data.url}`;
+            
+            // Insertar la imagen en el editor
+            const range = quill.getSelection(true);
+            quill.insertEmbed(range.index, 'image', imagenUrl);
+            quill.setSelection(range.index + 1);
+          } catch (error) {
+            console.error('Error subiendo imagen:', error);
+            Swal.fire('Error', 'No se pudo subir la imagen', 'error');
+          }
+        };
+      });
+    }
+  }, [mostrarModalMensaje]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1464,8 +1529,113 @@ function DocenteCursos() {
         // TODO: Implementar funcionalidad de copiar contenido
         console.log('Copiar contenido del curso:', curso.id);
         break;
+      case 'enviar-mensaje':
+        // Abrir modal de mensaje para el grupo del curso
+        setCursoParaMensaje(curso);
+        setMostrarModalMensaje(true);
+        setAsuntoMensaje('');
+        setContenidoMensaje('');
+        setArchivosAdjuntosMensaje([]);
+        break;
       default:
         break;
+    }
+  };
+
+  // Obtener grupo_id del curso (necesario para enviar mensaje)
+  const obtenerGrupoIdDelCurso = async (cursoId) => {
+    try {
+      const response = await api.get(`/docente/cursos/${cursoId}/alumnos`);
+      return response.data.curso?.grupo_id || null;
+    } catch (error) {
+      console.error('Error obteniendo grupo_id del curso:', error);
+      return null;
+    }
+  };
+
+  // Manejar selección de archivos para mensaje
+  const handleArchivoChangeMensaje = (e) => {
+    const files = Array.from(e.target.files);
+    setArchivosAdjuntosMensaje([...archivosAdjuntosMensaje, ...files]);
+  };
+
+  // Eliminar archivo adjunto del mensaje
+  const eliminarArchivoMensaje = (index) => {
+    setArchivosAdjuntosMensaje(archivosAdjuntosMensaje.filter((_, i) => i !== index));
+  };
+
+  // Enviar mensaje al grupo del curso
+  const enviarMensajeGrupo = async () => {
+    if (!cursoParaMensaje) {
+      Swal.fire('Error', 'No se ha seleccionado un curso', 'error');
+      return;
+    }
+
+    if (!asuntoMensaje.trim()) {
+      Swal.fire('Error', 'El asunto es requerido', 'error');
+      return;
+    }
+
+    // Verificar que el contenido no esté vacío (sin HTML vacío)
+    const contenidoLimpio = contenidoMensaje.replace(/<[^>]*>/g, '').trim();
+    if (!contenidoLimpio) {
+      Swal.fire('Error', 'El mensaje es requerido', 'error');
+      return;
+    }
+
+    // Prevenir doble envío
+    if (enviandoMensaje) {
+      return;
+    }
+
+    setEnviandoMensaje(true);
+
+    try {
+      // Obtener grupo_id del curso
+      const grupoId = await obtenerGrupoIdDelCurso(cursoParaMensaje.id);
+      
+      if (!grupoId) {
+        Swal.fire('Error', 'No se pudo obtener el grupo del curso', 'error');
+        setEnviandoMensaje(false);
+        return;
+      }
+
+      // Crear FormData para enviar archivos
+      const formData = new FormData();
+      formData.append('destinatarios', JSON.stringify([])); // Sin destinatarios directos
+      formData.append('grupos', JSON.stringify([grupoId])); // Enviar al grupo
+      formData.append('asunto', asuntoMensaje.trim());
+      formData.append('mensaje', contenidoMensaje);
+
+      // Agregar archivos
+      archivosAdjuntosMensaje.forEach((archivo) => {
+        formData.append('archivos', archivo);
+      });
+
+      const response = await api.post('/docente/mensajes/enviar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      Swal.fire({
+        title: '¡Mensaje Enviado!',
+        text: response.data.message || 'El mensaje se ha enviado correctamente al grupo',
+        icon: 'success',
+        confirmButtonText: 'Aceptar'
+      });
+      
+      // Limpiar formulario y cerrar modal
+      setAsuntoMensaje('');
+      setContenidoMensaje('');
+      setArchivosAdjuntosMensaje([]);
+      setMostrarModalMensaje(false);
+      setCursoParaMensaje(null);
+    } catch (error) {
+      console.error('Error enviando mensaje:', error);
+      Swal.fire('Error', error.response?.data?.error || 'Error al enviar el mensaje', 'error');
+    } finally {
+      setEnviandoMensaje(false);
     }
   };
 
@@ -1591,6 +1761,9 @@ function DocenteCursos() {
                           </button>
                           <button onClick={() => handleCursoAction(curso, 'copiar')}>
                             📋 Copiar Contenido
+                          </button>
+                          <button onClick={() => handleCursoAction(curso, 'enviar-mensaje')}>
+                            ✉️ Enviar Mensaje
                           </button>
                         </div>
                       </div>,
@@ -2305,6 +2478,149 @@ function DocenteCursos() {
                     <p>No se pudieron cargar las notas detalladas</p>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Modal de Enviar Mensaje al Grupo */}
+        {mostrarModalMensaje && cursoParaMensaje && createPortal(
+          <div 
+            className="modal-mensaje-overlay" 
+            onClick={() => setMostrarModalMensaje(false)}
+            style={{ zIndex: 100000 }}
+          >
+            <div 
+              className="modal-mensaje-container" 
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-mensaje-title"
+            >
+              <div className="modal-mensaje-header">
+                <h2 id="modal-mensaje-title">✉️ Enviar Mensaje al Grupo</h2>
+                <button
+                  className="modal-mensaje-close"
+                  onClick={() => setMostrarModalMensaje(false)}
+                  type="button"
+                  aria-label="Cerrar modal"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="modal-mensaje-body">
+                {/* Información del curso/grupo */}
+                <div className="mensaje-grupo-info">
+                  <p><strong>Curso:</strong> {cursoParaMensaje.curso_nombre}</p>
+                  <p><strong>Grupo:</strong> {cursoParaMensaje.grado}° {cursoParaMensaje.seccion} - {cursoParaMensaje.nivel_nombre} - {cursoParaMensaje.turno_nombre}</p>
+                  <p className="mensaje-info-text">El mensaje se enviará a todos los alumnos del grupo</p>
+                </div>
+
+                {/* Campo Asunto */}
+                <div className="form-group">
+                  <label htmlFor="asunto-mensaje-grupo">Asunto:</label>
+                  <input
+                    type="text"
+                    id="asunto-mensaje-grupo"
+                    className="form-input"
+                    value={asuntoMensaje}
+                    onChange={(e) => setAsuntoMensaje(e.target.value)}
+                    placeholder="Asunto del mensaje"
+                  />
+                </div>
+
+                {/* Campo Mensaje con Editor de Texto Enriquecido */}
+                <div className="form-group">
+                  <label htmlFor="mensaje-editor-grupo">Mensaje:</label>
+                  <div id="mensaje-editor-wrapper-grupo">
+                    <ReactQuill
+                      ref={quillRefMensaje}
+                      theme="snow"
+                      value={contenidoMensaje}
+                      onChange={setContenidoMensaje}
+                      placeholder="Escribe tu mensaje aquí..."
+                      modules={{
+                        toolbar: [
+                          [{ 'header': [1, 2, 3, false] }],
+                          ['bold', 'italic', 'underline', 'strike'],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          [{ 'color': [] }, { 'background': [] }],
+                          [{ 'align': [] }],
+                          ['link', 'image'],
+                          ['clean']
+                        ]
+                      }}
+                      formats={[
+                        'header', 'bold', 'italic', 'underline', 'strike',
+                        'list', 'bullet', 'color', 'background', 'align',
+                        'link', 'image'
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* Campo Archivos Adjuntos */}
+                <div className="form-group">
+                  <label>Archivos Adjuntos:</label>
+                  <div className="archivos-container">
+                    <input
+                      type="file"
+                      id="archivos-input-grupo"
+                      multiple
+                      onChange={handleArchivoChangeMensaje}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor="archivos-input-grupo" className="btn-adjuntar-archivo">
+                      📎 Adjuntar Archivos
+                    </label>
+                    {archivosAdjuntosMensaje.length > 0 && (
+                      <div className="archivos-lista">
+                        {archivosAdjuntosMensaje.map((archivo, index) => (
+                          <div key={index} className="archivo-item">
+                            <span className="archivo-nombre">{archivo.name}</span>
+                            <span className="archivo-tamaño">
+                              {(archivo.size / 1024).toFixed(2)} KB
+                            </span>
+                            <button
+                              type="button"
+                              className="archivo-eliminar"
+                              onClick={() => eliminarArchivoMensaje(index)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Botones */}
+                <div className="form-actions">
+                  <button
+                    className="btn-cancelar"
+                    onClick={() => {
+                      setMostrarModalMensaje(false);
+                      setAsuntoMensaje('');
+                      setContenidoMensaje('');
+                      setArchivosAdjuntosMensaje([]);
+                      setCursoParaMensaje(null);
+                    }}
+                    type="button"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-enviar"
+                    onClick={enviarMensajeGrupo}
+                    disabled={enviandoMensaje}
+                    type="button"
+                  >
+                    {enviandoMensaje ? '⏳ Enviando...' : '✉️ Enviar Mensaje'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>,
