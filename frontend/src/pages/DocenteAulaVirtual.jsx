@@ -103,8 +103,6 @@ function DocenteAulaVirtual() {
   const [cicloArchivos, setCicloArchivos] = useState(1);
   const [cicloTareas, setCicloTareas] = useState(1);
   const [cicloExamenes, setCicloExamenes] = useState(1);
-  const [cicloVideos, setCicloVideos] = useState(1);
-  const [cicloEnlaces, setCicloEnlaces] = useState(1);
   const [tareas, setTareas] = useState([]);
   const [examenes, setExamenes] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -116,6 +114,10 @@ function DocenteAulaVirtual() {
   const [mostrarFormTema, setMostrarFormTema] = useState(false);
   const [mostrarFormTarea, setMostrarFormTarea] = useState(false);
   const [mostrarFormExamen, setMostrarFormExamen] = useState(false);
+  const [mostrarFormVideo, setMostrarFormVideo] = useState(false);
+  const [mostrarFormEnlace, setMostrarFormEnlace] = useState(false);
+  const [videoEditando, setVideoEditando] = useState(null);
+  const [enlaceEditando, setEnlaceEditando] = useState(null);
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
   const [mostrarDetallesTarea, setMostrarDetallesTarea] = useState(false);
   const [tareaDetalle, setTareaDetalle] = useState(null);
@@ -128,6 +130,20 @@ function DocenteAulaVirtual() {
   // Estado para card expandido (versión gamificada)
   const [expandedCard, setExpandedCard] = useState(null);
   const [bimestreGlobal, setBimestreGlobal] = useState(1);
+  
+  // Formularios de video y enlace (después de bimestreGlobal)
+  const [formVideo, setFormVideo] = useState({
+    descripcion: '',
+    enlace: '',
+    ciclo: 1
+  });
+  const [formEnlace, setFormEnlace] = useState({
+    descripcion: '',
+    enlace: '',
+    ciclo: 1
+  });
+  const [guardandoVideo, setGuardandoVideo] = useState(false);
+  const [guardandoEnlace, setGuardandoEnlace] = useState(false);
 
   // Formulario de tema
   const [formTema, setFormTema] = useState({
@@ -272,24 +288,24 @@ function DocenteAulaVirtual() {
   const cargarVideos = useCallback(async (ciclo) => {
     try {
       const response = await api.get('/docente/aula-virtual/videos', {
-        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloVideos }
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || bimestreGlobal }
       });
       setVideos(response.data.videos || []);
     } catch (error) {
       console.error('Error cargando videos:', error);
     }
-  }, [asignaturaId, cicloVideos]);
+  }, [asignaturaId, bimestreGlobal]);
 
   const cargarEnlaces = useCallback(async (ciclo) => {
     try {
       const response = await api.get('/docente/aula-virtual/enlaces', {
-        params: { asignatura_id: asignaturaId, ciclo: ciclo || cicloEnlaces }
+        params: { asignatura_id: asignaturaId, ciclo: ciclo || bimestreGlobal }
       });
       setEnlaces(response.data.enlaces || []);
     } catch (error) {
       console.error('Error cargando enlaces:', error);
     }
-  }, [asignaturaId, cicloEnlaces]);
+  }, [asignaturaId, bimestreGlobal]);
 
   // Cargar datos del curso y configuración
   useEffect(() => {
@@ -304,8 +320,6 @@ function DocenteAulaVirtual() {
     setCicloArchivos(bimestreGlobal);
     setCicloTareas(bimestreGlobal);
     setCicloExamenes(bimestreGlobal);
-    setCicloVideos(bimestreGlobal);
-    setCicloEnlaces(bimestreGlobal);
     // Actualizar ciclo del formulario cuando cambia el bimestre global
     if (!temaEditando) {
       setFormTema(prev => ({ ...prev, ciclo: bimestreGlobal }));
@@ -346,15 +360,17 @@ function DocenteAulaVirtual() {
     cargarExamenes(cicloExamenes);
   }, [cicloExamenes, asignaturaId, cargarExamenes]);
 
+  // Cargar videos cuando cambia el bimestre global
   useEffect(() => {
     if (!asignaturaId) return;
-    cargarVideos(cicloVideos);
-  }, [cicloVideos, asignaturaId, cargarVideos]);
+    cargarVideos(bimestreGlobal);
+  }, [bimestreGlobal, asignaturaId, cargarVideos]);
 
+  // Cargar enlaces cuando cambia el bimestre global
   useEffect(() => {
     if (!asignaturaId) return;
-    cargarEnlaces(cicloEnlaces);
-  }, [cicloEnlaces, asignaturaId, cargarEnlaces]);
+    cargarEnlaces(bimestreGlobal);
+  }, [bimestreGlobal, asignaturaId, cargarEnlaces]);
 
   // Cerrar dropdowns al hacer click fuera
   useEffect(() => {
@@ -1734,22 +1750,401 @@ function DocenteAulaVirtual() {
     </div>
   );
 
-  const renderVideosContent = () => (
-    <div className="card-content-expanded">
-      {videos.length > 0 ? (
-        <table>
+  // Funciones para manejar videos
+  const handleCrearVideo = async (e) => {
+    e.preventDefault();
+    
+    if (!formVideo.descripcion || !formVideo.enlace || !formVideo.ciclo) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Descripción, Enlace y Bimestre son requeridos',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    setGuardandoVideo(true);
+    try {
+      if (videoEditando) {
+        await api.put(`/docente/aula-virtual/videos/${videoEditando.id}`, {
+          descripcion: formVideo.descripcion,
+          enlace: formVideo.enlace,
+          ciclo: formVideo.ciclo
+        });
+        Swal.fire({
+          icon: 'success',
+          title: '¡Video actualizado!',
+          text: 'El video se ha actualizado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        await api.post('/docente/aula-virtual/videos', {
+          asignatura_id: asignaturaId,
+          descripcion: formVideo.descripcion,
+          enlace: formVideo.enlace,
+          ciclo: formVideo.ciclo
+        });
+        Swal.fire({
+          icon: 'success',
+          title: '¡Video creado!',
+          text: 'El video se ha creado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      }
+
+      setMostrarFormVideo(false);
+      setVideoEditando(null);
+      setFormVideo({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+      await cargarVideos(bimestreGlobal);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo guardar el video',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setGuardandoVideo(false);
+    }
+  };
+
+  const handleEditarVideo = (video) => {
+    setVideoEditando(video);
+    setFormVideo({
+      descripcion: video.descripcion || '',
+      enlace: video.enlace || '',
+      ciclo: video.ciclo || bimestreGlobal
+    });
+    setMostrarFormVideo(true);
+    setOpenDropdown(null);
+  };
+
+  const handleEliminarVideo = async (video) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el video "${video.descripcion}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/videos/${video.id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Video eliminado!',
+          text: 'El video se ha eliminado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setOpenDropdown(null);
+        await cargarVideos(bimestreGlobal);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar el video',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  // Funciones para manejar enlaces
+  const handleCrearEnlace = async (e) => {
+    e.preventDefault();
+    
+    if (!formEnlace.descripcion || !formEnlace.enlace || !formEnlace.ciclo) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Descripción, Enlace y Bimestre son requeridos',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    setGuardandoEnlace(true);
+    try {
+      if (enlaceEditando) {
+        await api.put(`/docente/aula-virtual/enlaces/${enlaceEditando.id}`, {
+          descripcion: formEnlace.descripcion,
+          enlace: formEnlace.enlace,
+          ciclo: formEnlace.ciclo
+        });
+        Swal.fire({
+          icon: 'success',
+          title: '¡Enlace actualizado!',
+          text: 'El enlace se ha actualizado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        await api.post('/docente/aula-virtual/enlaces', {
+          asignatura_id: asignaturaId,
+          descripcion: formEnlace.descripcion,
+          enlace: formEnlace.enlace,
+          ciclo: formEnlace.ciclo
+        });
+        Swal.fire({
+          icon: 'success',
+          title: '¡Enlace creado!',
+          text: 'El enlace se ha creado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      }
+
+      setMostrarFormEnlace(false);
+      setEnlaceEditando(null);
+      setFormEnlace({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+      await cargarEnlaces(bimestreGlobal);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo guardar el enlace',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setGuardandoEnlace(false);
+    }
+  };
+
+  const handleEditarEnlace = (enlace) => {
+    setEnlaceEditando(enlace);
+    setFormEnlace({
+      descripcion: enlace.descripcion || '',
+      enlace: enlace.enlace || '',
+      ciclo: enlace.ciclo || bimestreGlobal
+    });
+    setMostrarFormEnlace(true);
+    setOpenDropdown(null);
+  };
+
+  const handleEliminarEnlace = async (enlace) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el enlace "${enlace.descripcion}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/enlaces/${enlace.id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Enlace eliminado!',
+          text: 'El enlace se ha eliminado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setOpenDropdown(null);
+        await cargarEnlaces(bimestreGlobal);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar el enlace',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  const renderVideosContent = () => {
+    // Obtener videos del ciclo actual (bimestre global)
+    const videosCicloActual = videos.filter(v => v.ciclo === bimestreGlobal);
+    
+    return (
+      <div className="card-content-expanded">
+        {/* Modal de Formulario de Video */}
+        {mostrarFormVideo && createPortal(
+          <div 
+            className="modal-tema-overlay"
+            onClick={() => {
+              setMostrarFormVideo(false);
+              setVideoEditando(null);
+              setFormVideo({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+            }}
+          >
+            <div 
+              className="modal-tema-container"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-video-title"
+            >
+              <div className="modal-tema-header">
+                <h2 id="modal-video-title">
+                  {videoEditando ? '✏️ Editar Video' : '🎥 Registrar Video'}
+                </h2>
+                <button
+                  className="modal-tema-close"
+                  onClick={() => {
+                    setMostrarFormVideo(false);
+                    setVideoEditando(null);
+                    setFormVideo({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+                  }}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-tema-body">
+                <form onSubmit={handleCrearVideo}>
+                  <div className="form-group">
+                    <label htmlFor="video-descripcion">
+                      Descripción *
+                    </label>
+                    <input
+                      type="text"
+                      id="video-descripcion"
+                      className="form-input"
+                      value={formVideo.descripcion}
+                      onChange={(e) => setFormVideo({ ...formVideo, descripcion: e.target.value })}
+                      placeholder="Ej: Video sobre el Sistema Solar"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="video-enlace">
+                      Enlace *
+                    </label>
+                    <input
+                      type="url"
+                      id="video-enlace"
+                      className="form-input"
+                      value={formVideo.enlace}
+                      onChange={(e) => setFormVideo({ ...formVideo, enlace: e.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="video-ciclo">
+                      Bimestre *
+                    </label>
+                    <select
+                      id="video-ciclo"
+                      className="form-input"
+                      value={formVideo.ciclo}
+                      onChange={(e) => setFormVideo({ ...formVideo, ciclo: parseInt(e.target.value) })}
+                      required
+                    >
+                      {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                        <option key={bim} value={bim}>
+                          Bimestre {bim}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn-cancelar"
+                      onClick={() => {
+                        setMostrarFormVideo(false);
+                        setVideoEditando(null);
+                        setFormVideo({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+                      }}
+                      disabled={guardandoVideo}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-guardar"
+                      disabled={guardandoVideo}
+                    >
+                      {guardandoVideo ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Tabla de videos */}
+        {videosCicloActual.length > 0 ? (
+          <table className="tabla-aula-virtual">
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Fecha</th>
-              <th>Acciones</th>
+                <th>NOMBRE</th>
+                <th>FECHA</th>
+                <th className="text-center">Opciones</th>
             </tr>
           </thead>
           <tbody>
-            {videos.map((video) => (
+              {videosCicloActual.map((video) => (
               <tr key={video.id}>
                 <td>{video.descripcion}</td>
-                <td>{new Date(video.fecha_hora).toLocaleString('es-PE')}</td>
+                  <td>{new Date(video.fecha_hora).toLocaleString('es-PE', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}</td>
                 <td className="text-center">
                   <div className="btn-group-opciones">
                     <button 
@@ -1778,10 +2173,10 @@ function DocenteAulaVirtual() {
                               🎥 Ver Video
                             </a>
                           )}
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar video */ }}>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleEditarVideo(video); }}>
                             ✏️ Editar Video
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar video */ }}>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleEliminarVideo(video); }}>
                             🗑️ Borrar Video
                           </a>
                         </div>
@@ -1801,23 +2196,149 @@ function DocenteAulaVirtual() {
       )}
     </div>
   );
+  };
 
-  const renderEnlacesContent = () => (
-    <div className="card-content-expanded">
-      {enlaces.length > 0 ? (
-        <table>
+  const renderEnlacesContent = () => {
+    // Obtener enlaces del ciclo actual (bimestre global)
+    const enlacesCicloActual = enlaces.filter(e => e.ciclo === bimestreGlobal);
+    
+    return (
+      <div className="card-content-expanded">
+        {/* Modal de Formulario de Enlace */}
+        {mostrarFormEnlace && createPortal(
+          <div 
+            className="modal-tema-overlay"
+            onClick={() => {
+              setMostrarFormEnlace(false);
+              setEnlaceEditando(null);
+              setFormEnlace({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+            }}
+          >
+            <div 
+              className="modal-tema-container"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-enlace-title"
+            >
+              <div className="modal-tema-header">
+                <h2 id="modal-enlace-title">
+                  {enlaceEditando ? '✏️ Editar Enlace' : '🔗 Registrar Enlace'}
+                </h2>
+                <button
+                  className="modal-tema-close"
+                  onClick={() => {
+                    setMostrarFormEnlace(false);
+                    setEnlaceEditando(null);
+                    setFormEnlace({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+                  }}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-tema-body">
+                <form onSubmit={handleCrearEnlace}>
+                  <div className="form-group">
+                    <label htmlFor="enlace-descripcion">
+                      Descripción *
+                    </label>
+                    <input
+                      type="text"
+                      id="enlace-descripcion"
+                      className="form-input"
+                      value={formEnlace.descripcion}
+                      onChange={(e) => setFormEnlace({ ...formEnlace, descripcion: e.target.value })}
+                      placeholder="Ej: Reto #01: El Universo"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="enlace-url">
+                      Enlace *
+                    </label>
+                    <input
+                      type="url"
+                      id="enlace-url"
+                      className="form-input"
+                      value={formEnlace.enlace}
+                      onChange={(e) => setFormEnlace({ ...formEnlace, enlace: e.target.value })}
+                      placeholder="https://ejemplo.com/reto"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="enlace-ciclo">
+                      Bimestre *
+                    </label>
+                    <select
+                      id="enlace-ciclo"
+                      className="form-input"
+                      value={formEnlace.ciclo}
+                      onChange={(e) => setFormEnlace({ ...formEnlace, ciclo: parseInt(e.target.value) })}
+                      required
+                    >
+                      {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                        <option key={bim} value={bim}>
+                          Bimestre {bim}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn-cancelar"
+                      onClick={() => {
+                        setMostrarFormEnlace(false);
+                        setEnlaceEditando(null);
+                        setFormEnlace({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+                      }}
+                      disabled={guardandoEnlace}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-guardar"
+                      disabled={guardandoEnlace}
+                    >
+                      {guardandoEnlace ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Tabla de enlaces */}
+        {enlacesCicloActual.length > 0 ? (
+          <table className="tabla-aula-virtual">
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Fecha</th>
-              <th>Acciones</th>
+                <th>NOMBRE</th>
+                <th>FECHA</th>
+                <th className="text-center">Opciones</th>
             </tr>
           </thead>
           <tbody>
-            {enlaces.map((enlace) => (
+              {enlacesCicloActual.map((enlace) => (
               <tr key={enlace.id}>
                 <td>{enlace.descripcion}</td>
-                <td>{new Date(enlace.fecha_hora).toLocaleString('es-PE')}</td>
+                  <td>{new Date(enlace.fecha_hora).toLocaleString('es-PE', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}</td>
                 <td className="text-center">
                   <div className="btn-group-opciones">
                     <button 
@@ -1846,10 +2367,10 @@ function DocenteAulaVirtual() {
                               🔗 Visitar Enlace
                             </a>
                           )}
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar enlace */ }}>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleEditarEnlace(enlace); }}>
                             ✏️ Editar Enlace
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar enlace */ }}>
+                            <a href="#" onClick={(e) => { e.preventDefault(); handleEliminarEnlace(enlace); }}>
                             🗑️ Borrar Enlace
                           </a>
                         </div>
@@ -1869,6 +2390,7 @@ function DocenteAulaVirtual() {
       )}
     </div>
   );
+  };
 
   return (
     <DashboardLayout>
@@ -1981,7 +2503,15 @@ function DocenteAulaVirtual() {
               </div>
               <button 
                 className="card-action-btn"
-                onClick={(e) => { e.stopPropagation(); /* Registrar nuevo video */ }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (expandedCard !== 'videos') {
+                    toggleCard('videos');
+                  }
+                  setVideoEditando(null);
+                  setFormVideo({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+                  setMostrarFormVideo(true);
+                }}
               >
                 + Nuevo
               </button>
@@ -2003,7 +2533,15 @@ function DocenteAulaVirtual() {
               </div>
               <button 
                 className="card-action-btn"
-                onClick={(e) => { e.stopPropagation(); /* Registrar nuevo enlace */ }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  if (expandedCard !== 'enlaces') {
+                    toggleCard('enlaces');
+                  }
+                  setEnlaceEditando(null);
+                  setFormEnlace({ descripcion: '', enlace: '', ciclo: bimestreGlobal });
+                  setMostrarFormEnlace(true);
+                }}
               >
                 + Nuevo
               </button>

@@ -5529,6 +5529,466 @@ router.get('/aula-virtual/enlaces', async (req, res) => {
 });
 
 /**
+ * POST /api/docente/aula-virtual/videos
+ * Crear un nuevo video
+ */
+router.post('/aula-virtual/videos', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, personal_id, anio_activo } = req.user;
+    const { asignatura_id, descripcion, enlace, ciclo } = req.body;
+
+    console.log('📹 [VIDEO] Datos recibidos:', { asignatura_id, descripcion, enlace, ciclo });
+    console.log('📹 [VIDEO] Usuario:', { usuario_id, colegio_id, personal_id, anio_activo });
+
+    if (!asignatura_id || !descripcion || !enlace || !ciclo) {
+      return res.status(400).json({ error: 'asignatura_id, descripcion, enlace y ciclo son requeridos' });
+    }
+
+    if (!personal_id) {
+      console.error('❌ [VIDEO] personal_id no está disponible en req.user');
+      return res.status(403).json({ error: 'Error de autenticación: personal_id no disponible' });
+    }
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, personal_id, colegio_id, anio_activo]
+    );
+
+    console.log('📹 [VIDEO] Asignatura encontrada:', asignatura.length > 0 ? 'Sí' : 'No');
+
+    if (asignatura.length === 0) {
+      // Intentar obtener más información para debug
+      const asignaturaInfo = await query(
+        `SELECT a.*, a.personal_id as asignatura_personal_id, g.anio as grupo_anio
+         FROM asignaturas a
+         INNER JOIN grupos g ON g.id = a.grupo_id
+         WHERE a.id = ?`,
+        [asignatura_id]
+      );
+      
+      console.error('❌ [VIDEO] No se encontró asignatura con:', { 
+        asignatura_id, 
+        personal_id, 
+        colegio_id, 
+        anio_activo,
+        asignatura_info: asignaturaInfo.length > 0 ? {
+          asignatura_personal_id: asignaturaInfo[0].asignatura_personal_id,
+          grupo_anio: asignaturaInfo[0].grupo_anio,
+          asignatura_colegio_id: asignaturaInfo[0].colegio_id
+        } : 'Asignatura no existe'
+      });
+      
+      return res.status(403).json({ 
+        error: 'No tienes acceso a esta asignatura',
+        debug: asignaturaInfo.length > 0 ? {
+          asignatura_personal_id: asignaturaInfo[0].asignatura_personal_id,
+          grupo_anio: asignaturaInfo[0].grupo_anio,
+          personal_id_usuario: personal_id,
+          anio_activo: anio_activo
+        } : 'Asignatura no encontrada'
+      });
+    }
+
+    // Insertar video
+    const result = await execute(
+      `INSERT INTO asignaturas_videos (asignatura_id, descripcion, enlace, trabajador_id, fecha_hora, ciclo)
+       VALUES (?, ?, ?, ?, NOW(), ?)`,
+      [asignatura_id, descripcion, enlace, personal_id, ciclo]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'video',
+      entidad_id: result.insertId,
+      descripcion: `Video creado: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: { asignatura_id, descripcion, enlace, ciclo },
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Video creado correctamente',
+      video_id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando video:', error);
+    res.status(500).json({ error: 'Error al crear video' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/videos/:videoId
+ * Actualizar un video
+ */
+router.put('/aula-virtual/videos/:videoId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, personal_id, anio_activo } = req.user;
+    const { videoId } = req.params;
+    const { descripcion, enlace, ciclo } = req.body;
+
+    if (!descripcion || !enlace || !ciclo) {
+      return res.status(400).json({ error: 'descripcion, enlace y ciclo son requeridos' });
+    }
+
+    // Obtener video actual
+    const videoActual = await query(
+      `SELECT av.*, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_videos av
+       INNER JOIN asignaturas a ON a.id = av.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE av.id = ?`,
+      [videoId]
+    );
+
+    if (videoActual.length === 0) {
+      return res.status(404).json({ error: 'Video no encontrado' });
+    }
+
+    // Verificar que el docente tiene acceso
+    if (videoActual[0].personal_id !== personal_id || 
+        videoActual[0].colegio_id !== colegio_id || 
+        videoActual[0].anio !== anio_activo) {
+      return res.status(403).json({ error: 'No tienes acceso a este video' });
+    }
+
+    // Actualizar video
+    await execute(
+      `UPDATE asignaturas_videos 
+       SET descripcion = ?, enlace = ?, ciclo = ?
+       WHERE id = ?`,
+      [descripcion, enlace, ciclo, videoId]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'video',
+      entidad_id: parseInt(videoId),
+      descripcion: `Video actualizado: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: videoActual[0],
+      datos_nuevos: { descripcion, enlace, ciclo },
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ success: true, message: 'Video actualizado correctamente' });
+  } catch (error) {
+    console.error('Error actualizando video:', error);
+    res.status(500).json({ error: 'Error al actualizar video' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/videos/:videoId
+ * Eliminar un video
+ */
+router.delete('/aula-virtual/videos/:videoId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, personal_id, anio_activo } = req.user;
+    const { videoId } = req.params;
+
+    // Obtener video actual
+    const videoActual = await query(
+      `SELECT av.*, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_videos av
+       INNER JOIN asignaturas a ON a.id = av.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE av.id = ?`,
+      [videoId]
+    );
+
+    if (videoActual.length === 0) {
+      return res.status(404).json({ error: 'Video no encontrado' });
+    }
+
+    // Verificar que el docente tiene acceso
+    if (videoActual[0].personal_id !== personal_id || 
+        videoActual[0].colegio_id !== colegio_id || 
+        videoActual[0].anio !== anio_activo) {
+      return res.status(403).json({ error: 'No tienes acceso a este video' });
+    }
+
+    // Eliminar video
+    await execute(
+      `DELETE FROM asignaturas_videos WHERE id = ?`,
+      [videoId]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'video',
+      entidad_id: parseInt(videoId),
+      descripcion: `Video eliminado: ${videoActual[0].descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: videoActual[0],
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ success: true, message: 'Video eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando video:', error);
+    res.status(500).json({ error: 'Error al eliminar video' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/enlaces
+ * Crear un nuevo enlace de ayuda
+ */
+router.post('/aula-virtual/enlaces', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, personal_id, anio_activo } = req.user;
+    const { asignatura_id, descripcion, enlace, ciclo } = req.body;
+
+    console.log('🔗 [ENLACE] Datos recibidos:', { asignatura_id, descripcion, enlace, ciclo });
+    console.log('🔗 [ENLACE] Usuario:', { usuario_id, colegio_id, personal_id, anio_activo });
+
+    if (!asignatura_id || !descripcion || !enlace || !ciclo) {
+      return res.status(400).json({ error: 'asignatura_id, descripcion, enlace y ciclo son requeridos' });
+    }
+
+    if (!personal_id) {
+      console.error('❌ [ENLACE] personal_id no está disponible en req.user');
+      return res.status(403).json({ error: 'Error de autenticación: personal_id no disponible' });
+    }
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, personal_id, colegio_id, anio_activo]
+    );
+
+    console.log('🔗 [ENLACE] Asignatura encontrada:', asignatura.length > 0 ? 'Sí' : 'No');
+
+    if (asignatura.length === 0) {
+      // Intentar obtener más información para debug
+      const asignaturaInfo = await query(
+        `SELECT a.*, a.personal_id as asignatura_personal_id, g.anio as grupo_anio
+         FROM asignaturas a
+         INNER JOIN grupos g ON g.id = a.grupo_id
+         WHERE a.id = ?`,
+        [asignatura_id]
+      );
+      
+      console.error('❌ [ENLACE] No se encontró asignatura con:', { 
+        asignatura_id, 
+        personal_id, 
+        colegio_id, 
+        anio_activo,
+        asignatura_info: asignaturaInfo.length > 0 ? {
+          asignatura_personal_id: asignaturaInfo[0].asignatura_personal_id,
+          grupo_anio: asignaturaInfo[0].grupo_anio,
+          asignatura_colegio_id: asignaturaInfo[0].colegio_id
+        } : 'Asignatura no existe'
+      });
+      
+      return res.status(403).json({ 
+        error: 'No tienes acceso a esta asignatura',
+        debug: asignaturaInfo.length > 0 ? {
+          asignatura_personal_id: asignaturaInfo[0].asignatura_personal_id,
+          grupo_anio: asignaturaInfo[0].grupo_anio,
+          personal_id_usuario: personal_id,
+          anio_activo: anio_activo
+        } : 'Asignatura no encontrada'
+      });
+    }
+
+    // Insertar enlace
+    const result = await execute(
+      `INSERT INTO asignaturas_enlaces (asignatura_id, descripcion, enlace, trabajador_id, fecha_hora, ciclo)
+       VALUES (?, ?, ?, ?, NOW(), ?)`,
+      [asignatura_id, descripcion, enlace, personal_id, ciclo]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'enlace',
+      entidad_id: result.insertId,
+      descripcion: `Enlace creado: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: { asignatura_id, descripcion, enlace, ciclo },
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Enlace creado correctamente',
+      enlace_id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando enlace:', error);
+    res.status(500).json({ error: 'Error al crear enlace' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/enlaces/:enlaceId
+ * Actualizar un enlace de ayuda
+ */
+router.put('/aula-virtual/enlaces/:enlaceId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, personal_id, anio_activo } = req.user;
+    const { enlaceId } = req.params;
+    const { descripcion, enlace, ciclo } = req.body;
+
+    if (!descripcion || !enlace || !ciclo) {
+      return res.status(400).json({ error: 'descripcion, enlace y ciclo son requeridos' });
+    }
+
+    // Obtener enlace actual
+    const enlaceActual = await query(
+      `SELECT ae.*, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_enlaces ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ?`,
+      [enlaceId]
+    );
+
+    if (enlaceActual.length === 0) {
+      return res.status(404).json({ error: 'Enlace no encontrado' });
+    }
+
+    // Verificar que el docente tiene acceso
+    if (enlaceActual[0].personal_id !== personal_id || 
+        enlaceActual[0].colegio_id !== colegio_id || 
+        enlaceActual[0].anio !== anio_activo) {
+      return res.status(403).json({ error: 'No tienes acceso a este enlace' });
+    }
+
+    // Actualizar enlace
+    await execute(
+      `UPDATE asignaturas_enlaces 
+       SET descripcion = ?, enlace = ?, ciclo = ?
+       WHERE id = ?`,
+      [descripcion, enlace, ciclo, enlaceId]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'enlace',
+      entidad_id: parseInt(enlaceId),
+      descripcion: `Enlace actualizado: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: enlaceActual[0],
+      datos_nuevos: { descripcion, enlace, ciclo },
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ success: true, message: 'Enlace actualizado correctamente' });
+  } catch (error) {
+    console.error('Error actualizando enlace:', error);
+    res.status(500).json({ error: 'Error al actualizar enlace' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/enlaces/:enlaceId
+ * Eliminar un enlace de ayuda
+ */
+router.delete('/aula-virtual/enlaces/:enlaceId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, personal_id, anio_activo } = req.user;
+    const { enlaceId } = req.params;
+
+    // Obtener enlace actual
+    const enlaceActual = await query(
+      `SELECT ae.*, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_enlaces ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ?`,
+      [enlaceId]
+    );
+
+    if (enlaceActual.length === 0) {
+      return res.status(404).json({ error: 'Enlace no encontrado' });
+    }
+
+    // Verificar que el docente tiene acceso
+    if (enlaceActual[0].personal_id !== personal_id || 
+        enlaceActual[0].colegio_id !== colegio_id || 
+        enlaceActual[0].anio !== anio_activo) {
+      return res.status(403).json({ error: 'No tienes acceso a este enlace' });
+    }
+
+    // Eliminar enlace
+    await execute(
+      `DELETE FROM asignaturas_enlaces WHERE id = ?`,
+      [enlaceId]
+    );
+
+    // Registrar en auditoría
+    await registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'enlace',
+      entidad_id: parseInt(enlaceId),
+      descripcion: `Enlace eliminado: ${enlaceActual[0].descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: enlaceActual[0],
+      resultado: 'EXITOSO'
+    });
+
+    res.json({ success: true, message: 'Enlace eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando enlace:', error);
+    res.status(500).json({ error: 'Error al eliminar enlace' });
+  }
+});
+
+/**
  * POST /api/docente/actividades/importar-calendario
  * Importar actividades desde calendarizacion.json a la base de datos
  * Solo para administradores o docentes autorizados

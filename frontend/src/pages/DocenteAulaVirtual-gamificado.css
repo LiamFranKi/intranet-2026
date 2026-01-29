@@ -479,6 +479,125 @@
   font-size: 1rem;
 }
 
+/* Estilos para secciones con tabs (Videoteca y Enlaces de Ayuda) */
+.seccion-header-con-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.seccion-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.seccion-tab {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.seccion-tab:hover {
+  background: #f9fafb;
+  border-color: #c4b5fd;
+  color: #6366f1;
+}
+
+.seccion-tab.active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.seccion-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 3px;
+  background: white;
+  border-radius: 2px;
+}
+
+.btn-nuevo-item {
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-nuevo-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+/* Tabla específica para Aula Virtual */
+.tabla-aula-virtual {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.tabla-aula-virtual thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.tabla-aula-virtual th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tabla-aula-virtual th.text-center {
+  text-align: center;
+}
+
+.tabla-aula-virtual td {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
+}
+
+.tabla-aula-virtual tbody tr {
+  transition: background 0.2s;
+}
+
+.tabla-aula-virtual tbody tr:hover {
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.tabla-aula-virtual tbody tr:last-child td {
+  border-bottom: none;
+}
+
 /* Form Modal - Diseño Mejorado */
 .form-modal {
   background: rgba(255, 255, 255, 0.98);
