@@ -478,10 +478,17 @@ react-aula-virtual/
 #### Dashboard
 - Estadísticas: 4 cards en una fila (Grupos Asignados, Cursos Asignados, Estudiantes, Tardanzas)
 - Próximos exámenes (con fecha_desde y titulo)
-- Próximas tareas (con fecha_fin y descripcion)
-- Sección unificada "Próximos Eventos" con paginación (8 por página)
+- Próximas tareas (con fecha_entrega y titulo)
+- Sección unificada "Próximos Eventos" con paginación (12 por página)
+- Cards con colores diferenciados: Exámenes (amarillo/naranja), Tareas (verde), Actividades (azul)
+- Modal de detalle de eventos con información completa:
+  - Título, Fecha, Asignatura (exámenes y tareas)
+  - Grupo con nivel (ej: "Primaria 3° A")
+  - Docente (nombre completo para exámenes y tareas)
+  - Detalles adicionales
 - Widgets: Calendario, Publicaciones, Notificaciones
 - **Nota sobre Filtrado:** El backend filtra eventos usando `DATE(fecha) >= DATE(NOW())` en SQL. El frontend muestra todos los eventos que vienen del backend sin filtrado adicional. La zona horaria se maneja a nivel del servidor MySQL.
+- **Backend:** Las consultas de exámenes y tareas incluyen `nivel_nombre` y `docente_nombre` mediante JOINs con las tablas `niveles` y `personal`.
 
 #### Perfil
 - Ver y editar datos personales
