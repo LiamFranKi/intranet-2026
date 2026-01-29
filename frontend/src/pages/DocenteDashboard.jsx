@@ -162,8 +162,8 @@ function DocenteDashboard() {
     // Agregar tareas (vienen ya filtradas del backend por año activo y fecha >= hoy)
     if (proximasTareas && Array.isArray(proximasTareas)) {
       proximasTareas.forEach(tarea => {
-        // Usar fecha_fin o fecha_evento si está disponible
-        const fechaTarea = crearFechaLima(tarea.fecha_fin || tarea.fecha_evento);
+        // Las tareas tienen fecha_entrega (NO fecha_fin) - vienen de asignaturas_tareas
+        const fechaTarea = crearFechaLima(tarea.fecha_entrega || tarea.fecha_evento);
         if (fechaTarea) {
           eventos.push({
             ...tarea,
@@ -240,8 +240,8 @@ function DocenteDashboard() {
     );
   }
 
-  // Paginación: 8 eventos por página
-  const eventosPorPagina = 8;
+  // Paginación: 12 eventos por página
+  const eventosPorPagina = 12;
   const totalPaginas = Math.ceil(todosEventos.length / eventosPorPagina);
   const inicio = (paginaActual - 1) * eventosPorPagina;
   const fin = inicio + eventosPorPagina;
@@ -332,11 +332,18 @@ function DocenteDashboard() {
                   const fecha = evento.fecha;
                   const dia = fecha.getDate();
                   const mes = meses[fecha.getMonth()];
-                  const titulo = evento.tipo === 'examen' 
-                    ? (evento.titulo || 'Examen')
-                    : evento.tipo === 'tarea'
-                    ? (evento.descripcion || 'Tarea')
-                    : (evento.descripcion || 'Actividad');
+                  // Obtener título según el tipo de evento
+                  let titulo = '';
+                  if (evento.tipo === 'examen') {
+                    titulo = evento.titulo || 'Examen';
+                  } else if (evento.tipo === 'tarea') {
+                    // Las tareas tienen 'titulo' en la tabla asignaturas_tareas
+                    titulo = evento.titulo || evento.descripcion || 'Tarea';
+                  } else if (evento.tipo === 'actividad') {
+                    titulo = evento.descripcion || 'Actividad';
+                  } else {
+                    titulo = 'Evento';
+                  }
                   
                   return (
                     <div

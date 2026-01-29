@@ -8,7 +8,8 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
     if (tipo === 'examen') {
       return evento.fecha_desde ? new Date(evento.fecha_desde) : null;
     } else if (tipo === 'tarea') {
-      return evento.fecha_fin ? new Date(evento.fecha_fin) : null;
+      // Las tareas tienen fecha_entrega (NO fecha_fin)
+      return evento.fecha_entrega ? new Date(evento.fecha_entrega) : null;
     } else if (tipo === 'actividad') {
       return evento.fecha_inicio ? new Date(evento.fecha_inicio) : null;
     }
@@ -38,7 +39,7 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
               <strong>Título:</strong>
               <span>
                 {tipo === 'examen' && (evento.titulo || 'Examen')}
-                {tipo === 'tarea' && (evento.descripcion || 'Tarea')}
+                {tipo === 'tarea' && (evento.titulo || evento.descripcion || 'Tarea')}
                 {tipo === 'actividad' && (evento.descripcion || 'Actividad')}
               </span>
             </div>
@@ -117,6 +118,17 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
                   {evento.grado && `${evento.grado}°`}
                   {evento.seccion && ` ${evento.seccion}`}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Docente (para exámenes y tareas) */}
+          {(tipo === 'examen' || tipo === 'tarea') && evento.docente_nombre && (
+            <div className="evento-detalle-item">
+              <span className="evento-detalle-icon">👨‍🏫</span>
+              <div className="evento-detalle-content">
+                <strong>Docente:</strong>
+                <span>{evento.docente_nombre}</span>
               </div>
             </div>
           )}

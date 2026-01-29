@@ -222,12 +222,14 @@ router.get('/dashboard', async (req, res) => {
               g.grado, 
               g.seccion, 
               n.nombre as nivel_nombre,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
               DATE(ae.fecha_desde) as fecha_evento
        FROM asignaturas_examenes ae
        INNER JOIN asignaturas a ON a.id = ae.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN personal p ON p.id = a.personal_id
        WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
        AND DATE(ae.fecha_desde) >= DATE(NOW())
        ORDER BY ae.fecha_desde ASC`,
@@ -235,22 +237,27 @@ router.get('/dashboard', async (req, res) => {
     );
 
     // Próximas tareas (todas las futuras, sin límite de días)
-    // asignaturas_actividades tiene fecha_inicio y fecha_fin (NO tiene fecha_limite)
+    // asignaturas_tareas tiene titulo, descripcion, fecha_entrega (NO fecha_fin)
     // IMPORTANTE: Comparar solo fechas (sin hora) para incluir eventos de hoy
     // Usar DATE() en ambos lados para comparar solo fechas
     const proximasTareas = await query(
-      `SELECT aa.*, 
+      `SELECT t.*, 
+              t.titulo,
               c.nombre as asignatura_nombre, 
               g.grado, 
               g.seccion,
-              DATE(aa.fecha_fin) as fecha_evento
-       FROM asignaturas_actividades aa
-       INNER JOIN asignaturas a ON a.id = aa.asignatura_id
+              n.nombre as nivel_nombre,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
+              DATE(t.fecha_entrega) as fecha_evento
+       FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN personal p ON p.id = a.personal_id
        WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND DATE(aa.fecha_fin) >= DATE(NOW())
-       ORDER BY aa.fecha_fin ASC`,
+       AND DATE(t.fecha_entrega) >= DATE(NOW())
+       ORDER BY t.fecha_entrega ASC`,
       [docente.id, colegio_id, anio_activo]
     );
 
