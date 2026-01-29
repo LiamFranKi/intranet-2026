@@ -13,6 +13,16 @@ const middlewareAuditoria = (req, res, next) => {
   res.json = function (data) {
     const duracion = Date.now() - inicioTiempo;
 
+    // Si la ruta tiene skipAudit, no registrar (ya se registró manualmente)
+    if (req.skipAudit) {
+      return originalJson(data);
+    }
+
+    // No registrar automáticamente para rutas de aula-virtual/examenes donde ya registramos manualmente
+    if (req.path && req.path.includes('/aula-virtual/examenes') && req.method !== 'GET') {
+      return originalJson(data);
+    }
+
     // Registrar acción de forma asíncrona (no bloquea la respuesta)
     if (req.user) {
       registrarAccion({

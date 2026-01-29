@@ -2,8 +2,10 @@ const { query, execute } = require('./mysql');
 
 /**
  * Registrar una acción en el log de auditoría
+ * Ejecuta de forma asíncrona sin bloquear la acción principal
+ * Retorna una promesa que se resuelve inmediatamente (fire-and-forget)
  */
-async function registrarAccion({
+function registrarAccion({
   usuario_id,
   colegio_id,
   tipo_usuario,
@@ -22,50 +24,60 @@ async function registrarAccion({
   mensaje_error = null,
   duracion_ms = null,
 }) {
-  try {
-    const ahora = new Date();
-    const fecha = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
-    const hora = ahora.toTimeString().split(' ')[0]; // HH:MM:SS
+  // Retornar una promesa que se resuelve inmediatamente
+  // La inserción se ejecuta en segundo plano sin bloquear
+  return new Promise((resolve) => {
+    // Resolver inmediatamente para no bloquear
+    resolve();
     
-    // Convertir datos a JSON string para MySQL
-    const datosAnterioresJson = datos_anteriores ? JSON.stringify(datos_anteriores) : null;
-    const datosNuevosJson = datos_nuevos ? JSON.stringify(datos_nuevos) : null;
-    
-    await execute(
-      `INSERT INTO auditoria_logs (
-        usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
-        descripcion, url, metodo_http, ip_address, user_agent,
-        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
-        fecha_hora, fecha, hora
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        usuario_id,
-        colegio_id,
-        tipo_usuario,
-        accion,
-        modulo,
-        entidad,
-        entidad_id,
-        descripcion,
-        url,
-        metodo_http,
-        ip_address,
-        user_agent,
-        datosAnterioresJson,
-        datosNuevosJson,
-        resultado,
-        mensaje_error,
-        duracion_ms,
-        ahora,
-        fecha,
-        hora,
-      ]
-    );
-  } catch (error) {
-    // No lanzar error para no interrumpir el flujo principal
-    // Solo loguear el error
-    console.error('Error registrando en auditoría:', error);
-  }
+    // Ejecutar la inserción en segundo plano
+    process.nextTick(async () => {
+      try {
+        const ahora = new Date();
+        const fecha = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+        const hora = ahora.toTimeString().split(' ')[0]; // HH:MM:SS
+        
+        // Convertir datos a JSON string para MySQL
+        const datosAnterioresJson = datos_anteriores ? (typeof datos_anteriores === 'string' ? datos_anteriores : JSON.stringify(datos_anteriores)) : null;
+        const datosNuevosJson = datos_nuevos ? (typeof datos_nuevos === 'string' ? datos_nuevos : JSON.stringify(datos_nuevos)) : null;
+        
+        await execute(
+          `INSERT INTO auditoria_logs (
+            usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+            descripcion, url, metodo_http, ip_address, user_agent,
+            datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+            fecha_hora, fecha, hora
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            usuario_id,
+            colegio_id,
+            tipo_usuario,
+            accion,
+            modulo,
+            entidad,
+            entidad_id,
+            descripcion,
+            url,
+            metodo_http,
+            ip_address,
+            user_agent,
+            datosAnterioresJson,
+            datosNuevosJson,
+            resultado,
+            mensaje_error,
+            duracion_ms,
+            ahora,
+            fecha,
+            hora,
+          ]
+        );
+      } catch (error) {
+        // No lanzar error para no interrumpir el flujo principal
+        // Solo loguear el error
+        console.error('Error registrando en auditoría:', error);
+      }
+    });
+  });
 }
 
 /**

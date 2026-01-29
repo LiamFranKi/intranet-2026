@@ -455,8 +455,20 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
       ]
     );
 
-    // Registrar acción en auditoría
-    await registrarAccion({
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = {
+      nombres: nombres || docente.nombres,
+      apellidos: apellidos || docente.apellidos,
+      email: email || docente.email,
+      telefono_fijo: telefono_fijo || docente.telefono_fijo,
+      telefono_celular: telefono_celular || docente.telefono_celular,
+      direccion: direccion || docente.direccion,
+      fecha_nacimiento: fecha_nacimiento || docente.fecha_nacimiento,
+      foto: fotoPath
+    };
+
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
@@ -464,24 +476,43 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
       modulo: 'PERFIL',
       entidad: 'personal',
       entidad_id: docente.id,
-      descripcion: 'Docente actualizó su perfil',
+      descripcion: `Actualizó perfil: ${datosNuevos.nombres} ${datosNuevos.apellidos}`,
       url: req.originalUrl,
       metodo_http: req.method,
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
-      datos_anteriores: datosAnteriores,
-      datos_nuevos: {
-        nombres: nombres || docente.nombres,
-        apellidos: apellidos || docente.apellidos,
-        email: email || docente.email,
-        telefono_fijo: telefono_fijo || docente.telefono_fijo,
-        telefono_celular: telefono_celular || docente.telefono_celular,
-        direccion: direccion || docente.direccion,
-        fecha_nacimiento: fecha_nacimiento || docente.fecha_nacimiento,
-        foto: fotoPath
-      },
+      datos_anteriores: JSON.stringify(datosAnteriores),
+      datos_nuevos: JSON.stringify(datosNuevos),
       resultado: 'EXITOSO'
     });
+
+    // ACTUALIZAR DATOS EN LA BASE DE DATOS
+    await execute(
+      `UPDATE personal SET
+        nombres = ?,
+        apellidos = ?,
+        email = ?,
+        telefono_fijo = ?,
+        telefono_celular = ?,
+        direccion = ?,
+        foto = ?,
+        fecha_nacimiento = ?
+      WHERE id = ?`,
+      [
+        nombres || docente.nombres,
+        apellidos || docente.apellidos,
+        email || docente.email,
+        telefono_fijo || docente.telefono_fijo,
+        telefono_celular || docente.telefono_celular,
+        direccion || docente.direccion,
+        fotoPath,
+        fecha_nacimiento || docente.fecha_nacimiento,
+        docente.id
+      ]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     // Obtener el perfil completo actualizado para devolverlo
     const personalActualizado = await query(
@@ -605,13 +636,8 @@ router.put('/perfil/password', async (req, res) => {
     const passwordHashNueva = crypto.createHash('sha1').update(password_nueva).digest('hex');
 
     // Actualizar contraseña en la base de datos
-    await execute(
-      `UPDATE usuarios SET password = ? WHERE id = ?`,
-      [passwordHashNueva, usuario_id]
-    );
-
-    // Registrar acción en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de cambiar contraseña
+    registrarAccion({
       usuario_id,
       colegio_id: usuarioDB.colegio_id,
       tipo_usuario: usuarioDB.tipo,
@@ -619,13 +645,23 @@ router.put('/perfil/password', async (req, res) => {
       modulo: 'PERFIL',
       entidad: 'usuario',
       entidad_id: usuario_id,
-      descripcion: 'Docente cambió su contraseña',
+      descripcion: 'Cambió su contraseña',
       url: req.originalUrl,
       metodo_http: req.method,
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
+      datos_anteriores: null,
+      datos_nuevos: null,
       resultado: 'EXITOSO'
     });
+
+    await execute(
+      `UPDATE usuarios SET password = ? WHERE id = ?`,
+      [passwordHashNueva, usuario_id]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ 
       success: true, 
@@ -1297,8 +1333,8 @@ router.post('/cursos/:cursoId/alumnos/:alumnoId/estrellas', async (req, res) => 
       [matriculaId, cursoId, personal_id, points, description.trim(), now, now]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de responder
+    registrarAccion({
       usuario_id: req.user.usuario_id,
       colegio_id: colegio_id,
       tipo_usuario: 'DOCENTE',
@@ -1307,8 +1343,15 @@ router.post('/cursos/:cursoId/alumnos/:alumnoId/estrellas', async (req, res) => 
       entidad: 'enrollment_incidents',
       entidad_id: result.insertId,
       descripcion: `Dio ${points} estrella(s) al alumno ID ${alumnoId} en el curso ID ${cursoId}`,
-      url: req.originalUrl
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      resultado: 'EXITOSO'
     });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -1359,8 +1402,8 @@ router.delete('/cursos/:cursoId/alumnos/:alumnoId/estrellas/:incidentId', async 
       [incidentId]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
       usuario_id: req.user.usuario_id,
       colegio_id: colegio_id,
       tipo_usuario: 'DOCENTE',
@@ -1369,8 +1412,23 @@ router.delete('/cursos/:cursoId/alumnos/:alumnoId/estrellas/:incidentId', async 
       entidad: 'enrollment_incidents',
       entidad_id: incidentId,
       descripcion: `Eliminó ${incidente[0].points} estrella(s) del alumno ID ${alumnoId}`,
-      url: req.originalUrl
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(incidente[0]),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
     });
+
+    // Eliminar el incidente
+    await execute(
+      `DELETE FROM enrollment_incidents WHERE id = ?`,
+      [incidentId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -1521,8 +1579,8 @@ router.post('/cursos/:cursoId/alumnos/:alumnoId/incidencias', async (req, res) =
       [matriculaId, cursoId, personal_id, description.trim(), now, now]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de responder
+    registrarAccion({
       usuario_id: req.user.usuario_id,
       colegio_id: colegio_id,
       tipo_usuario: 'DOCENTE',
@@ -1531,8 +1589,15 @@ router.post('/cursos/:cursoId/alumnos/:alumnoId/incidencias', async (req, res) =
       entidad: 'enrollment_incidents',
       entidad_id: result.insertId,
       descripcion: `Registró una incidencia para el alumno ID ${alumnoId} en el curso ID ${cursoId}`,
-      url: req.originalUrl
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      resultado: 'EXITOSO'
     });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -1583,8 +1648,8 @@ router.delete('/cursos/:cursoId/alumnos/:alumnoId/incidencias/:incidentId', asyn
       [incidentId]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
       usuario_id: req.user.usuario_id,
       colegio_id: colegio_id,
       tipo_usuario: 'DOCENTE',
@@ -1593,8 +1658,23 @@ router.delete('/cursos/:cursoId/alumnos/:alumnoId/incidencias/:incidentId', asyn
       entidad: 'enrollment_incidents',
       entidad_id: incidentId,
       descripcion: `Eliminó una incidencia del alumno ID ${alumnoId}`,
-      url: req.originalUrl
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(incidente[0]),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
     });
+
+    // Eliminar el incidente
+    await execute(
+      `DELETE FROM enrollment_incidents WHERE id = ?`,
+      [incidentId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -2389,8 +2469,8 @@ router.post('/cursos/:cursoId/notas', async (req, res) => {
       }
     }
 
-    // Registrar acción
-    await registrarAccion({
+    // Registrar auditoría ANTES de responder
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
@@ -2398,9 +2478,18 @@ router.post('/cursos/:cursoId/notas', async (req, res) => {
       modulo: 'CURSOS',
       entidad: 'notas',
       entidad_id: cursoId,
-      descripcion: `Docente registró notas del curso ID: ${cursoId} para el ciclo ${cicloInt}`,
-      datos_nuevos: { ciclo: cicloInt, total_alumnos: Object.keys(notas).length }
+      descripcion: `Registró notas del curso ID: ${cursoId} para el ciclo ${cicloInt} (${Object.keys(notas).length} alumno(s))`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
+      datos_nuevos: JSON.stringify({ ciclo: cicloInt, total_alumnos: Object.keys(notas).length }),
+      resultado: 'EXITOSO'
     });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -2739,6 +2828,31 @@ router.put('/cursos/:cursoId/aula-virtual', async (req, res) => {
 
     params.push(cursoId, personalId, colegio_id, anio_activo);
 
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = {
+      aula_virtual: aula_virtual || '',
+      habilitar_aula: habilitar_aula
+    };
+
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id: usuario_id,
+      colegio_id: colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR_AULA_VIRTUAL',
+      modulo: 'CURSOS',
+      entidad: 'asignaturas',
+      entidad_id: cursoId,
+      descripcion: `Actualizó link del aula virtual del curso ID: ${cursoId}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(asignatura[0]),
+      datos_nuevos: JSON.stringify(datosNuevos),
+      resultado: 'EXITOSO'
+    });
+
     // Actualizar asignatura (usar alias 'a' para las columnas en SET)
     await execute(
       `UPDATE asignaturas a
@@ -2748,21 +2862,8 @@ router.put('/cursos/:cursoId/aula-virtual', async (req, res) => {
       params
     );
 
-    // Registrar acción
-    await registrarAccion({
-      usuario_id: usuario_id,
-      colegio_id: colegio_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'ACTUALIZAR_AULA_VIRTUAL',
-      modulo: 'CURSOS',
-      entidad: 'asignaturas',
-      entidad_id: cursoId,
-      descripcion: `Docente actualizó link del aula virtual del curso ID: ${cursoId}`,
-      datos_nuevos: {
-        aula_virtual: aula_virtual || '',
-        habilitar_aula: habilitar_aula
-      }
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     // Obtener datos actualizados
     const asignaturaActualizada = await query(
@@ -3439,6 +3540,9 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
       procesando: false
     });
 
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
+
     // Continuar el procesamiento en segundo plano
     setImmediate(async () => {
       try {
@@ -3547,7 +3651,7 @@ router.post('/mensajes/enviar', uploadMensajes.array('archivos', 10), async (req
             descripcionAuditoria += ` con ${req.files.length} archivo(s) adjunto(s)`;
           }
           
-          await registrarAccion({
+          registrarAccion({
             usuario_id: usuario_id,
             colegio_id: colegio_id,
             tipo_usuario: req.user.tipo || 'DOCENTE',
@@ -3626,27 +3730,39 @@ router.delete('/mensajes/:mensajeId', async (req, res) => {
       return res.status(403).json({ error: 'No tienes permiso para eliminar este mensaje' });
     }
 
-    // Marcar como borrado (soft delete)
-    await execute(
-      `UPDATE mensajes SET borrado = 'SI' WHERE id = ?`,
+    // Obtener información completa del mensaje antes de eliminarlo
+    const mensajeCompleto = await query(
+      `SELECT * FROM mensajes WHERE id = ?`,
       [mensajeId]
     );
 
-    await registrarAccion({
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
       accion: 'ELIMINAR',
       modulo: 'MENSAJES',
       entidad: 'mensaje',
-      entidad_id: mensajeId,
-      descripcion: `Eliminó mensaje ID: ${mensajeId}`,
+      entidad_id: parseInt(mensajeId),
+      descripcion: `Eliminó mensaje${mensajeCompleto.length > 0 && mensajeCompleto[0].asunto ? `: "${mensajeCompleto[0].asunto}"` : ''} (ID: ${mensajeId})`,
       url: req.originalUrl,
       metodo_http: req.method,
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
+      datos_anteriores: mensajeCompleto.length > 0 ? JSON.stringify(mensajeCompleto[0]) : null,
+      datos_nuevos: JSON.stringify({}),
       resultado: 'EXITOSO'
     });
+
+    // Marcar como borrado (soft delete)
+    await execute(
+      `UPDATE mensajes SET borrado = 'SI' WHERE id = ?`,
+      [mensajeId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ success: true, message: 'Mensaje eliminado correctamente' });
   } catch (error) {
@@ -3700,7 +3816,8 @@ router.delete('/mensajes', async (req, res) => {
       idsAEliminar
     );
 
-    await registrarAccion({
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
@@ -3713,9 +3830,18 @@ router.delete('/mensajes', async (req, res) => {
       metodo_http: req.method,
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
-      resultado: 'EXITOSO',
-      datos_nuevos: { mensajes_eliminados: idsAEliminar.length, ids: idsAEliminar }
+      datos_anteriores: null,
+      datos_nuevos: JSON.stringify({ mensajes_eliminados: idsAEliminar.length, ids: idsAEliminar }),
+      resultado: 'EXITOSO'
     });
+
+    await execute(
+      `UPDATE mensajes SET borrado = 'SI' WHERE id IN (${placeholdersEliminar})`,
+      idsAEliminar
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ 
       success: true, 
@@ -4122,7 +4248,27 @@ router.post('/publicaciones', uploadPublicacionesCompleto.fields([
       [colegio_id, usuario_id, contenido, imagesSerialized, archivosSerialized, privacidad, fechaHora]
     );
 
-    await registrarAccion(usuario_id, colegio_id, 'CREAR_PUBLICACION', `Docente creó publicación ID: ${result.insertId}`);
+    // Registrar auditoría ANTES de responder
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'PUBLICACIONES',
+      entidad: 'publicacion',
+      entidad_id: result.insertId,
+      descripcion: `Creó publicación ID: ${result.insertId}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
+      datos_nuevos: JSON.stringify({ contenido, compartir_con, grupos_ids, imagen: imagenPath, archivo: archivoPath }),
+      resultado: 'EXITOSO'
+    });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -4162,13 +4308,35 @@ router.delete('/publicaciones/:publicacionId', async (req, res) => {
       return res.status(404).json({ error: 'Publicación no encontrada o no tienes permiso para eliminarla' });
     }
 
+    const publicacion = publicaciones[0];
+
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'PUBLICACIONES',
+      entidad: 'publicacion',
+      entidad_id: parseInt(publicacionId),
+      descripcion: `Eliminó publicación ID: ${publicacionId}`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(publicacion),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
+    });
+
     // Eliminar publicación de MySQL
     await execute(
       `DELETE FROM publicaciones WHERE id = ? AND usuario_id = ? AND colegio_id = ?`,
       [publicacionId, usuario_id, colegio_id]
     );
 
-    await registrarAccion(usuario_id, colegio_id, 'ELIMINAR_PUBLICACION', `Docente eliminó publicación ${publicacionId}`);
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({
       success: true,
@@ -4290,7 +4458,7 @@ router.get('/aula-virtual/tareas', async (req, res) => {
        FROM asignaturas_tareas t
        INNER JOIN personal p ON p.id = t.trabajador_id
        WHERE t.asignatura_id = ? AND t.ciclo = ?
-       ORDER BY t.fecha_entrega DESC, t.fecha_hora DESC`,
+       ORDER BY t.id ASC`,
       [asignatura_id, cicloFiltro]
     );
 
@@ -4394,8 +4562,47 @@ router.post('/aula-virtual/tareas', uploadAulaVirtual.single('archivo'), async (
       });
     }
 
+    // Preparar datos para auditoría
+    const datosNuevos = { titulo, descripcion, fecha_entrega, ciclo, archivo: archivoPath, enlace };
+
+    // Registrar auditoría ANTES de crear
+    const ahora = new Date();
+    const fecha = ahora.toISOString().split('T')[0];
+    const hora = ahora.toTimeString().split(' ')[0];
+    
+    const auditoriaResult = await execute(
+      `INSERT INTO auditoria_logs (
+        usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+        descripcion, url, metodo_http, ip_address, user_agent,
+        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+        fecha_hora, fecha, hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        usuario_id,
+        colegio_id,
+        req.user.tipo || 'DOCENTE',
+        'CREAR',
+        'AULA_VIRTUAL',
+        'tarea',
+        null, // Temporalmente null, se actualizará después
+        `Creó tarea: "${titulo}"`,
+        req.originalUrl,
+        'POST',
+        req.ip || req.connection.remoteAddress,
+        req.get('user-agent'),
+        null,
+        JSON.stringify(datosNuevos),
+        'EXITOSO',
+        null,
+        null,
+        ahora,
+        fecha,
+        hora,
+      ]
+    );
+
     // Insertar la nueva tarea
-    const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const fechaHora = ahora.toISOString().slice(0, 19).replace('T', ' ');
     const result = await execute(
       `INSERT INTO asignaturas_tareas 
        (titulo, descripcion, fecha_hora, fecha_entrega, trabajador_id, asignatura_id, entregas, visto, archivos, ciclo, enlace)
@@ -4412,6 +4619,12 @@ router.post('/aula-virtual/tareas', uploadAulaVirtual.single('archivo'), async (
       ]
     );
 
+    // Actualizar auditoría con el ID de la tarea
+    await execute(
+      `UPDATE auditoria_logs SET entidad_id = ? WHERE id = ?`,
+      [result.insertId, auditoriaResult.insertId]
+    );
+
     // Si hay archivo, insertarlo en asignaturas_tareas_archivos (igual que en Temas)
     if (req.file && archivoPath) {
       await execute(
@@ -4426,15 +4639,8 @@ router.post('/aula-virtual/tareas', uploadAulaVirtual.single('archivo'), async (
       });
     }
 
-    await registrarAccion({
-      usuario_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'CREAR',
-      entidad: 'asignaturas_tareas',
-      entidad_id: result.insertId,
-      datos_nuevos: JSON.stringify({ titulo, descripcion, fecha_entrega, ciclo, archivo: archivoPath, enlace }),
-      colegio_id
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ 
       message: 'Tarea creada correctamente',
@@ -4499,6 +4705,28 @@ router.put('/aula-virtual/tareas/:id', uploadAulaVirtual.single('archivo'), asyn
       }
     }
 
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = { titulo, descripcion, fecha_entrega, ciclo, archivo: archivoPath, enlace };
+
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'tarea',
+      entidad_id: parseInt(id),
+      descripcion: `Editó tarea: "${tareaActual.titulo}" (ID: ${id})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(tareaActual),
+      datos_nuevos: JSON.stringify(datosNuevos),
+      resultado: 'EXITOSO'
+    });
+
     // Actualizar la tarea
     await execute(
       `UPDATE asignaturas_tareas 
@@ -4535,16 +4763,8 @@ router.put('/aula-virtual/tareas/:id', uploadAulaVirtual.single('archivo'), asyn
       });
     }
 
-    await registrarAccion({
-      usuario_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'ACTUALIZAR',
-      entidad: 'asignaturas_tareas',
-      entidad_id: id,
-      datos_anteriores: JSON.stringify(tareaActual),
-      datos_nuevos: JSON.stringify({ titulo, descripcion, fecha_entrega, ciclo, archivo: archivoPath, enlace }),
-      colegio_id
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Tarea actualizada correctamente' });
   } catch (error) {
@@ -4575,6 +4795,27 @@ router.delete('/aula-virtual/tareas/:id', async (req, res) => {
       return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
     }
 
+    const tareaActual = tarea[0];
+
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'tarea',
+      entidad_id: parseInt(id),
+      descripcion: `Eliminó tarea: "${tareaActual.titulo}" (ID: ${id})`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(tareaActual),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
+    });
+
     // Eliminar archivos asociados primero
     await execute(
       `DELETE FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
@@ -4587,15 +4828,8 @@ router.delete('/aula-virtual/tareas/:id', async (req, res) => {
       [id]
     );
 
-    await registrarAccion({
-      usuario_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'ELIMINAR',
-      entidad: 'asignaturas_tareas',
-      entidad_id: id,
-      datos_anteriores: JSON.stringify(tarea[0]),
-      colegio_id
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Tarea eliminada correctamente' });
   } catch (error) {
@@ -4783,15 +5017,30 @@ router.put('/aula-virtual/tareas/:tareaId/entregas/:matriculaId/nota', async (re
       );
     }
 
-    await registrarAccion({
+    // Obtener información de la tarea para la descripción
+    const tareaInfo = tarea[0];
+
+    // Registrar auditoría ANTES de guardar
+    registrarAccion({
       usuario_id,
+      colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
       accion: nota && nota.trim() !== '' ? 'CREAR' : 'ELIMINAR',
-      entidad: 'asignaturas_tareas_notas',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'tarea_nota',
       entidad_id: null,
+      descripcion: `${nota && nota.trim() !== '' ? 'Asignó' : 'Eliminó'} nota${nota && nota.trim() !== '' ? `: ${nota}` : ''} para tarea "${tareaInfo.titulo}" (ID: ${tareaId})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
       datos_nuevos: JSON.stringify({ tarea_id: tareaId, matricula_id: matriculaId, nota }),
-      colegio_id
+      resultado: 'EXITOSO'
     });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Nota guardada correctamente' });
   } catch (error) {
@@ -4991,15 +5240,27 @@ router.post('/aula-virtual/tareas/:tareaId/asignar-registro', async (req, res) =
     // Esto se puede hacer llamando a la misma lógica que se usa al guardar notas
     // Por ahora, solo guardamos los detalles y el sistema recalculará cuando se abra el registro
 
-    await registrarAccion({
+    // Registrar auditoría ANTES de responder (tareaInfo ya está declarado arriba)
+    registrarAccion({
       usuario_id,
+      colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
       accion: 'ACTUALIZAR',
+      modulo: 'AULA_VIRTUAL',
       entidad: 'notas_detalles',
       entidad_id: null,
+      descripcion: `Asignó notas de tarea "${tareaInfo.titulo}" (ID: ${tareaId}) al registro - Criterio: ${criterioId}, Indicador: ${indicadorId}, Cuadro: ${cuadroIndex}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
       datos_nuevos: JSON.stringify({ tarea_id: tareaId, criterio_id, indicador_id: indicadorId, cuadro: cuadroIndex }),
-      colegio_id
+      resultado: 'EXITOSO'
     });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Notas asignadas al registro correctamente' });
   } catch (error) {
@@ -5036,11 +5297,15 @@ router.get('/aula-virtual/examenes', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
     }
 
-    // Obtener exámenes de la asignatura filtrados por ciclo
+    // Obtener exámenes de la asignatura filtrados por ciclo con conteo de preguntas
     const examenes = await query(
-      `SELECT * FROM asignaturas_examenes
-       WHERE asignatura_id = ? AND ciclo = ?
-       ORDER BY fecha_desde DESC`,
+      `SELECT ae.*, 
+              COUNT(DISTINCT ep.id) as total_preguntas
+       FROM asignaturas_examenes ae
+       LEFT JOIN asignaturas_examenes_preguntas ep ON ep.examen_id = ae.id
+       WHERE ae.asignatura_id = ? AND ae.ciclo = ?
+       GROUP BY ae.id
+       ORDER BY ae.id ASC`,
       [asignatura_id, cicloFiltro]
     );
 
@@ -5048,6 +5313,549 @@ router.get('/aula-virtual/examenes', async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo exámenes:', error);
     res.status(500).json({ error: 'Error al obtener exámenes' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/examenes
+ * Crear un nuevo examen
+ */
+router.post('/aula-virtual/examenes', uploadAulaVirtual.single('archivo_pdf'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { 
+      asignatura_id, 
+      titulo, 
+      tipo, 
+      tipo_puntaje, 
+      puntos_correcta, 
+      penalizar_incorrecta, 
+      penalizacion_incorrecta, 
+      tiempo, 
+      intentos, 
+      orden_preguntas, 
+      preguntas_max, 
+      ciclo,
+      estado,
+      habilitar_fecha_hora,
+      fecha_desde,
+      fecha_hasta,
+      hora_desde,
+      hora_hasta
+    } = req.body;
+
+    if (!asignatura_id || !titulo || !tipo || !ciclo || !estado) {
+      return res.status(400).json({ error: 'asignatura_id, titulo, tipo, ciclo y estado son requeridos' });
+    }
+
+    // Si es PDF, debe tener archivo
+    if (tipo === 'PDF' && !req.file) {
+      return res.status(400).json({ error: 'Debe subir un archivo PDF para exámenes tipo PDF' });
+    }
+
+    // Si es VIRTUAL, validar campos requeridos
+    if (tipo === 'VIRTUAL') {
+      if (!tipo_puntaje || !tiempo) {
+        return res.status(400).json({ error: 'tipo_puntaje y tiempo son requeridos para exámenes virtuales' });
+      }
+      // Si es GENERAL, también requiere puntos_correcta
+      if (tipo_puntaje === 'GENERAL' && (!puntos_correcta || parseFloat(puntos_correcta) <= 0)) {
+        return res.status(400).json({ error: 'puntos_correcta es requerido cuando tipo_puntaje es GENERAL' });
+      }
+    }
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Preparar valores para fecha y hora
+    // Las columnas fecha_desde, fecha_hasta, hora_desde, hora_hasta son NOT NULL en la BD
+    // Si no se habilita fecha y hora, usar valores por defecto (fecha actual y horas por defecto)
+    let fechaDesde, fechaHasta, horaDesde, horaHasta;
+
+    if (habilitar_fecha_hora === 'SI' || habilitar_fecha_hora === true) {
+      // Si está habilitado, validar que los valores estén presentes
+      if (!fecha_desde || !fecha_hasta || !hora_desde || !hora_hasta) {
+        return res.status(400).json({ error: 'Si habilita fecha y hora, debe proporcionar fecha_desde, fecha_hasta, hora_desde y hora_hasta' });
+      }
+      fechaDesde = fecha_desde;
+      fechaHasta = fecha_hasta;
+      horaDesde = hora_desde;
+      horaHasta = hora_hasta;
+    } else {
+      // Si no está habilitado, usar valores por defecto específicos
+      fechaDesde = '0000-00-00';
+      fechaHasta = '0000-00-00';
+      horaDesde = '00:00:00';
+      horaHasta = '00:00:00';
+    }
+
+    // Preparar archivo PDF si existe
+    let archivoPdf = '';
+    if (req.file) {
+      archivoPdf = `/uploads/aula-virtual/${req.file.filename}`;
+    }
+
+    // Valores por defecto para campos opcionales
+    const tipoPuntaje = tipo === 'VIRTUAL' ? (tipo_puntaje || 'INDIVIDUAL') : 'INDIVIDUAL';
+    // Si es INDIVIDUAL, usar 0 (el puntaje se asigna en cada pregunta)
+    // Si es GENERAL, usar el valor proporcionado o 1.0 por defecto
+    const puntosCorrecta = tipo === 'VIRTUAL' 
+      ? (tipo_puntaje === 'GENERAL' ? (parseFloat(puntos_correcta) || 1.0) : 0.0)
+      : 1.0;
+    const penalizarIncorrecta = tipo === 'VIRTUAL' ? (penalizar_incorrecta || 'NO') : 'NO';
+    const penalizacionIncorrecta = tipo === 'VIRTUAL' ? (parseFloat(penalizacion_incorrecta) || 0.0) : 0.0;
+    const tiempoExamen = tipo === 'VIRTUAL' ? (parseInt(tiempo) || 60) : 0;
+    const intentosExamen = tipo === 'VIRTUAL' ? (parseInt(intentos) || 1) : 1;
+    const ordenPreguntas = tipo === 'VIRTUAL' ? (orden_preguntas || 'PREDETERMINADO') : 'PREDETERMINADO';
+    const preguntasMax = tipo === 'VIRTUAL' ? (parseInt(preguntas_max) || 1) : 1;
+
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = {
+      titulo,
+      tipo,
+      tipo_puntaje: tipoPuntaje,
+      puntos_correcta: puntosCorrecta,
+      penalizar_incorrecta: penalizarIncorrecta,
+      penalizacion_incorrecta: penalizacionIncorrecta,
+      tiempo: tiempoExamen,
+      intentos: intentosExamen,
+      estado,
+      orden_preguntas: ordenPreguntas,
+      fecha_desde: fechaDesde,
+      fecha_hasta: fechaHasta,
+      hora_desde: horaDesde,
+      hora_hasta: horaHasta,
+      ciclo: parseInt(ciclo),
+      preguntas_max: preguntasMax,
+      archivo_pdf: archivoPdf
+    };
+
+    // Registrar acción en auditoría ANTES de crear el examen
+    // Usaremos null para entidad_id temporalmente y lo actualizaremos después
+    const ahora = new Date();
+    const fecha = ahora.toISOString().split('T')[0];
+    const hora = ahora.toTimeString().split(' ')[0];
+    
+    const auditoriaResult = await execute(
+      `INSERT INTO auditoria_logs (
+        usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+        descripcion, url, metodo_http, ip_address, user_agent,
+        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+        fecha_hora, fecha, hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        usuario_id,
+        colegio_id,
+        req.user.tipo || 'DOCENTE',
+        'CREAR',
+        'AULA_VIRTUAL',
+        'examen',
+        null, // Temporalmente null, se actualizará después
+        `Creó examen: "${titulo}" (${tipo})`,
+        req.originalUrl,
+        'POST',
+        req.ip || req.connection.remoteAddress,
+        req.get('user-agent'),
+        null,
+        JSON.stringify(datosNuevos),
+        'EXITOSO',
+        null,
+        null,
+        ahora,
+        fecha,
+        hora,
+      ]
+    );
+
+    // Insertar el examen
+    const result = await execute(
+      `INSERT INTO asignaturas_examenes 
+       (trabajador_id, titulo, tipo_puntaje, puntos_correcta, penalizar_incorrecta, penalizacion_incorrecta, 
+        tiempo, intentos, estado, orden_preguntas, fecha_desde, fecha_hasta, hora_desde, hora_hasta, 
+        asignatura_id, ciclo, preguntas_max, tipo, archivo_pdf)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        personal_id,
+        titulo,
+        tipoPuntaje,
+        puntosCorrecta,
+        penalizarIncorrecta,
+        penalizacionIncorrecta,
+        tiempoExamen,
+        intentosExamen,
+        estado,
+        ordenPreguntas,
+        fechaDesde,
+        fechaHasta,
+        horaDesde,
+        horaHasta,
+        asignatura_id,
+        parseInt(ciclo),
+        preguntasMax,
+        tipo,
+        archivoPdf
+      ]
+    );
+
+    // Actualizar el registro de auditoría con el ID del examen creado
+    await execute(
+      `UPDATE auditoria_logs SET entidad_id = ? WHERE id = ?`,
+      [result.insertId, auditoriaResult.insertId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
+    
+    res.json({ 
+      success: true, 
+      message: 'Examen creado correctamente',
+      examen_id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando examen:', error);
+    res.status(500).json({ error: 'Error al crear examen' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/examenes/:examenId
+ * Actualizar un examen existente
+ */
+router.put('/aula-virtual/examenes/:examenId', uploadAulaVirtual.single('archivo_pdf'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+    const { 
+      titulo, 
+      tipo, 
+      tipo_puntaje, 
+      puntos_correcta, 
+      penalizar_incorrecta, 
+      penalizacion_incorrecta, 
+      tiempo, 
+      intentos, 
+      orden_preguntas, 
+      preguntas_max, 
+      ciclo,
+      estado,
+      habilitar_fecha_hora,
+      fecha_desde,
+      fecha_hasta,
+      hora_desde,
+      hora_hasta
+    } = req.body;
+
+    if (!titulo || !tipo || !ciclo || !estado) {
+      return res.status(400).json({ error: 'titulo, tipo, ciclo y estado son requeridos' });
+    }
+
+    // Verificar que el examen existe y pertenece a una asignatura del docente
+    const examen = await query(
+      `SELECT ae.* FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin permisos' });
+    }
+
+    // Si es PDF y se sube un nuevo archivo, validar
+    if (tipo === 'PDF' && !req.file && !examen[0].archivo_pdf) {
+      return res.status(400).json({ error: 'Debe subir un archivo PDF para exámenes tipo PDF' });
+    }
+
+    // Si es VIRTUAL, validar campos requeridos
+    if (tipo === 'VIRTUAL') {
+      if (!tipo_puntaje || !tiempo) {
+        return res.status(400).json({ error: 'tipo_puntaje y tiempo son requeridos para exámenes virtuales' });
+      }
+      // Si es GENERAL, también requiere puntos_correcta
+      if (tipo_puntaje === 'GENERAL' && (!puntos_correcta || parseFloat(puntos_correcta) <= 0)) {
+        return res.status(400).json({ error: 'puntos_correcta es requerido cuando tipo_puntaje es GENERAL' });
+      }
+    }
+
+    // Preparar valores para fecha y hora
+    let fechaDesde, fechaHasta, horaDesde, horaHasta;
+
+    if (habilitar_fecha_hora === 'SI' || habilitar_fecha_hora === true) {
+      // Si está habilitado, validar que los valores estén presentes
+      if (!fecha_desde || !fecha_hasta || !hora_desde || !hora_hasta) {
+        return res.status(400).json({ error: 'Si habilita fecha y hora, debe proporcionar fecha_desde, fecha_hasta, hora_desde y hora_hasta' });
+      }
+      fechaDesde = fecha_desde;
+      fechaHasta = fecha_hasta;
+      horaDesde = hora_desde;
+      horaHasta = hora_hasta;
+    } else {
+      // Si no está habilitado, usar valores por defecto específicos
+      fechaDesde = '0000-00-00';
+      fechaHasta = '0000-00-00';
+      horaDesde = '00:00:00';
+      horaHasta = '00:00:00';
+    }
+
+    // Preparar archivo PDF si existe
+    let archivoPdf = examen[0].archivo_pdf; // Mantener el archivo existente por defecto
+    if (req.file) {
+      archivoPdf = `/uploads/aula-virtual/${req.file.filename}`;
+      // TODO: Eliminar archivo anterior si existe
+    }
+
+    // Valores por defecto para campos opcionales
+    const tipoPuntaje = tipo === 'VIRTUAL' ? (tipo_puntaje || 'INDIVIDUAL') : 'INDIVIDUAL';
+    const puntosCorrecta = tipo === 'VIRTUAL' 
+      ? (tipo_puntaje === 'GENERAL' ? (parseFloat(puntos_correcta) || 1.0) : 0.0)
+      : 1.0;
+    const penalizarIncorrecta = tipo === 'VIRTUAL' ? (penalizar_incorrecta || 'NO') : 'NO';
+    const penalizacionIncorrecta = tipo === 'VIRTUAL' ? (parseFloat(penalizacion_incorrecta) || 0.0) : 0.0;
+    const tiempoExamen = tipo === 'VIRTUAL' ? (parseInt(tiempo) || 60) : 0;
+    const intentosExamen = tipo === 'VIRTUAL' ? (parseInt(intentos) || 1) : 1;
+    const ordenPreguntas = tipo === 'VIRTUAL' ? (orden_preguntas || 'PREDETERMINADO') : 'PREDETERMINADO';
+    const preguntasMax = tipo === 'VIRTUAL' ? (parseInt(preguntas_max) || 1) : 1;
+
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = {
+      titulo,
+      tipo,
+      tipo_puntaje: tipoPuntaje,
+      puntos_correcta: puntosCorrecta,
+      penalizar_incorrecta: penalizarIncorrecta,
+      penalizacion_incorrecta: penalizacionIncorrecta,
+      tiempo: tiempoExamen,
+      intentos: intentosExamen,
+      estado,
+      orden_preguntas: ordenPreguntas,
+      fecha_desde: fechaDesde,
+      fecha_hasta: fechaHasta,
+      hora_desde: horaDesde,
+      hora_hasta: horaHasta,
+      ciclo: parseInt(ciclo),
+      preguntas_max: preguntasMax,
+      archivo_pdf: archivoPdf
+    };
+
+    // Registrar acción en auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'examen',
+      entidad_id: parseInt(examenId),
+      descripcion: `Editó examen: "${examen[0].titulo}" (ID: ${examenId})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(examen[0]),
+      datos_nuevos: JSON.stringify(datosNuevos),
+      resultado: 'EXITOSO'
+    });
+
+    // Actualizar el examen
+    await execute(
+      `UPDATE asignaturas_examenes 
+       SET titulo = ?, tipo_puntaje = ?, puntos_correcta = ?, penalizar_incorrecta = ?, 
+           penalizacion_incorrecta = ?, tiempo = ?, intentos = ?, estado = ?, 
+           orden_preguntas = ?, fecha_desde = ?, fecha_hasta = ?, hora_desde = ?, 
+           hora_hasta = ?, ciclo = ?, preguntas_max = ?, tipo = ?, archivo_pdf = ?
+       WHERE id = ?`,
+      [
+        titulo,
+        tipoPuntaje,
+        puntosCorrecta,
+        penalizarIncorrecta,
+        penalizacionIncorrecta,
+        tiempoExamen,
+        intentosExamen,
+        estado,
+        ordenPreguntas,
+        fechaDesde,
+        fechaHasta,
+        horaDesde,
+        horaHasta,
+        parseInt(ciclo),
+        preguntasMax,
+        tipo,
+        archivoPdf,
+        examenId
+      ]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
+    
+    res.json({ 
+      success: true, 
+      message: 'Examen actualizado correctamente'
+    });
+  } catch (error) {
+    console.error('Error actualizando examen:', error);
+    res.status(500).json({ error: 'Error al actualizar examen' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/examenes/:examenId/estado
+ * Cambiar estado de un examen (ACTIVO/INACTIVO)
+ */
+router.put('/aula-virtual/examenes/:examenId/estado', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+    const { estado } = req.body; // 'ACTIVO' o 'INACTIVO'
+
+    if (!estado || !['ACTIVO', 'INACTIVO'].includes(estado)) {
+      return res.status(400).json({ error: 'Estado inválido. Debe ser ACTIVO o INACTIVO' });
+    }
+
+    // Verificar que el examen existe y pertenece a una asignatura del docente
+    const examen = await query(
+      `SELECT ae.* FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin permisos' });
+    }
+
+    const examenActual = examen[0];
+
+    // Registrar acción en auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'examen',
+      entidad_id: parseInt(examenId),
+      descripcion: `${estado === 'ACTIVO' ? 'Habilitó' : 'Deshabilitó'} examen: "${examenActual.titulo}" (ID: ${examenId})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify({ estado: examenActual.estado, titulo: examenActual.titulo }),
+      datos_nuevos: JSON.stringify({ estado, titulo: examenActual.titulo }),
+      resultado: 'EXITOSO'
+    });
+
+    // Actualizar estado
+    await execute(
+      `UPDATE asignaturas_examenes SET estado = ? WHERE id = ?`,
+      [estado, examenId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
+    
+    res.json({ 
+      success: true, 
+      message: `Examen ${estado === 'ACTIVO' ? 'habilitado' : 'deshabilitado'} correctamente`,
+      estado
+    });
+  } catch (error) {
+    console.error('Error cambiando estado del examen:', error);
+    res.status(500).json({ error: 'Error al cambiar estado del examen' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/examenes/:examenId
+ * Eliminar un examen (con cascada: alternativas -> preguntas -> examen)
+ */
+router.delete('/aula-virtual/examenes/:examenId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el examen existe y pertenece a una asignatura del docente
+    const examen = await query(
+      `SELECT ae.* FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin permisos' });
+    }
+
+    const examenActual = examen[0];
+
+    // Obtener todas las preguntas del examen para la auditoría
+    const preguntas = await query(
+      `SELECT id FROM asignaturas_examenes_preguntas WHERE examen_id = ?`,
+      [examenId]
+    );
+
+    // Registrar acción en auditoría ANTES de eliminar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'examen',
+      entidad_id: parseInt(examenId),
+      descripcion: `Eliminó examen: "${examenActual.titulo}" (ID: ${examenId}) con ${preguntas.length} pregunta(s) y sus alternativas`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(examenActual),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
+    });
+
+    // Eliminar alternativas de cada pregunta (cascada)
+    for (const pregunta of preguntas) {
+      await execute(
+        `DELETE FROM asignaturas_examenes_preguntas_alternativas WHERE pregunta_id = ?`,
+        [pregunta.id]
+      );
+    }
+
+    // Eliminar preguntas del examen
+    await execute(
+      `DELETE FROM asignaturas_examenes_preguntas WHERE examen_id = ?`,
+      [examenId]
+    );
+
+    // Eliminar el examen
+    await execute(
+      `DELETE FROM asignaturas_examenes WHERE id = ?`,
+      [examenId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
+    
+    res.json({ 
+      success: true, 
+      message: 'Examen eliminado correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando examen:', error);
+    res.status(500).json({ error: 'Error al eliminar examen' });
   }
 });
 
@@ -5083,7 +5891,7 @@ router.get('/aula-virtual/archivos', async (req, res) => {
     const archivos = await query(
       `SELECT * FROM asignaturas_archivos
        WHERE asignatura_id = ? AND ciclo = ?
-       ORDER BY orden ASC, fecha_hora DESC`,
+       ORDER BY id ASC`,
       [asignatura_id, cicloFiltro]
     );
 
@@ -5229,15 +6037,27 @@ router.put('/aula-virtual/archivos/ordenar', async (req, res) => {
       throw error;
     }
 
-    await registrarAccion({
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
       usuario_id,
+      colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',
       accion: 'ACTUALIZAR',
-      entidad: 'asignaturas_archivos',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'archivo',
       entidad_id: null,
+      descripcion: `Reordenó ${ordenes.length} tema(s) en ciclo ${cicloNum}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
       datos_nuevos: JSON.stringify({ accion: 'REORDENAR', ordenes }),
-      colegio_id
+      resultado: 'EXITOSO'
     });
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Orden actualizado correctamente' });
   } catch (error) {
@@ -5296,6 +6116,45 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
       });
     }
 
+    // Preparar datos para auditoría
+    const datosNuevos = { nombre, ciclo: ciclo || 1, archivo: archivoPath, enlace };
+
+    // Registrar auditoría ANTES de crear
+    const ahora = new Date();
+    const fecha = ahora.toISOString().split('T')[0];
+    const hora = ahora.toTimeString().split(' ')[0];
+    
+    const auditoriaResult = await execute(
+      `INSERT INTO auditoria_logs (
+        usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+        descripcion, url, metodo_http, ip_address, user_agent,
+        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+        fecha_hora, fecha, hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        usuario_id,
+        colegio_id,
+        req.user.tipo || 'DOCENTE',
+        'CREAR',
+        'AULA_VIRTUAL',
+        'archivo',
+        null, // Temporalmente null, se actualizará después
+        `Creó tema: "${nombre}"`,
+        req.originalUrl,
+        'POST',
+        req.ip || req.connection.remoteAddress,
+        req.get('user-agent'),
+        null,
+        JSON.stringify(datosNuevos),
+        'EXITOSO',
+        null,
+        null,
+        ahora,
+        fecha,
+        hora,
+      ]
+    );
+
     // Insertar el nuevo tema
     const result = await execute(
       `INSERT INTO asignaturas_archivos 
@@ -5312,15 +6171,14 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
       ]
     );
 
-    await registrarAccion({
-      usuario_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'CREAR',
-      entidad: 'asignaturas_archivos',
-      entidad_id: result.insertId,
-      datos_nuevos: JSON.stringify({ nombre, ciclo, archivo: archivoPath, enlace }),
-      colegio_id
-    });
+    // Actualizar auditoría con el ID del tema
+    await execute(
+      `UPDATE auditoria_logs SET entidad_id = ? WHERE id = ?`,
+      [result.insertId, auditoriaResult.insertId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ 
       message: 'Tema creado correctamente',
@@ -5372,6 +6230,28 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
       return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
     }
 
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = { nombre, ciclo: ciclo || temaActual.ciclo, archivo: archivoPath, enlace };
+
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'archivo',
+      entidad_id: parseInt(id),
+      descripcion: `Editó tema: "${temaActual.nombre}" (ID: ${id})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(temaActual),
+      datos_nuevos: JSON.stringify(datosNuevos),
+      resultado: 'EXITOSO'
+    });
+
     // Actualizar el tema
     await execute(
       `UPDATE asignaturas_archivos 
@@ -5386,16 +6266,8 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
       ]
     );
 
-    await registrarAccion({
-      usuario_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'ACTUALIZAR',
-      entidad: 'asignaturas_archivos',
-      entidad_id: id,
-      datos_anteriores: JSON.stringify(temaActual),
-      datos_nuevos: JSON.stringify({ nombre, ciclo, archivo: archivoPath, enlace }),
-      colegio_id
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Tema actualizado correctamente' });
   } catch (error) {
@@ -5426,21 +6298,35 @@ router.delete('/aula-virtual/archivos/:id', async (req, res) => {
       return res.status(404).json({ error: 'Tema no encontrado o sin permisos' });
     }
 
+    const temaActual = tema[0];
+
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'archivo',
+      entidad_id: parseInt(id),
+      descripcion: `Eliminó tema: "${temaActual.nombre}" (ID: ${id})`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(temaActual),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
+    });
+
     // Eliminar el tema
     await execute(
       `DELETE FROM asignaturas_archivos WHERE id = ?`,
       [id]
     );
 
-    await registrarAccion({
-      usuario_id,
-      tipo_usuario: req.user.tipo || 'DOCENTE',
-      accion: 'ELIMINAR',
-      entidad: 'asignaturas_archivos',
-      entidad_id: id,
-      datos_anteriores: JSON.stringify(tema[0]),
-      colegio_id
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ message: 'Tema eliminado correctamente' });
   } catch (error) {
@@ -5481,7 +6367,7 @@ router.get('/aula-virtual/videos', async (req, res) => {
     const videos = await query(
       `SELECT * FROM asignaturas_videos
        WHERE asignatura_id = ? AND ciclo = ?
-       ORDER BY fecha_hora DESC`,
+       ORDER BY id ASC`,
       [asignatura_id, cicloFiltro]
     );
 
@@ -5524,7 +6410,7 @@ router.get('/aula-virtual/enlaces', async (req, res) => {
     const enlaces = await query(
       `SELECT * FROM asignaturas_enlaces
        WHERE asignatura_id = ? AND ciclo = ?
-       ORDER BY fecha_hora DESC`,
+       ORDER BY id ASC`,
       [asignatura_id, cicloFiltro]
     );
 
@@ -5599,6 +6485,45 @@ router.post('/aula-virtual/videos', async (req, res) => {
       });
     }
 
+    // Preparar datos para auditoría
+    const datosNuevos = { asignatura_id, descripcion, enlace, ciclo };
+
+    // Registrar auditoría ANTES de crear
+    const ahora = new Date();
+    const fecha = ahora.toISOString().split('T')[0];
+    const hora = ahora.toTimeString().split(' ')[0];
+    
+    const auditoriaResult = await execute(
+      `INSERT INTO auditoria_logs (
+        usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+        descripcion, url, metodo_http, ip_address, user_agent,
+        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+        fecha_hora, fecha, hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        usuario_id,
+        colegio_id,
+        'DOCENTE',
+        'CREAR',
+        'AULA_VIRTUAL',
+        'video',
+        null, // Temporalmente null, se actualizará después
+        `Creó video: "${descripcion}"`,
+        req.originalUrl,
+        'POST',
+        req.ip || req.connection.remoteAddress,
+        req.get('user-agent'),
+        null,
+        JSON.stringify(datosNuevos),
+        'EXITOSO',
+        null,
+        null,
+        ahora,
+        fecha,
+        hora,
+      ]
+    );
+
     // Insertar video
     const result = await execute(
       `INSERT INTO asignaturas_videos (asignatura_id, descripcion, enlace, trabajador_id, fecha_hora, ciclo)
@@ -5606,23 +6531,14 @@ router.post('/aula-virtual/videos', async (req, res) => {
       [asignatura_id, descripcion, enlace, personal_id, ciclo]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
-      usuario_id,
-      colegio_id,
-      tipo_usuario: 'DOCENTE',
-      accion: 'CREAR',
-      modulo: 'AULA_VIRTUAL',
-      entidad: 'video',
-      entidad_id: result.insertId,
-      descripcion: `Video creado: ${descripcion}`,
-      url: req.originalUrl,
-      metodo_http: 'POST',
-      ip_address: req.ip || req.connection.remoteAddress,
-      user_agent: req.get('user-agent'),
-      datos_nuevos: { asignatura_id, descripcion, enlace, ciclo },
-      resultado: 'EXITOSO'
-    });
+    // Actualizar auditoría con el ID del video
+    await execute(
+      `UPDATE auditoria_logs SET entidad_id = ? WHERE id = ?`,
+      [result.insertId, auditoriaResult.insertId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ 
       success: true, 
@@ -5670,6 +6586,28 @@ router.put('/aula-virtual/videos/:videoId', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este video' });
     }
 
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = { descripcion, enlace, ciclo };
+
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'video',
+      entidad_id: parseInt(videoId),
+      descripcion: `Editó video: "${videoActual[0].descripcion}" (ID: ${videoId})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(videoActual[0]),
+      datos_nuevos: JSON.stringify(datosNuevos),
+      resultado: 'EXITOSO'
+    });
+
     // Actualizar video
     await execute(
       `UPDATE asignaturas_videos 
@@ -5678,24 +6616,8 @@ router.put('/aula-virtual/videos/:videoId', async (req, res) => {
       [descripcion, enlace, ciclo, videoId]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
-      usuario_id,
-      colegio_id,
-      tipo_usuario: 'DOCENTE',
-      accion: 'EDITAR',
-      modulo: 'AULA_VIRTUAL',
-      entidad: 'video',
-      entidad_id: parseInt(videoId),
-      descripcion: `Video actualizado: ${descripcion}`,
-      url: req.originalUrl,
-      metodo_http: 'PUT',
-      ip_address: req.ip || req.connection.remoteAddress,
-      user_agent: req.get('user-agent'),
-      datos_anteriores: videoActual[0],
-      datos_nuevos: { descripcion, enlace, ciclo },
-      resultado: 'EXITOSO'
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ success: true, message: 'Video actualizado correctamente' });
   } catch (error) {
@@ -5734,14 +6656,8 @@ router.delete('/aula-virtual/videos/:videoId', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este video' });
     }
 
-    // Eliminar video
-    await execute(
-      `DELETE FROM asignaturas_videos WHERE id = ?`,
-      [videoId]
-    );
-
-    // Registrar en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: 'DOCENTE',
@@ -5749,14 +6665,24 @@ router.delete('/aula-virtual/videos/:videoId', async (req, res) => {
       modulo: 'AULA_VIRTUAL',
       entidad: 'video',
       entidad_id: parseInt(videoId),
-      descripcion: `Video eliminado: ${videoActual[0].descripcion}`,
+      descripcion: `Eliminó video: "${videoActual[0].descripcion}" (ID: ${videoId})`,
       url: req.originalUrl,
       metodo_http: 'DELETE',
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
-      datos_anteriores: videoActual[0],
+      datos_anteriores: JSON.stringify(videoActual[0]),
+      datos_nuevos: JSON.stringify({}),
       resultado: 'EXITOSO'
     });
+
+    // Eliminar video
+    await execute(
+      `DELETE FROM asignaturas_videos WHERE id = ?`,
+      [videoId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ success: true, message: 'Video eliminado correctamente' });
   } catch (error) {
@@ -5829,6 +6755,45 @@ router.post('/aula-virtual/enlaces', async (req, res) => {
       });
     }
 
+    // Preparar datos para auditoría
+    const datosNuevos = { asignatura_id, descripcion, enlace, ciclo };
+
+    // Registrar auditoría ANTES de crear
+    const ahora = new Date();
+    const fecha = ahora.toISOString().split('T')[0];
+    const hora = ahora.toTimeString().split(' ')[0];
+    
+    const auditoriaResult = await execute(
+      `INSERT INTO auditoria_logs (
+        usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+        descripcion, url, metodo_http, ip_address, user_agent,
+        datos_anteriores, datos_nuevos, resultado, mensaje_error, duracion_ms,
+        fecha_hora, fecha, hora
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        usuario_id,
+        colegio_id,
+        'DOCENTE',
+        'CREAR',
+        'AULA_VIRTUAL',
+        'enlace',
+        null, // Temporalmente null, se actualizará después
+        `Creó enlace: "${descripcion}"`,
+        req.originalUrl,
+        'POST',
+        req.ip || req.connection.remoteAddress,
+        req.get('user-agent'),
+        null,
+        JSON.stringify(datosNuevos),
+        'EXITOSO',
+        null,
+        null,
+        ahora,
+        fecha,
+        hora,
+      ]
+    );
+
     // Insertar enlace
     const result = await execute(
       `INSERT INTO asignaturas_enlaces (asignatura_id, descripcion, enlace, trabajador_id, fecha_hora, ciclo)
@@ -5836,23 +6801,14 @@ router.post('/aula-virtual/enlaces', async (req, res) => {
       [asignatura_id, descripcion, enlace, personal_id, ciclo]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
-      usuario_id,
-      colegio_id,
-      tipo_usuario: 'DOCENTE',
-      accion: 'CREAR',
-      modulo: 'AULA_VIRTUAL',
-      entidad: 'enlace',
-      entidad_id: result.insertId,
-      descripcion: `Enlace creado: ${descripcion}`,
-      url: req.originalUrl,
-      metodo_http: 'POST',
-      ip_address: req.ip || req.connection.remoteAddress,
-      user_agent: req.get('user-agent'),
-      datos_nuevos: { asignatura_id, descripcion, enlace, ciclo },
-      resultado: 'EXITOSO'
-    });
+    // Actualizar auditoría con el ID del enlace
+    await execute(
+      `UPDATE auditoria_logs SET entidad_id = ? WHERE id = ?`,
+      [result.insertId, auditoriaResult.insertId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ 
       success: true, 
@@ -5900,6 +6856,28 @@ router.put('/aula-virtual/enlaces/:enlaceId', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este enlace' });
     }
 
+    // Preparar datos nuevos para auditoría
+    const datosNuevos = { descripcion, enlace, ciclo };
+
+    // Registrar auditoría ANTES de actualizar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'enlace',
+      entidad_id: parseInt(enlaceId),
+      descripcion: `Editó enlace: "${enlaceActual[0].descripcion}" (ID: ${enlaceId})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(enlaceActual[0]),
+      datos_nuevos: JSON.stringify(datosNuevos),
+      resultado: 'EXITOSO'
+    });
+
     // Actualizar enlace
     await execute(
       `UPDATE asignaturas_enlaces 
@@ -5908,24 +6886,8 @@ router.put('/aula-virtual/enlaces/:enlaceId', async (req, res) => {
       [descripcion, enlace, ciclo, enlaceId]
     );
 
-    // Registrar en auditoría
-    await registrarAccion({
-      usuario_id,
-      colegio_id,
-      tipo_usuario: 'DOCENTE',
-      accion: 'EDITAR',
-      modulo: 'AULA_VIRTUAL',
-      entidad: 'enlace',
-      entidad_id: parseInt(enlaceId),
-      descripcion: `Enlace actualizado: ${descripcion}`,
-      url: req.originalUrl,
-      metodo_http: 'PUT',
-      ip_address: req.ip || req.connection.remoteAddress,
-      user_agent: req.get('user-agent'),
-      datos_anteriores: enlaceActual[0],
-      datos_nuevos: { descripcion, enlace, ciclo },
-      resultado: 'EXITOSO'
-    });
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ success: true, message: 'Enlace actualizado correctamente' });
   } catch (error) {
@@ -5964,14 +6926,8 @@ router.delete('/aula-virtual/enlaces/:enlaceId', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este enlace' });
     }
 
-    // Eliminar enlace
-    await execute(
-      `DELETE FROM asignaturas_enlaces WHERE id = ?`,
-      [enlaceId]
-    );
-
-    // Registrar en auditoría
-    await registrarAccion({
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: 'DOCENTE',
@@ -5979,14 +6935,24 @@ router.delete('/aula-virtual/enlaces/:enlaceId', async (req, res) => {
       modulo: 'AULA_VIRTUAL',
       entidad: 'enlace',
       entidad_id: parseInt(enlaceId),
-      descripcion: `Enlace eliminado: ${enlaceActual[0].descripcion}`,
+      descripcion: `Eliminó enlace: "${enlaceActual[0].descripcion}" (ID: ${enlaceId})`,
       url: req.originalUrl,
       metodo_http: 'DELETE',
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
-      datos_anteriores: enlaceActual[0],
+      datos_anteriores: JSON.stringify(enlaceActual[0]),
+      datos_nuevos: JSON.stringify({}),
       resultado: 'EXITOSO'
     });
+
+    // Eliminar enlace
+    await execute(
+      `DELETE FROM asignaturas_enlaces WHERE id = ?`,
+      [enlaceId]
+    );
+
+    // Marcar para que el middleware no registre automáticamente
+    req.skipAudit = true;
 
     res.json({ success: true, message: 'Enlace eliminado correctamente' });
   } catch (error) {
@@ -6112,7 +7078,7 @@ router.post('/actividades/importar-calendario', async (req, res) => {
     }
 
     // Registrar acción en auditoría
-    await registrarAccion({
+    registrarAccion({
       usuario_id,
       colegio_id,
       tipo_usuario: req.user.tipo || 'DOCENTE',

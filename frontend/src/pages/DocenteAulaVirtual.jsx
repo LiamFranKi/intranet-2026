@@ -197,21 +197,26 @@ function DocenteAulaVirtual() {
   // Formulario de examen
   const [formExamen, setFormExamen] = useState({
     titulo: '',
-    tipo_puntaje: 'INDIVIDUAL',
+    tipo: 'VIRTUAL',
+    tipo_puntaje: 'GENERAL',
     puntos_correcta: 1.0,
     penalizar_incorrecta: 'NO',
     penalizacion_incorrecta: 0.0,
     tiempo: 60,
     intentos: 1,
     orden_preguntas: 'PREDETERMINADO',
+    preguntas_max: 1,
+    ciclo: 1,
+    estado: 'INACTIVO',
+    habilitar_fecha_hora: false,
     fecha_desde: '',
     fecha_hasta: '',
     hora_desde: '08:00',
     hora_hasta: '20:00',
-    preguntas_max: 10,
-    tipo: 'VIRTUAL',
-    preguntas: []
+    archivo_pdf: null
   });
+  const [examenEditando, setExamenEditando] = useState(null);
+  const [guardandoExamen, setGuardandoExamen] = useState(false);
 
   const cargarDatosCurso = useCallback(async () => {
     try {
@@ -1643,38 +1648,6 @@ function DocenteAulaVirtual() {
 
   const renderExamenesContent = () => (
     <div className="card-content-expanded">
-      {mostrarFormExamen && (
-        <ExamenForm
-          asignaturaId={asignaturaId}
-          formExamen={formExamen}
-          setFormExamen={setFormExamen}
-          onClose={() => {
-            setMostrarFormExamen(false);
-            setFormExamen({
-              titulo: '',
-              tipo_puntaje: 'INDIVIDUAL',
-              puntos_correcta: 1.0,
-              penalizar_incorrecta: 'NO',
-              penalizacion_incorrecta: 0.0,
-              tiempo: 60,
-              intentos: 1,
-              orden_preguntas: 'PREDETERMINADO',
-              fecha_desde: '',
-              fecha_hasta: '',
-              hora_desde: '08:00',
-              hora_hasta: '20:00',
-              preguntas_max: 10,
-              tipo: 'VIRTUAL',
-              preguntas: []
-            });
-          }}
-          onSuccess={() => {
-            setMostrarFormExamen(false);
-            cargarExamenes();
-          }}
-        />
-      )}
-
       {examenes.length > 0 ? (
         <table>
           <thead>
@@ -1691,7 +1664,7 @@ function DocenteAulaVirtual() {
               <tr key={examen.id}>
                 <td>{examen.titulo}</td>
                 <td className="text-center">{examen.tiempo === 0 || !examen.tiempo ? 'ILIMITADO' : examen.tiempo}</td>
-                <td className="text-center">{examen.preguntas?.length || 0}</td>
+                <td className="text-center">{examen.total_preguntas || 0}</td>
                 <td className="text-center">
                   <span className={`estado-badge ${examen.estado?.toLowerCase() || 'inactivo'}`}>
                     {examen.estado || 'INACTIVO'}
@@ -1726,11 +1699,17 @@ function DocenteAulaVirtual() {
                           <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
                             📊 Ver Resultados
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Habilitar/Deshabilitar */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar al Registro */ }}>
+                            📋 Asignar al Registro
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleHabilitarDeshabilitarExamen(examen); }}>
                             🔒 Habilitar / Deshabilitar
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar examen */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleEditarExamen(examen); }}>
                             ✏️ Editar Examen
+                          </a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleEliminarExamen(examen); }}>
+                            🗑️ Eliminar Examen
                           </a>
                         </div>
                       </div>,
@@ -1868,6 +1847,131 @@ function DocenteAulaVirtual() {
           icon: 'error',
           title: 'Error',
           text: error.response?.data?.error || 'No se pudo eliminar el video',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  // Funciones para manejar exámenes
+  const handleEditarExamen = (examen) => {
+    // Determinar si tiene fecha y hora habilitada (si tiene valores distintos a los por defecto)
+    const fechaActual = new Date().toISOString().split('T')[0];
+    const tieneFechaHora = examen.fecha_desde && examen.fecha_desde !== fechaActual && 
+                           examen.fecha_hasta && examen.fecha_hasta !== fechaActual &&
+                           examen.hora_desde && examen.hora_desde !== '00:00:00' &&
+                           examen.hora_hasta && examen.hora_hasta !== '23:59:59';
+
+    setExamenEditando(examen);
+    setFormExamen({
+      titulo: examen.titulo || '',
+      tipo: examen.tipo || 'VIRTUAL',
+      tipo_puntaje: examen.tipo_puntaje || 'GENERAL',
+      puntos_correcta: examen.puntos_correcta || 1.0,
+      penalizar_incorrecta: examen.penalizar_incorrecta || 'NO',
+      penalizacion_incorrecta: examen.penalizacion_incorrecta || 0.0,
+      tiempo: examen.tiempo || 60,
+      intentos: examen.intentos || 1,
+      orden_preguntas: examen.orden_preguntas || 'PREDETERMINADO',
+      preguntas_max: examen.preguntas_max || 1,
+      ciclo: examen.ciclo || bimestreGlobal,
+      estado: examen.estado || 'INACTIVO',
+      habilitar_fecha_hora: tieneFechaHora,
+      fecha_desde: examen.fecha_desde || '',
+      fecha_hasta: examen.fecha_hasta || '',
+      hora_desde: examen.hora_desde ? examen.hora_desde.substring(0, 5) : '08:00', // Convertir HH:MM:SS a HH:MM
+      hora_hasta: examen.hora_hasta ? examen.hora_hasta.substring(0, 5) : '20:00',
+      archivo_pdf: null // No cargamos el archivo existente, solo permitimos reemplazarlo
+    });
+    setMostrarFormExamen(true);
+    setOpenDropdown(null);
+  };
+
+  const handleEliminarExamen = async (examen) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el examen "${examen.titulo}"? Esta acción también eliminará todas las preguntas y alternativas asociadas.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/examenes/${examen.id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Examen eliminado!',
+          text: 'El examen y todos sus datos asociados se han eliminado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setOpenDropdown(null);
+        await cargarExamenes();
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar el examen',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  const handleHabilitarDeshabilitarExamen = async (examen) => {
+    const nuevoEstado = examen.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    const accion = nuevoEstado === 'ACTIVO' ? 'habilitar' : 'deshabilitar';
+    
+    const result = await Swal.fire({
+      title: `¿${accion.charAt(0).toUpperCase() + accion.slice(1)} examen?`,
+      text: `¿Deseas ${accion} el examen "${examen.titulo}"?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: nuevoEstado === 'ACTIVO' ? '#10b981' : '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: `Sí, ${accion}`,
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.put(`/docente/aula-virtual/examenes/${examen.id}/estado`, {
+          estado: nuevoEstado
+        });
+        
+        Swal.fire({
+          icon: 'success',
+          title: `¡Examen ${nuevoEstado === 'ACTIVO' ? 'habilitado' : 'deshabilitado'}!`,
+          text: response.data.message || `El examen se ha ${accion}do correctamente`,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setOpenDropdown(null);
+        await cargarExamenes(); // Recargar para actualizar la grilla
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || `No se pudo ${accion} el examen`,
           toast: true,
           position: 'top-end',
           showConfirmButton: false,
@@ -2481,7 +2585,31 @@ function DocenteAulaVirtual() {
               </div>
               <button 
                 className="card-action-btn"
-                onClick={(e) => { e.stopPropagation(); setMostrarFormExamen(true); }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setFormExamen({
+                    titulo: '',
+                    tipo: 'VIRTUAL',
+                    tipo_puntaje: 'GENERAL',
+                    puntos_correcta: 1.0,
+                    penalizar_incorrecta: 'NO',
+                    penalizacion_incorrecta: 0.0,
+                    tiempo: 60,
+                    intentos: 1,
+                    orden_preguntas: 'PREDETERMINADO',
+                    preguntas_max: 1,
+                    ciclo: bimestreGlobal,
+                    estado: 'INACTIVO',
+                    habilitar_fecha_hora: false,
+                    fecha_desde: '',
+                    fecha_hasta: '',
+                    hora_desde: '08:00',
+                    hora_hasta: '20:00',
+                    archivo_pdf: null
+                  });
+                  setExamenEditando(null);
+                  setMostrarFormExamen(true); 
+                }}
               >
                 + Nuevo
               </button>
@@ -3071,75 +3199,70 @@ function DocenteAulaVirtual() {
         document.body
       )}
 
+      {/* Modal de Examen - Fuera del renderExamenesContent para que funcione siempre */}
+      {mostrarFormExamen && createPortal(
+        <ExamenForm
+          asignaturaId={asignaturaId}
+          formExamen={formExamen}
+          setFormExamen={setFormExamen}
+          totalNotas={totalNotas}
+          guardandoExamen={guardandoExamen}
+          setGuardandoExamen={setGuardandoExamen}
+          examenEditando={examenEditando}
+          onClose={() => {
+            setMostrarFormExamen(false);
+            setExamenEditando(null);
+            setFormExamen({
+              titulo: '',
+              tipo: 'VIRTUAL',
+              tipo_puntaje: 'GENERAL',
+              puntos_correcta: 1.0,
+              penalizar_incorrecta: 'NO',
+              penalizacion_incorrecta: 0.0,
+              tiempo: 60,
+              intentos: 1,
+              orden_preguntas: 'PREDETERMINADO',
+              preguntas_max: 1,
+              ciclo: bimestreGlobal,
+              estado: 'INACTIVO',
+              habilitar_fecha_hora: false,
+              fecha_desde: '',
+              fecha_hasta: '',
+              hora_desde: '08:00',
+              hora_hasta: '20:00',
+              archivo_pdf: null
+            });
+          }}
+          onSuccess={() => {
+            const cicloCreado = formExamen.ciclo || cicloExamenes || bimestreGlobal;
+            setMostrarFormExamen(false);
+            setExamenEditando(null);
+            // Sincronizar cicloExamenes con el ciclo del examen creado
+            if (cicloCreado !== cicloExamenes) {
+              setCicloExamenes(cicloCreado);
+            }
+            // Recargar usando el ciclo del examen que se acaba de crear
+            cargarExamenes(cicloCreado);
+          }}
+        />,
+        document.body
+      )}
+
       </div>
     </DashboardLayout>
   );
 }
 
-// Componente para el formulario de examen (con tipos extendidos)
-function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSuccess }) {
-  const [preguntaActual, setPreguntaActual] = useState({
-    descripcion: '',
-    tipo_pregunta: 'ALTERNATIVAS',
-    puntos: 1.0,
-    alternativas: [],
-    respuesta_correcta: '',
-    metadata: {}
-  });
-
-  const tiposPregunta = [
-    { value: 'ALTERNATIVAS', label: 'Opción Múltiple' },
-    { value: 'COMPLETAR', label: 'Completar Espacios' },
-    { value: 'VERDADERO_FALSO', label: 'Verdadero/Falso' },
-    { value: 'RELACIONAR', label: 'Relacionar' },
-    { value: 'ORGANIZAR', label: 'Organizar/Ordenar' }
-  ];
-
-  const handleAgregarAlternativa = () => {
-    setPreguntaActual({
-      ...preguntaActual,
-      alternativas: [...preguntaActual.alternativas, { descripcion: '', correcta: false }]
-    });
-  };
-
-  const handleAgregarPregunta = () => {
-    if (!preguntaActual.descripcion.trim()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Advertencia',
-        text: 'La pregunta debe tener una descripción',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000
-      });
-      return;
-    }
-
-    setFormExamen({
-      ...formExamen,
-      preguntas: [...formExamen.preguntas, { ...preguntaActual }]
-    });
-
-    // Reset pregunta actual
-    setPreguntaActual({
-      descripcion: '',
-      tipo_pregunta: 'ALTERNATIVAS',
-      puntos: 1.0,
-      alternativas: [],
-      respuesta_correcta: '',
-      metadata: {}
-    });
-  };
-
+// Componente para el formulario de examen
+function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSuccess, totalNotas, guardandoExamen, setGuardandoExamen, examenEditando }) {
   const handleCrearExamen = async (e) => {
     e.preventDefault();
     
-    if (formExamen.preguntas.length === 0) {
+    if (!formExamen.titulo || !formExamen.tipo || !formExamen.ciclo || !formExamen.estado) {
       Swal.fire({
-        icon: 'warning',
-        title: 'Advertencia',
-        text: 'Debes agregar al menos una pregunta',
+        icon: 'error',
+        title: 'Error',
+        text: 'Título, Tipo, Bimestre y Estado son requeridos',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
@@ -3148,389 +3271,430 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
       return;
     }
 
-    try {
-      const examenData = {
-        ...formExamen,
-        asignatura_id: asignaturaId
-      };
-
-      await api.post('/docente/aula-virtual/examenes', examenData);
-
+    // Si es PDF, debe tener archivo (solo en creación, en edición puede mantener el existente)
+    if (formExamen.tipo === 'PDF' && !examenEditando && !formExamen.archivo_pdf) {
       Swal.fire({
-        icon: 'success',
-        title: '¡Examen creado!',
-        text: 'El examen se ha creado correctamente',
+        icon: 'error',
+        title: 'Error',
+        text: 'Debe subir un archivo PDF para exámenes tipo PDF',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true
+        timer: 3000
       });
+      return;
+    }
+
+    // Si es VIRTUAL, validar campos requeridos
+    if (formExamen.tipo === 'VIRTUAL') {
+      if (!formExamen.tipo_puntaje || !formExamen.tiempo) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Tipo de Puntaje y Tiempo son requeridos para exámenes virtuales',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+      // Si es GENERAL, también requiere puntos_correcta
+      if (formExamen.tipo_puntaje === 'GENERAL' && !formExamen.puntos_correcta) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Puntos por respuesta correcta es requerido cuando la calificación es GENERAL',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+    }
+
+    setGuardandoExamen(true);
+    try {
+      const formData = new FormData();
+      formData.append('asignatura_id', asignaturaId);
+      formData.append('titulo', formExamen.titulo);
+      formData.append('tipo', formExamen.tipo);
+      formData.append('ciclo', formExamen.ciclo);
+      formData.append('estado', formExamen.estado);
+      formData.append('habilitar_fecha_hora', formExamen.habilitar_fecha_hora ? 'SI' : 'NO');
+
+      if (formExamen.tipo === 'VIRTUAL') {
+        formData.append('tipo_puntaje', formExamen.tipo_puntaje);
+        // Solo enviar puntos_correcta si es GENERAL
+        if (formExamen.tipo_puntaje === 'GENERAL') {
+          formData.append('puntos_correcta', formExamen.puntos_correcta);
+        } else {
+          // Para INDIVIDUAL, enviar un valor por defecto (se asignará en cada pregunta)
+          formData.append('puntos_correcta', 0);
+        }
+        formData.append('penalizar_incorrecta', formExamen.penalizar_incorrecta);
+        formData.append('penalizacion_incorrecta', formExamen.penalizacion_incorrecta || 0);
+        formData.append('tiempo', formExamen.tiempo);
+        formData.append('intentos', formExamen.intentos);
+        formData.append('orden_preguntas', formExamen.orden_preguntas);
+        formData.append('preguntas_max', formExamen.preguntas_max);
+      }
+
+      if (formExamen.habilitar_fecha_hora) {
+        if (formExamen.fecha_desde) formData.append('fecha_desde', formExamen.fecha_desde);
+        if (formExamen.fecha_hasta) formData.append('fecha_hasta', formExamen.fecha_hasta);
+        if (formExamen.hora_desde) formData.append('hora_desde', formExamen.hora_desde);
+        if (formExamen.hora_hasta) formData.append('hora_hasta', formExamen.hora_hasta);
+      }
+
+      if (formExamen.archivo_pdf) {
+        formData.append('archivo_pdf', formExamen.archivo_pdf);
+      }
+
+      // Si está editando, usar PUT, si no, usar POST
+      if (examenEditando) {
+        await api.put(`/docente/aula-virtual/examenes/${examenEditando.id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Examen actualizado!',
+          text: 'El examen se ha actualizado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        await api.post('/docente/aula-virtual/examenes', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Examen creado!',
+          text: 'El examen se ha creado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      }
 
       onSuccess();
     } catch (error) {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'No se pudo crear el examen',
+        text: error.response?.data?.error || (examenEditando ? 'No se pudo actualizar el examen' : 'No se pudo crear el examen'),
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
         timer: 3000
       });
+    } finally {
+      setGuardandoExamen(false);
     }
   };
 
   return (
-    <div className="form-modal examen-form-modal">
-      <h3>Crear Nuevo Examen</h3>
-      <form onSubmit={handleCrearExamen}>
-        {/* Información del examen */}
-        <div className="form-section">
-          <h4>Información General</h4>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Título del Examen *</label>
-              <input
-                type="text"
-                value={formExamen.titulo}
-                onChange={(e) => setFormExamen({ ...formExamen, titulo: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Tipo de Puntaje</label>
-              <select
-                value={formExamen.tipo_puntaje}
-                onChange={(e) => setFormExamen({ ...formExamen, tipo_puntaje: e.target.value })}
-              >
-                <option value="INDIVIDUAL">Individual</option>
-                <option value="GENERAL">General</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Puntos por respuesta correcta *</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={formExamen.puntos_correcta}
-                onChange={(e) => setFormExamen({ ...formExamen, puntos_correcta: parseFloat(e.target.value) })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Penalizar incorrecta</label>
-              <select
-                value={formExamen.penalizar_incorrecta}
-                onChange={(e) => setFormExamen({ ...formExamen, penalizar_incorrecta: e.target.value })}
-              >
-                <option value="NO">No</option>
-                <option value="SI">Sí</option>
-              </select>
-            </div>
-            {formExamen.penalizar_incorrecta === 'SI' && (
-              <div className="form-group">
-                <label>Penalización por incorrecta</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={formExamen.penalizacion_incorrecta}
-                  onChange={(e) => setFormExamen({ ...formExamen, penalizacion_incorrecta: parseFloat(e.target.value) })}
-                />
-              </div>
-            )}
-            <div className="form-group">
-              <label>Tiempo (minutos) *</label>
-              <input
-                type="number"
-                min="1"
-                value={formExamen.tiempo}
-                onChange={(e) => setFormExamen({ ...formExamen, tiempo: parseInt(e.target.value) })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Intentos permitidos</label>
-              <input
-                type="number"
-                min="1"
-                value={formExamen.intentos}
-                onChange={(e) => setFormExamen({ ...formExamen, intentos: parseInt(e.target.value) })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Orden de preguntas</label>
-              <select
-                value={formExamen.orden_preguntas}
-                onChange={(e) => setFormExamen({ ...formExamen, orden_preguntas: e.target.value })}
-              >
-                <option value="PREDETERMINADO">Predeterminado</option>
-                <option value="ALEATORIO">Aleatorio</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Preguntas a mostrar</label>
-              <input
-                type="number"
-                min="1"
-                value={formExamen.preguntas_max}
-                onChange={(e) => setFormExamen({ ...formExamen, preguntas_max: parseInt(e.target.value) })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Fecha desde *</label>
-              <input
-                type="date"
-                value={formExamen.fecha_desde}
-                onChange={(e) => setFormExamen({ ...formExamen, fecha_desde: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Fecha hasta *</label>
-              <input
-                type="date"
-                value={formExamen.fecha_hasta}
-                onChange={(e) => setFormExamen({ ...formExamen, fecha_hasta: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Hora desde *</label>
-              <input
-                type="time"
-                value={formExamen.hora_desde}
-                onChange={(e) => setFormExamen({ ...formExamen, hora_desde: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Hora hasta *</label>
-              <input
-                type="time"
-                value={formExamen.hora_hasta}
-                onChange={(e) => setFormExamen({ ...formExamen, hora_hasta: e.target.value })}
-                required
-              />
-            </div>
-          </div>
+    <div className="modal-tema-overlay" onClick={onClose}>
+      <div className="modal-tema-container" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="modal-tema-header">
+          <h2>{examenEditando ? '✏️ Editar Examen' : '📝 Registrar Examen'}</h2>
+          <button className="modal-tema-close" onClick={onClose} aria-label="Cerrar">×</button>
         </div>
 
-        {/* Agregar preguntas */}
-        <div className="form-section">
-          <h4>Preguntas ({formExamen.preguntas.length})</h4>
-          
-          <div className="pregunta-editor">
+        <div className="modal-tema-body">
+          <form onSubmit={handleCrearExamen}>
             <div className="form-group">
-              <label>Tipo de Pregunta</label>
+              <label htmlFor="examen-titulo">Título *</label>
+              <input
+                type="text"
+                id="examen-titulo"
+                className="form-input"
+                value={formExamen.titulo}
+                onChange={(e) => setFormExamen({ ...formExamen, titulo: e.target.value })}
+                placeholder="Ej: Práctica N° 1: El Clima"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="examen-tipo">Tipo *</label>
               <select
-                value={preguntaActual.tipo_pregunta}
-                onChange={(e) => {
-                  setPreguntaActual({
-                    ...preguntaActual,
-                    tipo_pregunta: e.target.value,
-                    alternativas: e.target.value === 'ALTERNATIVAS' || e.target.value === 'VERDADERO_FALSO' ? preguntaActual.alternativas : [],
-                    metadata: {}
-                  });
-                }}
+                id="examen-tipo"
+                className="form-input"
+                value={formExamen.tipo}
+                onChange={(e) => setFormExamen({ ...formExamen, tipo: e.target.value })}
+                required
               >
-                {tiposPregunta.map((tipo) => (
-                  <option key={tipo.value} value={tipo.value}>
-                    {tipo.label}
+                <option value="VIRTUAL">VIRTUAL</option>
+                <option value="PDF">PDF</option>
+              </select>
+            </div>
+
+            {/* Campos solo para VIRTUAL */}
+            {formExamen.tipo === 'VIRTUAL' && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="examen-calificacion">Calificación</label>
+                  <select
+                    id="examen-calificacion"
+                    className="form-input"
+                    value={formExamen.tipo_puntaje}
+                    onChange={(e) => setFormExamen({ ...formExamen, tipo_puntaje: e.target.value })}
+                  >
+                    <option value="INDIVIDUAL">INDIVIDUAL</option>
+                    <option value="GENERAL">GENERAL</option>
+                  </select>
+                </div>
+
+                {/* Solo mostrar "Puntos por respuesta correcta" si es GENERAL */}
+                {formExamen.tipo_puntaje === 'GENERAL' && (
+                  <div className="form-group">
+                    <label htmlFor="examen-puntos-correcta">Puntos por respuesta correcta *</label>
+                    <input
+                      type="number"
+                      id="examen-puntos-correcta"
+                      className="form-input"
+                      step="0.1"
+                      min="0"
+                      value={formExamen.puntos_correcta}
+                      onChange={(e) => setFormExamen({ ...formExamen, puntos_correcta: parseFloat(e.target.value) || 1.0 })}
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Solo mostrar "Penalizar Incorrecta" si es GENERAL */}
+                {formExamen.tipo_puntaje === 'GENERAL' && (
+                  <>
+                    <div className="form-group">
+                      <label htmlFor="examen-penalizar">Penalizar Incorrecta</label>
+                      <select
+                        id="examen-penalizar"
+                        className="form-input"
+                        value={formExamen.penalizar_incorrecta}
+                        onChange={(e) => setFormExamen({ ...formExamen, penalizar_incorrecta: e.target.value })}
+                      >
+                        <option value="NO">NO</option>
+                        <option value="SI">SI</option>
+                      </select>
+                    </div>
+
+                    {formExamen.penalizar_incorrecta === 'SI' && (
+                      <div className="form-group">
+                        <label htmlFor="examen-penalizacion">Penalización por Incorrecta</label>
+                        <input
+                          type="number"
+                          id="examen-penalizacion"
+                          className="form-input"
+                          step="0.1"
+                          min="0"
+                          value={formExamen.penalizacion_incorrecta}
+                          onChange={(e) => setFormExamen({ ...formExamen, penalizacion_incorrecta: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="form-group">
+                  <label htmlFor="examen-tiempo">Tiempo *</label>
+                  <input
+                    type="number"
+                    id="examen-tiempo"
+                    className="form-input"
+                    min="1"
+                    value={formExamen.tiempo}
+                    onChange={(e) => setFormExamen({ ...formExamen, tiempo: parseInt(e.target.value) || 60 })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="examen-intentos">Intentos</label>
+                  <input
+                    type="number"
+                    id="examen-intentos"
+                    className="form-input"
+                    min="1"
+                    value={formExamen.intentos}
+                    onChange={(e) => setFormExamen({ ...formExamen, intentos: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="examen-orden">Orden de Preguntas</label>
+                  <select
+                    id="examen-orden"
+                    className="form-input"
+                    value={formExamen.orden_preguntas}
+                    onChange={(e) => setFormExamen({ ...formExamen, orden_preguntas: e.target.value })}
+                  >
+                    <option value="PREDETERMINADO">PREDETERMINADO</option>
+                    <option value="ALEATORIO">ALEATORIO</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="examen-preguntas-max">Preguntas Max. *</label>
+                  <input
+                    type="number"
+                    id="examen-preguntas-max"
+                    className="form-input"
+                    min="1"
+                    value={formExamen.preguntas_max}
+                    onChange={(e) => setFormExamen({ ...formExamen, preguntas_max: parseInt(e.target.value) || 1 })}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Campo Archivo PDF solo para PDF */}
+            {formExamen.tipo === 'PDF' && (
+              <div className="form-group">
+                <label htmlFor="examen-archivo-pdf">
+                  Archivo PDF {examenEditando ? '(Opcional - dejar vacío para mantener el actual)' : '*'}
+                </label>
+                <input
+                  type="file"
+                  id="examen-archivo-pdf"
+                  className="form-input"
+                  accept=".pdf"
+                  onChange={(e) => setFormExamen({ ...formExamen, archivo_pdf: e.target.files[0] || null })}
+                  required={formExamen.tipo === 'PDF' && !examenEditando}
+                />
+                {examenEditando && examenEditando.archivo_pdf && (
+                  <small style={{ display: 'block', marginTop: '0.5rem', color: '#6b7280' }}>
+                    Archivo actual: {examenEditando.archivo_pdf.split('/').pop()}
+                  </small>
+                )}
+              </div>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="examen-bimestre">Bimestre *</label>
+              <select
+                id="examen-bimestre"
+                className="form-input"
+                value={formExamen.ciclo}
+                onChange={(e) => setFormExamen({ ...formExamen, ciclo: parseInt(e.target.value) })}
+                required
+              >
+                {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                  <option key={bim} value={bim}>
+                    Bimestre {bim}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Toggle Habilitar fecha y hora */}
             <div className="form-group">
-              <label>Pregunta *</label>
-              <textarea
-                value={preguntaActual.descripcion}
-                onChange={(e) => setPreguntaActual({ ...preguntaActual, descripcion: e.target.value })}
-                rows="4"
-                placeholder="Escribe la pregunta aquí..."
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Puntos</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={preguntaActual.puntos}
-                onChange={(e) => setPreguntaActual({ ...preguntaActual, puntos: parseFloat(e.target.value) })}
-              />
-            </div>
-
-            {/* Para tipos ALTERNATIVAS o VERDADERO_FALSO */}
-            {(preguntaActual.tipo_pregunta === 'ALTERNATIVAS' || preguntaActual.tipo_pregunta === 'VERDADERO_FALSO') && (
-              <div className="alternativas-editor">
-                <label>Alternativas</label>
-                {preguntaActual.tipo_pregunta === 'VERDADERO_FALSO' ? (
-                  <div className="verdadero-falso-options">
-                    <label>
-                      <input
-                        type="radio"
-                        name="vf_respuesta"
-                        value="VERDADERO"
-                        onChange={(e) => setPreguntaActual({
-                          ...preguntaActual,
-                          alternativas: [
-                            { descripcion: 'VERDADERO', correcta: true },
-                            { descripcion: 'FALSO', correcta: false }
-                          ],
-                          respuesta_correcta: e.target.value
-                        })}
-                      />
-                      Verdadero (Correcto)
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="vf_respuesta"
-                        value="FALSO"
-                        onChange={(e) => setPreguntaActual({
-                          ...preguntaActual,
-                          alternativas: [
-                            { descripcion: 'VERDADERO', correcta: false },
-                            { descripcion: 'FALSO', correcta: true }
-                          ],
-                          respuesta_correcta: e.target.value
-                        })}
-                      />
-                      Falso (Correcto)
-                    </label>
-                  </div>
-                ) : (
-                  <>
-                    {preguntaActual.alternativas.map((alt, idx) => (
-                      <div key={idx} className="alternativa-item">
-                        <input
-                          type="text"
-                          value={alt.descripcion}
-                          onChange={(e) => {
-                            const nuevasAlternativas = [...preguntaActual.alternativas];
-                            nuevasAlternativas[idx].descripcion = e.target.value;
-                            setPreguntaActual({ ...preguntaActual, alternativas: nuevasAlternativas });
-                          }}
-                          placeholder={`Alternativa ${idx + 1}`}
-                        />
-                        <label>
-                          <input
-                            type="radio"
-                            name="correcta"
-                            checked={alt.correcta}
-                            onChange={() => {
-                              const nuevasAlternativas = preguntaActual.alternativas.map((a, i) => ({
-                                ...a,
-                                correcta: i === idx
-                              }));
-                              setPreguntaActual({
-                                ...preguntaActual,
-                                alternativas: nuevasAlternativas,
-                                respuesta_correcta: alt.descripcion
-                              });
-                            }}
-                          />
-                          Correcta
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const nuevasAlternativas = preguntaActual.alternativas.filter((_, i) => i !== idx);
-                            setPreguntaActual({ ...preguntaActual, alternativas: nuevasAlternativas });
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                    <button type="button" onClick={handleAgregarAlternativa} className="btn-agregar-alt">
-                      + Agregar Alternativa
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Para tipo COMPLETAR */}
-            {preguntaActual.tipo_pregunta === 'COMPLETAR' && (
-              <div className="form-group">
-                <label>Respuesta Correcta *</label>
+              <label className="checkbox-label">
                 <input
-                  type="text"
-                  value={preguntaActual.respuesta_correcta}
-                  onChange={(e) => setPreguntaActual({ ...preguntaActual, respuesta_correcta: e.target.value })}
-                  placeholder="Ej: La respuesta correcta es..."
-                  required
+                  type="checkbox"
+                  checked={formExamen.habilitar_fecha_hora}
+                  onChange={(e) => setFormExamen({ ...formExamen, habilitar_fecha_hora: e.target.checked })}
                 />
-                <small>El docente evaluará manualmente las respuestas de completar</small>
-              </div>
-            )}
-
-            {/* Para tipos RELACIONAR u ORGANIZAR - guardar metadata en JSON */}
-            {(preguntaActual.tipo_pregunta === 'RELACIONAR' || preguntaActual.tipo_pregunta === 'ORGANIZAR') && (
-              <div className="form-group">
-                <label>Configuración Especial (JSON)</label>
-                <textarea
-                  value={JSON.stringify(preguntaActual.metadata, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      const metadata = JSON.parse(e.target.value);
-                      setPreguntaActual({ ...preguntaActual, metadata });
-                    } catch (e) {
-                      // JSON inválido, pero continuamos
-                    }
-                  }}
-                  rows="6"
-                  placeholder='{"columnas": ["A", "B"], "items": [...]}'
-                />
-                <small>Para relacionar: define columnas e items a relacionar. Para organizar: define el orden correcto.</small>
-              </div>
-            )}
-
-            <button type="button" onClick={handleAgregarPregunta} className="btn-agregar-pregunta">
-              + Agregar Pregunta al Examen
-            </button>
-          </div>
-
-          {/* Lista de preguntas agregadas */}
-          {formExamen.preguntas.length > 0 && (
-            <div className="preguntas-agregadas">
-              <h5>Preguntas Agregadas:</h5>
-              <ul>
-                {formExamen.preguntas.map((pregunta, idx) => (
-                  <li key={idx}>
-                    <strong>Pregunta {idx + 1}</strong> ({pregunta.tipo_pregunta}) - {pregunta.puntos} pts
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nuevasPreguntas = formExamen.preguntas.filter((_, i) => i !== idx);
-                        setFormExamen({ ...formExamen, preguntas: nuevasPreguntas });
-                      }}
-                    >
-                      Eliminar
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                Habilitar fecha y hora
+              </label>
             </div>
-          )}
-        </div>
 
-        <div className="form-actions">
-          <button type="button" onClick={onClose}>
-            Cancelar
-          </button>
-          <button type="submit" disabled={formExamen.preguntas.length === 0}>
-            Crear Examen
-          </button>
+            {/* Campos de fecha y hora solo si está habilitado */}
+            {formExamen.habilitar_fecha_hora && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="examen-fecha-desde">Desde</label>
+                  <input
+                    type="date"
+                    id="examen-fecha-desde"
+                    className="form-input"
+                    value={formExamen.fecha_desde}
+                    onChange={(e) => setFormExamen({ ...formExamen, fecha_desde: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="examen-hora-desde">Hora Desde</label>
+                  <input
+                    type="time"
+                    id="examen-hora-desde"
+                    className="form-input"
+                    value={formExamen.hora_desde}
+                    onChange={(e) => setFormExamen({ ...formExamen, hora_desde: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="examen-fecha-hasta">Hasta</label>
+                  <input
+                    type="date"
+                    id="examen-fecha-hasta"
+                    className="form-input"
+                    value={formExamen.fecha_hasta}
+                    onChange={(e) => setFormExamen({ ...formExamen, fecha_hasta: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="examen-hora-hasta">Hora Hasta</label>
+                  <input
+                    type="time"
+                    id="examen-hora-hasta"
+                    className="form-input"
+                    value={formExamen.hora_hasta}
+                    onChange={(e) => setFormExamen({ ...formExamen, hora_hasta: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="examen-estado">Estado *</label>
+              <select
+                id="examen-estado"
+                className="form-input"
+                value={formExamen.estado}
+                onChange={(e) => setFormExamen({ ...formExamen, estado: e.target.value })}
+                required
+              >
+                <option value="ACTIVO">ACTIVO</option>
+                <option value="INACTIVO">INACTIVO</option>
+              </select>
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn-cancelar"
+                onClick={onClose}
+                disabled={guardandoExamen}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn-guardar"
+                disabled={guardandoExamen}
+              >
+                {guardandoExamen ? 'Guardando...' : 'Guardar Datos'}
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
