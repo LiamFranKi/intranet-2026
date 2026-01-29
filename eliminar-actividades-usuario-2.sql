@@ -46,3 +46,5 @@ FROM actividades
 GROUP BY usuario_id
 ORDER BY usuario_id;
 
+
+

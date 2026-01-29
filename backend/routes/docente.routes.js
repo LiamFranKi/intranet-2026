@@ -4276,18 +4276,728 @@ router.get('/aula-virtual/tareas', async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
     }
 
-    // Obtener tareas de la asignatura filtradas por ciclo
+    // Obtener tareas de la asignatura filtradas por ciclo con información del docente
     const tareas = await query(
-      `SELECT * FROM asignaturas_tareas
-       WHERE asignatura_id = ? AND ciclo = ?
-       ORDER BY fecha_entrega DESC, fecha_hora DESC`,
+      `SELECT t.*, 
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre
+       FROM asignaturas_tareas t
+       INNER JOIN personal p ON p.id = t.trabajador_id
+       WHERE t.asignatura_id = ? AND t.ciclo = ?
+       ORDER BY t.fecha_entrega DESC, t.fecha_hora DESC`,
       [asignatura_id, cicloFiltro]
     );
 
-    res.json({ tareas: tareas || [] });
+    // Obtener archivos de cada tarea y construir URLs
+    const isProduction = process.env.NODE_ENV === 'production';
+    const tareasConArchivos = await Promise.all(tareas.map(async (tarea) => {
+      // Obtener archivos de la tarea desde asignaturas_tareas_archivos
+      const archivos = await query(
+        `SELECT * FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
+        [tarea.id]
+      );
+
+      // Construir URLs para los archivos (igual que en Temas)
+      const archivosConUrls = archivos.map(archivo => {
+        let archivoUrl = null;
+        if (archivo.archivo && archivo.archivo !== '') {
+          if (archivo.archivo.startsWith('http')) {
+            // Ya es una URL completa
+            archivoUrl = archivo.archivo;
+          } else if (archivo.archivo.startsWith('/uploads/')) {
+            // Ruta relativa desde /uploads/ (formato nuevo)
+            archivoUrl = isProduction 
+              ? `https://vanguardschools.edu.pe${archivo.archivo}`
+              : `http://localhost:5000${archivo.archivo}`;
+            console.log('📄 [AULA VIRTUAL TAREA] URL construida para archivo:', {
+              id: archivo.id,
+              nombre: archivo.nombre,
+              ruta_original: archivo.archivo,
+              url_final: archivoUrl
+            });
+          } else if (archivo.archivo.startsWith('/Static/')) {
+            // Ruta del sistema antiguo (compatibilidad)
+            archivoUrl = isProduction 
+              ? `https://vanguardschools.edu.pe${archivo.archivo}`
+              : `http://localhost:5000${archivo.archivo}`;
+          } else {
+            // Solo el nombre del archivo (compatibilidad con sistema antiguo)
+            archivoUrl = isProduction
+              ? `https://vanguardschools.edu.pe/Static/Archivos/${archivo.archivo}`
+              : `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
+          }
+        }
+        return {
+          ...archivo,
+          archivo_url: archivoUrl
+        };
+      });
+
+      return {
+        ...tarea,
+        archivos: archivosConUrls,
+        enlace_url: tarea.enlace || null
+      };
+    }));
+
+    res.json({ tareas: tareasConArchivos || [] });
   } catch (error) {
     console.error('Error obteniendo tareas:', error);
     res.status(500).json({ error: 'Error al obtener tareas' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/tareas
+ * Crear una nueva tarea
+ */
+router.post('/aula-virtual/tareas', uploadAulaVirtual.single('archivo'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { asignatura_id, titulo, descripcion, fecha_entrega, ciclo, enlace } = req.body;
+
+    if (!asignatura_id || !titulo || !fecha_entrega || !ciclo) {
+      return res.status(400).json({ error: 'asignatura_id, titulo, fecha_entrega y ciclo son requeridos' });
+    }
+
+    if (!req.file && !enlace) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
+    }
+
+    // Verificar que el docente tiene acceso a esta asignatura
+    const asignatura = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignatura.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
+    }
+
+    // Construir la ruta del archivo (igual que en Temas)
+    let archivoPath = '';
+    if (req.file) {
+      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
+      console.log('📄 [AULA VIRTUAL TAREA] Archivo guardado:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        path: archivoPath,
+        size: req.file.size
+      });
+    }
+
+    // Insertar la nueva tarea
+    const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const result = await execute(
+      `INSERT INTO asignaturas_tareas 
+       (titulo, descripcion, fecha_hora, fecha_entrega, trabajador_id, asignatura_id, entregas, visto, archivos, ciclo, enlace)
+       VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, ?)`,
+      [
+        titulo,
+        descripcion || '',
+        fechaHora,
+        fecha_entrega,
+        personal_id,
+        asignatura_id,
+        parseInt(ciclo),
+        enlace || ''
+      ]
+    );
+
+    // Si hay archivo, insertarlo en asignaturas_tareas_archivos (igual que en Temas)
+    if (req.file && archivoPath) {
+      await execute(
+        `INSERT INTO asignaturas_tareas_archivos (tarea_id, nombre, archivo)
+         VALUES (?, ?, ?)`,
+        [result.insertId, req.file.originalname, archivoPath]
+      );
+      console.log('📄 [AULA VIRTUAL TAREA] Archivo insertado en BD:', {
+        tarea_id: result.insertId,
+        nombre: req.file.originalname,
+        archivo: archivoPath
+      });
+    }
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'CREAR',
+      entidad: 'asignaturas_tareas',
+      entidad_id: result.insertId,
+      datos_nuevos: JSON.stringify({ titulo, descripcion, fecha_entrega, ciclo, archivo: archivoPath, enlace }),
+      colegio_id
+    });
+
+    res.json({ 
+      message: 'Tarea creada correctamente',
+      id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando tarea:', error);
+    res.status(500).json({ error: 'Error al crear la tarea' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/tareas/:id
+ * Actualizar una tarea
+ */
+router.put('/aula-virtual/tareas/:id', uploadAulaVirtual.single('archivo'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { id } = req.params;
+    const { asignatura_id, titulo, descripcion, fecha_entrega, ciclo, enlace } = req.body;
+
+    if (!titulo || !fecha_entrega || !ciclo) {
+      return res.status(400).json({ error: 'titulo, fecha_entrega y ciclo son requeridos' });
+    }
+
+    // Verificar que la tarea existe y pertenece a una asignatura del docente
+    const tarea = await query(
+      `SELECT t.* FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE t.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    const tareaActual = tarea[0];
+    let archivoPath = null;
+
+    // Si se subió un nuevo archivo, actualizar la ruta (igual que en Temas)
+    if (req.file) {
+      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
+      console.log('📄 [AULA VIRTUAL TAREA] Archivo actualizado:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        path: archivoPath,
+        size: req.file.size
+      });
+    }
+
+    // Si no hay archivo nuevo y no hay enlace, verificar que haya al menos uno existente
+    if (!req.file && !enlace) {
+      // Verificar si hay archivos existentes
+      const archivosExistentes = await query(
+        `SELECT * FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
+        [id]
+      );
+      if (archivosExistentes.length === 0 && !tareaActual.enlace) {
+        return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
+      }
+    }
+
+    // Actualizar la tarea
+    await execute(
+      `UPDATE asignaturas_tareas 
+       SET titulo = ?, descripcion = ?, fecha_entrega = ?, ciclo = ?, enlace = ?
+       WHERE id = ?`,
+      [
+        titulo,
+        descripcion || '',
+        fecha_entrega,
+        parseInt(ciclo),
+        enlace || '',
+        id
+      ]
+    );
+
+    // Si hay archivo nuevo, actualizar o insertar en asignaturas_tareas_archivos
+    if (req.file && archivoPath) {
+      // Eliminar archivos antiguos de esta tarea
+      await execute(
+        `DELETE FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
+        [id]
+      );
+      
+      // Insertar el nuevo archivo
+      await execute(
+        `INSERT INTO asignaturas_tareas_archivos (tarea_id, nombre, archivo)
+         VALUES (?, ?, ?)`,
+        [id, req.file.originalname, archivoPath]
+      );
+      console.log('📄 [AULA VIRTUAL TAREA] Archivo actualizado en BD:', {
+        tarea_id: id,
+        nombre: req.file.originalname,
+        archivo: archivoPath
+      });
+    }
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR',
+      entidad: 'asignaturas_tareas',
+      entidad_id: id,
+      datos_anteriores: JSON.stringify(tareaActual),
+      datos_nuevos: JSON.stringify({ titulo, descripcion, fecha_entrega, ciclo, archivo: archivoPath, enlace }),
+      colegio_id
+    });
+
+    res.json({ message: 'Tarea actualizada correctamente' });
+  } catch (error) {
+    console.error('Error actualizando tarea:', error);
+    res.status(500).json({ error: 'Error al actualizar la tarea' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/tareas/:id
+ * Eliminar una tarea
+ */
+router.delete('/aula-virtual/tareas/:id', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { id } = req.params;
+
+    // Verificar que la tarea existe y pertenece a una asignatura del docente
+    const tarea = await query(
+      `SELECT t.* FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE t.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    // Eliminar archivos asociados primero
+    await execute(
+      `DELETE FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
+      [id]
+    );
+
+    // Eliminar la tarea
+    await execute(
+      `DELETE FROM asignaturas_tareas WHERE id = ?`,
+      [id]
+    );
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      entidad: 'asignaturas_tareas',
+      entidad_id: id,
+      datos_anteriores: JSON.stringify(tarea[0]),
+      colegio_id
+    });
+
+    res.json({ message: 'Tarea eliminada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando tarea:', error);
+    res.status(500).json({ error: 'Error al eliminar la tarea' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/tareas/:tareaId/entregas
+ * Obtener lista de alumnos con entregas, visto, y notas para una tarea
+ */
+router.get('/aula-virtual/tareas/:tareaId/entregas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { tareaId } = req.params;
+
+    // Verificar que la tarea existe y pertenece a una asignatura del docente
+    const tarea = await query(
+      `SELECT t.*, a.grupo_id, g.grado, g.seccion, g.id as grupo_id_real, c.nombre as curso_nombre
+       FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE t.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [tareaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    const tareaInfo = tarea[0];
+    const grupoId = tareaInfo.grupo_id_real || tareaInfo.grupo_id;
+
+    // Obtener alumnos del grupo
+    const alumnos = await query(
+      `SELECT a.id as alumno_id,
+              a.nombres,
+              a.apellido_paterno,
+              a.apellido_materno,
+              CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
+              m.id as matricula_id
+       FROM alumnos a
+       INNER JOIN matriculas m ON m.alumno_id = a.id
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.grupo_id = ? 
+         AND m.colegio_id = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         AND g.anio = ?
+       ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres`,
+      [grupoId, colegio_id, anio_activo]
+    );
+
+    // Obtener entregas de alumnos (URLs que subieron)
+    const entregas = await query(
+      `SELECT * FROM asignaturas_tareas_entregas
+       WHERE tarea_id = ? AND tipo = 'ALUMNO'
+       ORDER BY fecha_hora DESC`,
+      [tareaId]
+    );
+
+    // Obtener notas de alumnos
+    const notas = await query(
+      `SELECT * FROM asignaturas_tareas_notas
+       WHERE tarea_id = ?`,
+      [tareaId]
+    );
+
+    // Deserializar campo "visto" (formato PHP serialized)
+    let vistos = {};
+    try {
+      if (tareaInfo.visto && tareaInfo.visto !== '') {
+        const phpSerialize = require('php-serialize');
+        vistos = phpSerialize.unserialize(tareaInfo.visto) || {};
+      }
+    } catch (error) {
+      console.warn('Error deserializando campo visto:', error);
+      vistos = {};
+    }
+
+    // Agrupar entregas por alumno_id
+    const entregasPorAlumno = {};
+    entregas.forEach(entrega => {
+      if (!entregasPorAlumno[entrega.alumno_id]) {
+        entregasPorAlumno[entrega.alumno_id] = [];
+      }
+      entregasPorAlumno[entrega.alumno_id].push({
+        id: entrega.id,
+        url: entrega.url,
+        nombre: entrega.nombre,
+        fecha_hora: entrega.fecha_hora
+      });
+    });
+
+    // Crear mapa de notas por matricula_id
+    const notasPorMatricula = {};
+    notas.forEach(nota => {
+      notasPorMatricula[nota.matricula_id] = nota.nota;
+    });
+
+    // Combinar datos
+    const alumnosConDatos = alumnos.map((alumno, index) => {
+      const entregasAlumno = entregasPorAlumno[alumno.alumno_id] || [];
+      const nota = notasPorMatricula[alumno.matricula_id] || '';
+      const visto = vistos[alumno.matricula_id] ? 'SI' : 'NO';
+
+      return {
+        numero: index + 1,
+        alumno_id: alumno.alumno_id,
+        matricula_id: alumno.matricula_id,
+        nombre_completo: alumno.nombre_completo,
+        nota: nota,
+        visto: visto,
+        archivos: entregasAlumno
+      };
+    });
+
+    res.json({
+      alumnos: alumnosConDatos,
+      tarea: {
+        id: tareaInfo.id,
+        titulo: tareaInfo.titulo,
+        curso_nombre: tareaInfo.curso_nombre,
+        grado: tareaInfo.grado,
+        seccion: tareaInfo.seccion
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo entregas:', error);
+    res.status(500).json({ error: 'Error al obtener entregas' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/tareas/:tareaId/entregas/:matriculaId/nota
+ * Guardar o actualizar la nota de un alumno para una tarea
+ */
+router.put('/aula-virtual/tareas/:tareaId/entregas/:matriculaId/nota', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { tareaId, matriculaId } = req.params;
+    const { nota } = req.body;
+
+    // Verificar que la tarea existe y pertenece a una asignatura del docente
+    const tarea = await query(
+      `SELECT t.*, a.grupo_id FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE t.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [tareaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    const grupoIdTarea = tarea[0].grupo_id;
+
+    // Verificar que la matrícula existe y pertenece al grupo de la tarea
+    const matricula = await query(
+      `SELECT m.* FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.id = ? AND m.grupo_id = ? AND m.colegio_id = ? AND g.anio = ?`,
+      [matriculaId, grupoIdTarea, colegio_id, anio_activo]
+    );
+
+    if (matricula.length === 0) {
+      return res.status(404).json({ error: 'Matrícula no encontrada' });
+    }
+
+    // Eliminar nota existente si hay
+    await execute(
+      `DELETE FROM asignaturas_tareas_notas 
+       WHERE tarea_id = ? AND matricula_id = ?`,
+      [tareaId, matriculaId]
+    );
+
+    // Si la nota no está vacía, insertarla
+    if (nota && nota.trim() !== '') {
+      await execute(
+        `INSERT INTO asignaturas_tareas_notas (tarea_id, matricula_id, nota)
+         VALUES (?, ?, ?)`,
+        [tareaId, matriculaId, nota.trim()]
+      );
+    }
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: nota && nota.trim() !== '' ? 'CREAR' : 'ELIMINAR',
+      entidad: 'asignaturas_tareas_notas',
+      entidad_id: null,
+      datos_nuevos: JSON.stringify({ tarea_id: tareaId, matricula_id: matriculaId, nota }),
+      colegio_id
+    });
+
+    res.json({ message: 'Nota guardada correctamente' });
+  } catch (error) {
+    console.error('Error guardando nota:', error);
+    res.status(500).json({ error: 'Error al guardar la nota' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/tareas/:tareaId/asignar-registro
+ * Obtener información para asignar tarea a registro (criterios e indicadores)
+ */
+router.get('/aula-virtual/tareas/:tareaId/asignar-registro', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { tareaId } = req.params;
+
+    // Verificar que la tarea existe y pertenece a una asignatura del docente
+    const tarea = await query(
+      `SELECT t.*, a.id as asignatura_id, a.grupo_id, g.grado, g.seccion, c.nombre as curso_nombre
+       FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE t.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [tareaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    const tareaInfo = tarea[0];
+    const ciclo = tareaInfo.ciclo;
+
+    // Obtener criterios de la asignatura para este ciclo (ciclo = 0 significa todos los ciclos)
+    const criterios = await query(
+      `SELECT * FROM asignaturas_criterios
+       WHERE asignatura_id = ? AND colegio_id = ? AND (ciclo = ? OR ciclo = 0)
+       ORDER BY orden ASC, id ASC`,
+      [tareaInfo.asignatura_id, colegio_id, ciclo]
+    );
+
+    // Obtener indicadores para cada criterio
+    const criteriosConIndicadores = await Promise.all(criterios.map(async (criterio) => {
+      const indicadores = await query(
+        `SELECT * FROM asignaturas_indicadores
+         WHERE criterio_id = ?
+         ORDER BY id ASC`,
+        [criterio.id]
+      );
+      return {
+        ...criterio,
+        indicadores: indicadores || []
+      };
+    }));
+
+    res.json({
+      tarea: {
+        id: tareaInfo.id,
+        titulo: tareaInfo.titulo,
+        curso_nombre: tareaInfo.curso_nombre,
+        grado: tareaInfo.grado,
+        seccion: tareaInfo.seccion,
+        ciclo: ciclo
+      },
+      asignatura_id: tareaInfo.asignatura_id,
+      criterios: criteriosConIndicadores
+    });
+  } catch (error) {
+    console.error('Error obteniendo datos para asignar registro:', error);
+    res.status(500).json({ error: 'Error al obtener datos para asignar registro' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/tareas/:tareaId/asignar-registro
+ * Asignar notas de tarea al registro general de notas
+ */
+router.post('/aula-virtual/tareas/:tareaId/asignar-registro', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { tareaId } = req.params;
+    const { criterio_id, cuadro } = req.body;
+
+    if (!criterio_id || cuadro === undefined || cuadro === null) {
+      return res.status(400).json({ error: 'criterio_id y cuadro son requeridos' });
+    }
+
+    // Verificar que la tarea existe y pertenece a una asignatura del docente
+    const tarea = await query(
+      `SELECT t.*, a.id as asignatura_id, a.grupo_id FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE t.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [tareaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    const tareaInfo = tarea[0];
+    const asignaturaId = tareaInfo.asignatura_id;
+    const ciclo = tareaInfo.ciclo;
+    const grupoId = tareaInfo.grupo_id;
+
+    // Parsear criterio_id (formato: "criterio_id_indicador_id")
+    const ids = criterio_id.split('_');
+    if (ids.length !== 2) {
+      return res.status(400).json({ error: 'Formato de criterio_id inválido' });
+    }
+    const criterioId = parseInt(ids[0]);
+    const indicadorId = parseInt(ids[1]);
+    const cuadroIndex = parseInt(cuadro); // El cuadro viene como índice (0-based)
+
+    // Obtener todas las matrículas del grupo
+    const matriculas = await query(
+      `SELECT m.id as matricula_id FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.grupo_id = ? AND m.colegio_id = ? AND (m.estado = 0 OR m.estado = 4) AND g.anio = ?`,
+      [grupoId, colegio_id, anio_activo]
+    );
+
+    // Obtener todas las notas de la tarea
+    const notasTarea = await query(
+      `SELECT * FROM asignaturas_tareas_notas WHERE tarea_id = ?`,
+      [tareaId]
+    );
+
+    // Crear mapa de notas por matricula_id
+    const notasPorMatricula = {};
+    notasTarea.forEach(nota => {
+      notasPorMatricula[nota.matricula_id] = nota.nota;
+    });
+
+    const phpSerialize = require('php-serialize');
+
+    // Procesar cada matrícula
+    for (const matricula of matriculas) {
+      const matriculaId = matricula.matricula_id;
+      const notaTarea = notasPorMatricula[matriculaId];
+
+      // Si no hay nota para esta matrícula, continuar
+      if (!notaTarea || notaTarea.trim() === '') {
+        continue;
+      }
+
+      // Obtener o crear Nota_Detalle
+      let detalles = await query(
+        `SELECT * FROM notas_detalles
+         WHERE matricula_id = ? AND asignatura_id = ? AND ciclo = ?`,
+        [matriculaId, asignaturaId, ciclo]
+      );
+
+      let datosDetalles = {};
+      if (detalles.length > 0) {
+        try {
+          datosDetalles = phpSerialize.unserialize(detalles[0].data) || {};
+        } catch (error) {
+          console.warn('Error deserializando notas_detalles:', error);
+          datosDetalles = {};
+        }
+      }
+
+      // Inicializar estructura si no existe
+      if (!datosDetalles[criterioId]) {
+        datosDetalles[criterioId] = {};
+      }
+      if (!datosDetalles[criterioId][indicadorId]) {
+        datosDetalles[criterioId][indicadorId] = {};
+      }
+
+      // Asignar la nota en la posición del cuadro
+      datosDetalles[criterioId][indicadorId][cuadroIndex] = notaTarea;
+
+      // Serializar y guardar
+      const dataSerializada = phpSerialize.serialize(datosDetalles);
+
+      if (detalles.length > 0) {
+        // Actualizar existente
+        await execute(
+          `UPDATE notas_detalles SET data = ? WHERE id = ?`,
+          [dataSerializada, detalles[0].id]
+        );
+      } else {
+        // Crear nuevo
+        await execute(
+          `INSERT INTO notas_detalles (matricula_id, asignatura_id, ciclo, data)
+           VALUES (?, ?, ?, ?)`,
+          [matriculaId, asignaturaId, ciclo, dataSerializada]
+        );
+      }
+    }
+
+    // Recalcular promedios de criterios y promedio final (similar a DocenteCursos)
+    // Esto se puede hacer llamando a la misma lógica que se usa al guardar notas
+    // Por ahora, solo guardamos los detalles y el sistema recalculará cuando se abra el registro
+
+    await registrarAccion({
+      usuario_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR',
+      entidad: 'notas_detalles',
+      entidad_id: null,
+      datos_nuevos: JSON.stringify({ tarea_id: tareaId, criterio_id, indicador_id: indicadorId, cuadro: cuadroIndex }),
+      colegio_id
+    });
+
+    res.json({ message: 'Notas asignadas al registro correctamente' });
+  } catch (error) {
+    console.error('Error asignando notas al registro:', error);
+    res.status(500).json({ error: 'Error al asignar notas al registro' });
   }
 });
 

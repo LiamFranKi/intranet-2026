@@ -1457,3 +1457,5 @@ SELECT
 FROM actividades 
 WHERE colegio_id = @colegio_id 
 AND YEAR(fecha_inicio) = @año;
+
+

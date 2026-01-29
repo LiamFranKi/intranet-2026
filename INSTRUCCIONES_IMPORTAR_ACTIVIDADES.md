@@ -103,3 +103,5 @@ Si necesitas re-ejecutar la importación:
 - Los eventos de un solo día tienen fecha_inicio y fecha_fin el mismo día
 - Los eventos con rango usan el rango completo de días
 
+
+

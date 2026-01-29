@@ -117,6 +117,8 @@ function DocenteAulaVirtual() {
   const [mostrarFormTarea, setMostrarFormTarea] = useState(false);
   const [mostrarFormExamen, setMostrarFormExamen] = useState(false);
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
+  const [mostrarDetallesTarea, setMostrarDetallesTarea] = useState(false);
+  const [tareaDetalle, setTareaDetalle] = useState(null);
   
   // Estados para dropdowns con portal
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -151,8 +153,30 @@ function DocenteAulaVirtual() {
     titulo: '',
     descripcion: '',
     fecha_entrega: '',
+    ciclo: bimestreGlobal,
+    archivo: null,
+    archivoNombre: '',
     enlace: ''
   });
+  const [guardandoTarea, setGuardandoTarea] = useState(false);
+  const [tareaEditando, setTareaEditando] = useState(null);
+  
+  // Estado para modal de Marcar Entregas
+  const [mostrarModalEntregas, setMostrarModalEntregas] = useState(false);
+  const [tareaParaEntregas, setTareaParaEntregas] = useState(null);
+  const [alumnosEntregas, setAlumnosEntregas] = useState([]);
+  const [infoTareaEntregas, setInfoTareaEntregas] = useState(null);
+  const [notasTemporales, setNotasTemporales] = useState({});
+  const [loadingEntregas, setLoadingEntregas] = useState(false);
+  
+  // Estado para modal de Asignar a Registro
+  const [mostrarModalAsignarRegistro, setMostrarModalAsignarRegistro] = useState(false);
+  const [tareaParaAsignar, setTareaParaAsignar] = useState(null);
+  const [datosAsignarRegistro, setDatosAsignarRegistro] = useState(null);
+  const [criterioSeleccionado, setCriterioSeleccionado] = useState('');
+  const [cuadroSeleccionado, setCuadroSeleccionado] = useState('0');
+  const [loadingAsignarRegistro, setLoadingAsignarRegistro] = useState(false);
+  const [guardandoAsignarRegistro, setGuardandoAsignarRegistro] = useState(false);
 
   // Formulario de examen
   const [formExamen, setFormExamen] = useState({
@@ -187,6 +211,13 @@ function DocenteAulaVirtual() {
       console.error('Error cargando curso:', error);
     }
   }, [asignaturaId]);
+
+  // Actualizar ciclo del formulario cuando cambia bimestreGlobal
+  useEffect(() => {
+    if (!mostrarFormTarea) {
+      setFormTarea(prev => ({ ...prev, ciclo: bimestreGlobal }));
+    }
+  }, [bimestreGlobal, mostrarFormTarea]);
 
   const cargarArchivos = useCallback(async (ciclo) => {
     try {
@@ -614,24 +645,416 @@ function DocenteAulaVirtual() {
 
   const handleCrearTarea = async (e) => {
     e.preventDefault();
+    
+    if (!formTarea.titulo || !formTarea.fecha_entrega || !formTarea.ciclo) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Título, Fecha de Entrega y Bimestre son requeridos',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    // Validar que tenga al menos archivo o enlace (solo para crear, no para editar)
+    if (!tareaEditando && !formTarea.archivo && !formTarea.enlace.trim()) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Debe proporcionar al menos un archivo o una URL',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    // Para editar, validar que tenga archivo nuevo, enlace nuevo, o que exista archivo/enlace previo
+    if (tareaEditando && !formTarea.archivo && !formTarea.enlace.trim()) {
+      const tieneArchivoExistente = tareaEditando.archivos && tareaEditando.archivos.length > 0;
+      const tieneEnlaceExistente = tareaEditando.enlace_url || tareaEditando.enlace;
+      
+      if (!tieneArchivoExistente && !tieneEnlaceExistente) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Debe proporcionar al menos un archivo o una URL',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+    }
+
+    setGuardandoTarea(true);
     try {
       const formData = new FormData();
       formData.append('asignatura_id', asignaturaId);
       formData.append('titulo', formTarea.titulo);
       formData.append('descripcion', formTarea.descripcion || '');
       formData.append('fecha_entrega', formTarea.fecha_entrega);
-      if (formTarea.enlace) {
-        formData.append('enlace', formTarea.enlace);
+      formData.append('ciclo', formTarea.ciclo);
+      
+      if (formTarea.archivo) {
+        formData.append('archivo', formTarea.archivo);
+      }
+      
+      if (formTarea.enlace.trim()) {
+        formData.append('enlace', formTarea.enlace.trim());
       }
 
-      await api.post('/docente/aula-virtual/tareas', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      if (tareaEditando) {
+        // Editar tarea existente
+        await api.put(`/docente/aula-virtual/tareas/${tareaEditando.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Tarea actualizada!',
+          text: 'La tarea se ha actualizado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        // Crear nueva tarea
+        await api.post('/docente/aula-virtual/tareas', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Tarea creada!',
+          text: 'La tarea se ha creado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      }
+
+      setMostrarFormTarea(false);
+      setTareaEditando(null);
+      setFormTarea({ 
+        titulo: '', 
+        descripcion: '', 
+        fecha_entrega: '', 
+        ciclo: bimestreGlobal,
+        archivo: null,
+        archivoNombre: '',
+        enlace: '' 
+      });
+      await cargarTareas();
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || (tareaEditando ? 'No se pudo actualizar la tarea' : 'No se pudo crear la tarea'),
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setGuardandoTarea(false);
+    }
+  };
+
+  // Función auxiliar para formatear fecha para input date (YYYY-MM-DD)
+  const formatearFechaParaInput = (fecha) => {
+    if (!fecha) return '';
+    try {
+      // Si ya está en formato YYYY-MM-DD, retornarlo
+      if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        return fecha;
+      }
+      // Si tiene hora, extraer solo la fecha
+      const fechaObj = new Date(fecha);
+      if (isNaN(fechaObj.getTime())) return '';
+      const año = fechaObj.getFullYear();
+      const mes = String(fechaObj.getMonth() + 1).padStart(2, '0');
+      const dia = String(fechaObj.getDate()).padStart(2, '0');
+      return `${año}-${mes}-${dia}`;
+    } catch (error) {
+      console.error('Error formateando fecha:', error);
+      return '';
+    }
+  };
+
+  const handleEditarTarea = async (tarea) => {
+    try {
+      // Cargar tarea completa con archivos
+      const response = await api.get('/docente/aula-virtual/tareas', {
+        params: { asignatura_id: asignaturaId, ciclo: tarea.ciclo || bimestreGlobal }
+      });
+      const tareaCompleta = response.data.tareas.find(t => t.id === tarea.id);
+      
+      const fechaEntrega = tareaCompleta?.fecha_entrega || tarea.fecha_entrega || '';
+      
+      setTareaEditando(tareaCompleta || tarea);
+      setFormTarea({
+        titulo: tareaCompleta?.titulo || tarea.titulo || '',
+        descripcion: tareaCompleta?.descripcion || tarea.descripcion || '',
+        fecha_entrega: formatearFechaParaInput(fechaEntrega),
+        ciclo: tareaCompleta?.ciclo || tarea.ciclo || bimestreGlobal,
+        archivo: null,
+        archivoNombre: tareaCompleta?.archivos && tareaCompleta.archivos.length > 0 ? 'Archivo existente' : '',
+        enlace: tareaCompleta?.enlace_url || tareaCompleta?.enlace || tarea.enlace || ''
+      });
+      setMostrarFormTarea(true);
+      setOpenDropdown(null);
+    } catch (error) {
+      console.error('Error cargando tarea para editar:', error);
+      // Si falla, usar los datos básicos de la tarea
+      setTareaEditando(tarea);
+      setFormTarea({
+        titulo: tarea.titulo || '',
+        descripcion: tarea.descripcion || '',
+        fecha_entrega: formatearFechaParaInput(tarea.fecha_entrega),
+        ciclo: tarea.ciclo || bimestreGlobal,
+        archivo: null,
+        archivoNombre: '',
+        enlace: tarea.enlace || ''
+      });
+      setMostrarFormTarea(true);
+      setOpenDropdown(null);
+    }
+  };
+
+  const handleEliminarTarea = async (tarea) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar la tarea "${tarea.titulo}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/tareas/${tarea.id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Tarea eliminada!',
+          text: 'La tarea se ha eliminado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        setOpenDropdown(null);
+        await cargarTareas();
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar la tarea',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  const handleVerDetallesTarea = async (tarea) => {
+    try {
+      // Cargar tarea completa con archivos
+      const response = await api.get('/docente/aula-virtual/tareas', {
+        params: { asignatura_id: asignaturaId, ciclo: tarea.ciclo || bimestreGlobal }
+      });
+      const tareaCompleta = response.data.tareas.find(t => t.id === tarea.id);
+      setTareaDetalle(tareaCompleta || tarea);
+      setMostrarDetallesTarea(true);
+      setOpenDropdown(null);
+    } catch (error) {
+      console.error('Error cargando detalles de tarea:', error);
+      setTareaDetalle(tarea);
+      setMostrarDetallesTarea(true);
+      setOpenDropdown(null);
+    }
+  };
+
+  const handleMarcarEntregas = async (tarea) => {
+    try {
+      setTareaParaEntregas(tarea);
+      setLoadingEntregas(true);
+      setMostrarModalEntregas(true);
+      setOpenDropdown(null);
+
+      const response = await api.get(`/docente/aula-virtual/tareas/${tarea.id}/entregas`);
+      
+      setAlumnosEntregas(response.data.alumnos || []);
+      setInfoTareaEntregas(response.data.tarea);
+      
+      // Inicializar notas temporales
+      const notasIniciales = {};
+      response.data.alumnos.forEach(alumno => {
+        notasIniciales[alumno.matricula_id] = alumno.nota || '';
+      });
+      setNotasTemporales(notasIniciales);
+    } catch (error) {
+      console.error('Error cargando entregas:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar las entregas',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setLoadingEntregas(false);
+    }
+  };
+
+  const handleGuardarTodasLasNotas = async () => {
+    if (!tareaParaEntregas) return;
+
+    const notasAGuardar = Object.keys(notasTemporales).filter(matriculaId => {
+      const nota = notasTemporales[matriculaId];
+      return nota && nota.trim() !== '';
+    });
+
+    if (notasAGuardar.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin notas',
+        text: 'No hay notas para guardar',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000
+      });
+      return;
+    }
+
+    try {
+      // Guardar todas las notas
+      await Promise.all(
+        notasAGuardar.map(matriculaId =>
+          api.put(`/docente/aula-virtual/tareas/${tareaParaEntregas.id}/entregas/${matriculaId}/nota`, {
+            nota: notasTemporales[matriculaId]
+          })
+        )
+      );
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Notas guardadas!',
+        text: `Se guardaron ${notasAGuardar.length} nota(s) correctamente`,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron guardar todas las notas',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    }
+  };
+
+  const handleAsignarRegistro = async (tarea) => {
+    try {
+      setTareaParaAsignar(tarea);
+      setLoadingAsignarRegistro(true);
+      setMostrarModalAsignarRegistro(true);
+      setOpenDropdown(null);
+
+      const response = await api.get(`/docente/aula-virtual/tareas/${tarea.id}/asignar-registro`);
+      
+      setDatosAsignarRegistro(response.data);
+      
+      // Seleccionar el primer criterio/indicador por defecto si hay
+      if (response.data.criterios && response.data.criterios.length > 0) {
+        const primerCriterio = response.data.criterios[0];
+        if (primerCriterio.indicadores && primerCriterio.indicadores.length > 0) {
+          const primerIndicador = primerCriterio.indicadores[0];
+          setCriterioSeleccionado(`${primerCriterio.id}_${primerIndicador.id}`);
+          setCuadroSeleccionado('0');
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando datos para asignar registro:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar los datos',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setLoadingAsignarRegistro(false);
+    }
+  };
+
+  const handleGuardarAsignarRegistro = async () => {
+    if (!tareaParaAsignar || !criterioSeleccionado || cuadroSeleccionado === '') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Debe seleccionar un criterio y un cuadro',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Se reemplazarán las notas en el registro del cuadro seleccionado',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, asignar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    setGuardandoAsignarRegistro(true);
+
+    try {
+      await api.post(`/docente/aula-virtual/tareas/${tareaParaAsignar.id}/asignar-registro`, {
+        criterio_id: criterioSeleccionado,
+        cuadro: cuadroSeleccionado
       });
 
       Swal.fire({
         icon: 'success',
-        title: '¡Tarea creada!',
-        text: 'La tarea se ha creado correctamente',
+        title: '¡Notas asignadas!',
+        text: 'Las notas se han asignado al registro correctamente',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
@@ -639,19 +1062,23 @@ function DocenteAulaVirtual() {
         timerProgressBar: true
       });
 
-      setMostrarFormTarea(false);
-      setFormTarea({ titulo: '', descripcion: '', fecha_entrega: '', enlace: '' });
-      await cargarTareas();
+      setMostrarModalAsignarRegistro(false);
+      setTareaParaAsignar(null);
+      setDatosAsignarRegistro(null);
+      setCriterioSeleccionado('');
+      setCuadroSeleccionado('0');
     } catch (error) {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'No se pudo crear la tarea',
+        text: error.response?.data?.error || 'No se pudieron asignar las notas',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
         timer: 3000
       });
+    } finally {
+      setGuardandoAsignarRegistro(false);
     }
   };
 
@@ -797,56 +1224,333 @@ function DocenteAulaVirtual() {
 
   const renderTareasContent = () => (
     <div className="card-content-expanded">
-      {mostrarFormTarea && (
-        <div className="form-modal">
-          <h3>Crear Nueva Tarea</h3>
-          <form onSubmit={handleCrearTarea}>
-            <div className="form-group">
-              <label>Título *</label>
-              <input
-                type="text"
-                value={formTarea.titulo}
-                onChange={(e) => setFormTarea({ ...formTarea, titulo: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Descripción</label>
-              <textarea
-                value={formTarea.descripcion}
-                onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
-                rows="5"
-              />
-            </div>
-            <div className="form-group">
-              <label>Fecha de Entrega *</label>
-              <input
-                type="date"
-                value={formTarea.fecha_entrega}
-                onChange={(e) => setFormTarea({ ...formTarea, fecha_entrega: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Enlace (Opcional)</label>
-              <input
-                type="url"
-                value={formTarea.enlace}
-                onChange={(e) => setFormTarea({ ...formTarea, enlace: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-            <div className="form-actions">
-              <button type="button" onClick={() => {
-                setMostrarFormTarea(false);
-                setFormTarea({ titulo: '', descripcion: '', fecha_entrega: '', enlace: '' });
-              }}>
-                Cancelar
+      {/* Modal de Formulario de Tarea */}
+      {mostrarFormTarea && createPortal(
+        <div 
+          className="modal-tema-overlay"
+          onClick={() => {
+            setMostrarFormTarea(false);
+            setTareaEditando(null);
+            setFormTarea({ 
+              titulo: '', 
+              descripcion: '', 
+              fecha_entrega: '', 
+              ciclo: bimestreGlobal,
+              archivo: null,
+              archivoNombre: '',
+              enlace: '' 
+            });
+          }}
+        >
+          <div 
+            className="modal-tema-container"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-tarea-title"
+          >
+            <div className="modal-tema-header">
+              <h2 id="modal-tarea-title">
+                {tareaEditando ? '✏️ Editar Tarea' : '📝 Registrar Tarea'}
+              </h2>
+              <button
+                className="modal-tema-close"
+                onClick={() => {
+                  setMostrarFormTarea(false);
+                  setTareaEditando(null);
+                  setFormTarea({ 
+                    titulo: '', 
+                    descripcion: '', 
+                    fecha_entrega: '', 
+                    ciclo: bimestreGlobal,
+                    archivo: null,
+                    archivoNombre: '',
+                    enlace: '' 
+                  });
+                }}
+                aria-label="Cerrar"
+              >
+                ×
               </button>
-              <button type="submit">Crear Tarea</button>
             </div>
-          </form>
-        </div>
+
+            <div className="modal-tema-body">
+              <form onSubmit={handleCrearTarea}>
+                {/* Campo Título */}
+                <div className="form-group">
+                  <label htmlFor="tarea-titulo">
+                    Título *
+                  </label>
+                  <input
+                    type="text"
+                    id="tarea-titulo"
+                    className="form-input"
+                    value={formTarea.titulo}
+                    onChange={(e) => setFormTarea({ ...formTarea, titulo: e.target.value })}
+                    placeholder="Ej: Tarea 1: Investigación sobre..."
+                    required
+                  />
+                </div>
+
+                {/* Campo Descripción */}
+                <div className="form-group">
+                  <label htmlFor="tarea-descripcion">
+                    Descripción
+                  </label>
+                  <textarea
+                    id="tarea-descripcion"
+                    className="form-input"
+                    value={formTarea.descripcion}
+                    onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
+                    rows="5"
+                    placeholder="Descripción detallada de la tarea..."
+                  />
+                </div>
+
+                {/* Campo Fecha de Entrega */}
+                <div className="form-group">
+                  <label htmlFor="tarea-fecha-entrega">
+                    Fecha de Entrega *
+                  </label>
+                  <input
+                    type="date"
+                    id="tarea-fecha-entrega"
+                    className="form-input"
+                    value={formTarea.fecha_entrega}
+                    onChange={(e) => setFormTarea({ ...formTarea, fecha_entrega: e.target.value })}
+                    required
+                  />
+                </div>
+
+                {/* Campo Bimestre */}
+                <div className="form-group">
+                  <label htmlFor="tarea-ciclo">
+                    Bimestre *
+                  </label>
+                  <select
+                    id="tarea-ciclo"
+                    className="form-input"
+                    value={formTarea.ciclo}
+                    onChange={(e) => setFormTarea({ ...formTarea, ciclo: parseInt(e.target.value) })}
+                    required
+                  >
+                    {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                      <option key={bim} value={bim}>
+                        Bimestre {bim}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Campo Archivo */}
+                <div className="form-group">
+                  <label htmlFor="tarea-archivo">
+                    Archivos Adjuntos (Opcional)
+                  </label>
+                  <div className="file-input-wrapper">
+                    <input
+                      type="file"
+                      id="tarea-archivo"
+                      className="form-input-file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setFormTarea({
+                            ...formTarea,
+                            archivo: file,
+                            archivoNombre: file.name
+                          });
+                        }
+                      }}
+                    />
+                    <label htmlFor="tarea-archivo" className="file-input-label">
+                      {formTarea.archivoNombre || (tareaEditando && tareaEditando.archivos && tareaEditando.archivos.length > 0 ? 'Archivo existente' : 'Elegir archivos')}
+                    </label>
+                    {formTarea.archivoNombre && (
+                      <button
+                        type="button"
+                        className="file-clear-btn"
+                        onClick={() => setFormTarea({ ...formTarea, archivo: null, archivoNombre: '' })}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <small className="form-help-text">
+                    Puedes subir un archivo PDF o proporcionar una URL, o ambos
+                  </small>
+                </div>
+
+                {/* Campo URL */}
+                <div className="form-group">
+                  <label htmlFor="tarea-enlace">
+                    URL (Opcional)
+                  </label>
+                  <textarea
+                    id="tarea-enlace"
+                    className="form-input"
+                    value={formTarea.enlace}
+                    onChange={(e) => setFormTarea({ ...formTarea, enlace: e.target.value })}
+                    rows="2"
+                    placeholder="https://ejemplo.com/tarea"
+                  />
+                  <small className="form-help-text">
+                    Enlace externo a la tarea
+                  </small>
+                </div>
+
+                {/* Botones de Acción */}
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn-cancelar"
+                    onClick={() => {
+                      setMostrarFormTarea(false);
+                      setTareaEditando(null);
+                      setFormTarea({ 
+                        titulo: '', 
+                        descripcion: '', 
+                        fecha_entrega: '', 
+                        ciclo: bimestreGlobal,
+                        archivo: null,
+                        archivoNombre: '',
+                        enlace: '' 
+                      });
+                    }}
+                    disabled={guardandoTarea}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-guardar"
+                    disabled={guardandoTarea}
+                  >
+                    {guardandoTarea ? '⏳ Guardando...' : (tareaEditando ? '💾 Actualizar' : '💾 Guardar Datos')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Detalles de Tarea */}
+      {mostrarDetallesTarea && tareaDetalle && createPortal(
+        <div 
+          className="modal-tarea-detalle-overlay"
+          onClick={() => {
+            setMostrarDetallesTarea(false);
+            setTareaDetalle(null);
+          }}
+        >
+          <div 
+            className="modal-tarea-detalle-container"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-tarea-detalle-title"
+          >
+            <div className="modal-tarea-detalle-header">
+              <h2 id="modal-tarea-detalle-title">
+                📝 Detalles de la Tarea
+              </h2>
+              <button
+                className="modal-tarea-detalle-close"
+                onClick={() => {
+                  setMostrarDetallesTarea(false);
+                  setTareaDetalle(null);
+                }}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-tarea-detalle-body">
+              <table className="tarea-detalle-table">
+                <tbody>
+                  <tr>
+                    <td className="tarea-detalle-label">TÍTULO</td>
+                    <td className="tarea-detalle-value">{tareaDetalle.titulo || 'Sin título'}</td>
+                  </tr>
+                  <tr>
+                    <td className="tarea-detalle-label">DESCRIPCIÓN</td>
+                    <td className="tarea-detalle-value">
+                      {tareaDetalle.descripcion || <span className="text-muted">Sin descripción</span>}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="tarea-detalle-label">FECHA DE REGISTRO</td>
+                    <td className="tarea-detalle-value">
+                      {new Date(tareaDetalle.fecha_hora).toLocaleDateString('es-PE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric' 
+                      })}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="tarea-detalle-label">FECHA DE ENTREGA</td>
+                    <td className="tarea-detalle-value">
+                      {new Date(tareaDetalle.fecha_entrega).toLocaleDateString('es-PE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric' 
+                      })}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="tarea-detalle-label">ENVIADO POR</td>
+                    <td className="tarea-detalle-value">
+                      {tareaDetalle.docente_nombre || 'Docente'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="tarea-detalle-label">ARCHIVOS ADJUNTOS</td>
+                    <td className="tarea-detalle-value">
+                      {tareaDetalle.archivos && tareaDetalle.archivos.length > 0 ? (
+                        <div className="tarea-archivos-list">
+                          {tareaDetalle.archivos.map((archivo, idx) => (
+                            <a
+                              key={idx}
+                              href={archivo.archivo_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="tarea-archivo-link"
+                            >
+                              📎 {archivo.nombre}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted">Sin archivos adjuntos</span>
+                      )}
+                    </td>
+                  </tr>
+                  {tareaDetalle.enlace_url && (
+                    <tr>
+                      <td className="tarea-detalle-label">URL</td>
+                      <td className="tarea-detalle-value">
+                        <a
+                          href={tareaDetalle.enlace_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="tarea-url-link"
+                        >
+                          🔗 {tareaDetalle.enlace_url}
+                        </a>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {tareas.length > 0 ? (
@@ -862,7 +1566,7 @@ function DocenteAulaVirtual() {
           <tbody>
             {tareas.map((tarea) => (
               <tr key={tarea.id}>
-                <td>{tarea.titulo}</td>
+                <td className="text-center">{tarea.titulo}</td>
                 <td className="text-center">{new Date(tarea.fecha_hora).toLocaleDateString('es-PE')}</td>
                 <td className="text-center">{new Date(tarea.fecha_entrega).toLocaleDateString('es-PE')}</td>
                 <td className="text-center">
@@ -888,19 +1592,19 @@ function DocenteAulaVirtual() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="dropdown-menu-opciones">
-                          <a href="#" onClick={(e) => { e.preventDefault(); handleVerEntregas(tarea); setOpenDropdown(null); }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleVerDetallesTarea(tarea); }}>
                             ℹ️ Ver Detalles
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Marcar entregas */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleMarcarEntregas(tarea); }}>
                             ✓ Marcar Entregas
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleAsignarRegistro(tarea); }}>
                             📋 Asignar a Registro
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Editar tarea */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleEditarTarea(tarea); }}>
                             ✏️ Editar Tarea
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Borrar tarea */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleEliminarTarea(tarea); }}>
                             🗑️ Borrar Tarea
                           </a>
                         </div>
@@ -1005,9 +1709,6 @@ function DocenteAulaVirtual() {
                           </a>
                           <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
                             📊 Ver Resultados
-                          </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar a registro */ }}>
-                            📋 Asignar a Registro
                           </a>
                           <a href="#" onClick={(e) => { e.preventDefault(); /* Habilitar/Deshabilitar */ }}>
                             🔒 Habilitar / Deshabilitar
@@ -1469,6 +2170,369 @@ function DocenteAulaVirtual() {
           </div>,
           document.body
         )}
+      {/* Modal de Marcar Entregas */}
+      {mostrarModalEntregas && createPortal(
+        <div 
+          className="modal-tema-overlay"
+          onClick={() => {
+            setMostrarModalEntregas(false);
+            setTareaParaEntregas(null);
+            setAlumnosEntregas([]);
+            setNotasTemporales({});
+          }}
+        >
+          <div 
+            className="modal-tema-container"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-entregas-title"
+            style={{ maxWidth: '90%', width: '1200px', maxHeight: '90vh' }}
+          >
+            <div className="modal-tema-header">
+              <h2 id="modal-entregas-title">
+                📋 Registrar Entregas
+                {infoTareaEntregas && (
+                  <span style={{ fontSize: '0.9rem', fontWeight: 'normal', marginLeft: '10px', color: '#ffffff' }}>
+                    - {infoTareaEntregas.curso_nombre} - {infoTareaEntregas.grado}° {infoTareaEntregas.seccion}
+                  </span>
+                )}
+              </h2>
+              <button
+                className="modal-tema-close"
+                onClick={() => {
+                  setMostrarModalEntregas(false);
+                  setTareaParaEntregas(null);
+                  setAlumnosEntregas([]);
+                  setNotasTemporales({});
+                }}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-tema-body" style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: 'calc(90vh - 120px)' }}>
+              {loadingEntregas ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <div className="loading-spinner-small"></div>
+                  <p>Cargando entregas...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Botón Guardar arriba */}
+                  <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      className="btn-guardar"
+                      onClick={handleGuardarTodasLasNotas}
+                      style={{ padding: '0.5rem 1.5rem' }}
+                    >
+                      💾 Guardar Todas las Notas
+                    </button>
+                  </div>
+
+                  {/* Tabla de alumnos */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#e8f5e9', borderBottom: '2px solid #4caf50' }}>
+                          <th style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', color: '#333', borderRight: '1px solid #ddd' }}>N°</th>
+                          <th style={{ padding: '12px', textAlign: 'left', fontWeight: 'bold', color: '#333', borderRight: '1px solid #ddd' }}>APELLIDOS Y NOMBRES</th>
+                          <th style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', color: '#333', borderRight: '1px solid #ddd', minWidth: '120px' }}>NOTA</th>
+                          <th style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', color: '#333', borderRight: '1px solid #ddd', minWidth: '80px' }}>VISTO</th>
+                          <th style={{ padding: '12px', textAlign: 'center', fontWeight: 'bold', color: '#333', minWidth: '200px' }}>ARCHIVO(S)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {alumnosEntregas.map((alumno) => (
+                          <tr key={alumno.matricula_id} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '12px', textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                              {alumno.numero}
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'left', borderRight: '1px solid #ddd', fontWeight: '500' }}>
+                              {alumno.nombre_completo}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                              <input
+                                type="text"
+                                value={notasTemporales[alumno.matricula_id] || ''}
+                                onChange={(e) => {
+                                  setNotasTemporales({
+                                    ...notasTemporales,
+                                    [alumno.matricula_id]: e.target.value
+                                  });
+                                }}
+                                placeholder="0-20"
+                                style={{
+                                  width: '100px',
+                                  padding: '8px',
+                                  border: '1px solid #ddd',
+                                  borderRadius: '4px',
+                                  textAlign: 'center',
+                                  fontSize: '0.9rem'
+                                }}
+                              />
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'center', borderRight: '1px solid #ddd' }}>
+                              <span style={{
+                                padding: '4px 12px',
+                                borderRadius: '12px',
+                                fontSize: '0.85rem',
+                                fontWeight: 'bold',
+                                backgroundColor: alumno.visto === 'SI' ? '#e8f5e9' : '#ffebee',
+                                color: alumno.visto === 'SI' ? '#2e7d32' : '#c62828'
+                              }}>
+                                {alumno.visto}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                              {alumno.archivos && alumno.archivos.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                  {alumno.archivos.map((archivo, idx) => (
+                                    <a
+                                      key={idx}
+                                      href={archivo.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: 'inline-block',
+                                        padding: '4px 12px',
+                                        backgroundColor: '#2196f3',
+                                        color: 'white',
+                                        borderRadius: '4px',
+                                        textDecoration: 'none',
+                                        fontSize: '0.85rem',
+                                        margin: '2px'
+                                      }}
+                                    >
+                                      📎 {archivo.nombre || 'Archivo'}
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#999', fontStyle: 'italic' }}>NINGUNO</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Botón Guardar abajo */}
+                  <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      className="btn-guardar"
+                      onClick={handleGuardarTodasLasNotas}
+                      style={{ padding: '0.5rem 1.5rem' }}
+                    >
+                      💾 Guardar Todas las Notas
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Asignar a Registro */}
+      {mostrarModalAsignarRegistro && createPortal(
+        <div 
+          className="modal-tema-overlay"
+          onClick={() => {
+            setMostrarModalAsignarRegistro(false);
+            setTareaParaAsignar(null);
+            setDatosAsignarRegistro(null);
+            setCriterioSeleccionado('');
+            setCuadroSeleccionado('0');
+          }}
+        >
+          <div 
+            className="modal-tema-container"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-asignar-registro-title"
+            style={{ maxWidth: '600px', width: '90%' }}
+          >
+            <div className="modal-tema-header">
+              <h2 id="modal-asignar-registro-title">
+                📋 ASIGNAR A REGISTRO
+              </h2>
+              <button
+                className="modal-tema-close"
+                onClick={() => {
+                  setMostrarModalAsignarRegistro(false);
+                  setTareaParaAsignar(null);
+                  setDatosAsignarRegistro(null);
+                  setCriterioSeleccionado('');
+                  setCuadroSeleccionado('0');
+                }}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-tema-body" style={{ padding: '1.5rem' }}>
+              {loadingAsignarRegistro ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <div className="loading-spinner-small"></div>
+                  <p>Cargando datos...</p>
+                </div>
+              ) : datosAsignarRegistro ? (
+                <>
+                  {/* Campos read-only */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff' }}>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', backgroundColor: '#e8f5e9', fontWeight: 'bold', width: '40%', borderRight: '1px solid #ddd' }}>
+                            TAREA
+                          </td>
+                          <td style={{ padding: '12px', backgroundColor: '#fff' }}>
+                            {datosAsignarRegistro.tarea.titulo}
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>
+                            ASIGNATURA
+                          </td>
+                          <td style={{ padding: '12px', backgroundColor: '#fff' }}>
+                            {datosAsignarRegistro.tarea.curso_nombre}
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>
+                            BIMESTRE
+                          </td>
+                          <td style={{ padding: '12px', backgroundColor: '#fff' }}>
+                            {datosAsignarRegistro.tarea.ciclo}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Campo CRITERIO */}
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="criterio-select" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                      CRITERIO
+                    </label>
+                    <select
+                      id="criterio-select"
+                      className="form-input"
+                      value={criterioSeleccionado}
+                      onChange={(e) => {
+                        setCriterioSeleccionado(e.target.value);
+                        // Resetear cuadro cuando cambia el criterio
+                        if (e.target.value) {
+                          const [criterioId, indicadorId] = e.target.value.split('_');
+                          const criterio = datosAsignarRegistro.criterios.find(c => c.id === parseInt(criterioId));
+                          if (criterio) {
+                            const indicador = criterio.indicadores.find(i => i.id === parseInt(indicadorId));
+                            if (indicador && indicador.cuadros > 0) {
+                              setCuadroSeleccionado('0');
+                            }
+                          }
+                        }
+                      }}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    >
+                      <option value="">Seleccionar criterio...</option>
+                      {datosAsignarRegistro.criterios.map(criterio => 
+                        criterio.indicadores && criterio.indicadores.length > 0 ? (
+                          criterio.indicadores.map(indicador => (
+                            <option key={`${criterio.id}_${indicador.id}`} value={`${criterio.id}_${indicador.id}`}>
+                              {criterio.descripcion} - {indicador.descripcion}
+                            </option>
+                          ))
+                        ) : null
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Campo CUADRO */}
+                  {criterioSeleccionado && (() => {
+                    const [criterioId, indicadorId] = criterioSeleccionado.split('_');
+                    const criterio = datosAsignarRegistro.criterios.find(c => c.id === parseInt(criterioId));
+                    if (criterio) {
+                      const indicador = criterio.indicadores.find(i => i.id === parseInt(indicadorId));
+                      if (indicador && indicador.cuadros > 0) {
+                        return (
+                          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                            <label htmlFor="cuadro-select" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                              CUADRO
+                            </label>
+                            <select
+                              id="cuadro-select"
+                              className="form-input"
+                              value={cuadroSeleccionado}
+                              onChange={(e) => setCuadroSeleccionado(e.target.value)}
+                              style={{ width: '100px', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            >
+                              {Array.from({ length: indicador.cuadros }, (_, i) => (
+                                <option key={i} value={i}>{i + 1}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
+
+                  {/* Warning */}
+                  <div style={{
+                    backgroundColor: '#fff3cd',
+                    border: '1px solid #ffc107',
+                    borderRadius: '4px',
+                    padding: '12px',
+                    marginBottom: '1.5rem',
+                    textAlign: 'center',
+                    color: '#856404',
+                    fontWeight: '500'
+                  }}>
+                    Se reemplazarán las notas en el registro del cuadro seleccionado
+                  </div>
+
+                  {/* Botones */}
+                  <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn-cancelar"
+                      onClick={() => {
+                        setMostrarModalAsignarRegistro(false);
+                        setTareaParaAsignar(null);
+                        setDatosAsignarRegistro(null);
+                        setCriterioSeleccionado('');
+                        setCuadroSeleccionado('0');
+                      }}
+                      disabled={guardandoAsignarRegistro}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-guardar"
+                      onClick={handleGuardarAsignarRegistro}
+                      disabled={guardandoAsignarRegistro || !criterioSeleccionado}
+                    >
+                      {guardandoAsignarRegistro ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       </div>
     </DashboardLayout>
   );

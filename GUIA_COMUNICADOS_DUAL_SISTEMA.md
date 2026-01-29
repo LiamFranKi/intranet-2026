@@ -247,3 +247,5 @@ location /Static {
 **Cuando implementes la creación de comunicados en el nuevo sistema, simplemente guarda la ruta como `/uploads/comunicados/filename.pdf` y el backend automáticamente detectará que es del sistema nuevo y construirá la URL correcta.** ✅
 
 
+
+

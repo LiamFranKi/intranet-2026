@@ -81,3 +81,5 @@ ORDER BY
 --    AND a.colegio_id = 1  -- Reemplaza 1 con el ID del colegio
 -- ================================================================
 
+
+
