@@ -905,6 +905,83 @@
 .drag-handle {
   cursor: grab !important;
   user-select: none;
+  transition: all 0.2s;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.drag-handle:hover {
+  background: rgba(99, 102, 241, 0.1);
+  transform: scale(1.1);
+}
+
+.drag-handle:active {
+  cursor: grabbing !important;
+}
+
+.dragging {
+  opacity: 0.5;
+  background: #f3f4f6 !important;
+}
+
+/* Estilos para preguntas con drag & drop */
+.tabla-aula-virtual tbody tr.dragging {
+  background: #f3f4f6 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Estilos mejorados para ReactQuill en modales */
+#pregunta-descripcion-wrapper .ql-container {
+  min-height: 120px;
+  font-size: 0.9rem;
+}
+
+#pregunta-descripcion-wrapper .ql-editor {
+  min-height: 120px;
+}
+
+#alternativa-\\-wrapper .ql-container {
+  min-height: 60px;
+  font-size: 0.875rem;
+}
+
+#alternativa-\\-wrapper .ql-editor {
+  min-height: 60px;
+}
+
+/* Mejoras visuales para tipos de pregunta especiales */
+.pregunta-tipo-emparejar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 2px dashed #e5e7eb;
+}
+
+.pregunta-tipo-arrastrar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: #fef3c7;
+  border-radius: 8px;
+  border: 2px solid #fbbf24;
+}
+
+.zona-drop-preview {
+  padding: 1rem;
+  background: white;
+  border: 2px dashed #6366f1;
+  border-radius: 8px;
+  text-align: center;
+  color: #6366f1;
+  font-weight: 600;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .drag-handle:active {

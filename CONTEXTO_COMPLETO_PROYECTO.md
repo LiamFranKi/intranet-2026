@@ -2,7 +2,7 @@
 
 **Fecha de Documentación:** Enero 2026  
 **Estado:** Desarrollo Activo  
-**Versión:** 1.0.7
+**Versión:** 1.0.8
 
 ---
 
@@ -532,13 +532,97 @@ react-aula-virtual/
 - Secciones disponibles:
   - **Temas Interactivos** (archivos/temas)
   - **Tareas Virtuales**
-  - **Exámenes**
+  - **Exámenes** ✅ Completamente Implementado
   - **Videoteca** (videos)
   - **Enlaces de Ayuda**
-- Tabs de bimestre independientes para cada sección (cada una mantiene su ciclo activo)
+- Selector global de bimestre: todas las secciones usan el mismo selector (no tabs individuales)
 - Dropdowns de opciones usando `createPortal` para evitar problemas de z-index
 - Los dropdowns solo se cierran con click izquierdo (no con rueda del mouse)
 - Versión anterior preservada: `DocenteAulaVirtual.css` se mantiene por si se necesita en el futuro
+
+##### Exámenes (Aula Virtual)
+- **Crear Examen:**
+  - Modal de creación con campos condicionales según tipo (PDF o VIRTUAL)
+  - Tipo PDF: Solo título, tipo, archivo PDF y estado
+  - Tipo VIRTUAL: Todos los campos (título, tipo, calificación, penalizar incorrecta, puntos por respuesta correcta, tiempo, intentos, bimestre, orden de preguntas, preguntas máx., estado)
+  - Toggle "Habilitar fecha y hora" para mostrar/ocultar campos de fecha y hora
+  - Si fecha/hora deshabilitado: valores por defecto `fecha_desde: '0000-00-00'`, `fecha_hasta: '0000-00-00'`, `hora_desde: '00:00:00'`, `hora_hasta: '00:00:00'`
+  - Valores por defecto: Tipo: Virtual, Calificación: General, Penalizar Incorrecta: No, Estado: Inactivo, Habilitar Hora y Fecha: Deshabilitado
+  - Selector de bimestre independiente del selector global
+  - Si Calificación es INDIVIDUAL: se ocultan "Puntos por respuesta correcta" y "Penalizar Incorrecta"
+  - Subida de archivos PDF con Multer
+- **Editar Examen:**
+  - Misma lógica que crear examen
+  - Carga datos existentes en el formulario
+  - Detecta automáticamente si fecha/hora están habilitados basándose en los valores almacenados
+- **Eliminar Examen:**
+  - Confirmación con SweetAlert2
+  - Eliminación en cascada: alternativas → preguntas → examen
+  - Auditoría registrada antes de la eliminación
+- **Habilitar/Deshabilitar Examen:**
+  - Cambio de estado (ACTIVO/INACTIVO)
+  - Confirmación previa
+  - Actualización inmediata en la grilla
+  - Fondo verde para exámenes ACTIVOS en la grilla
+- **Grilla de Exámenes:**
+  - Muestra: Título, Tipo, Calificación, Puntos, Tiempo, Intentos, Estado, Total de Preguntas
+  - Ordenamiento: `ORDER BY id ASC`
+  - Dropdown de opciones: Editar Examen, Eliminar Examen, Habilitar/Deshabilitar, Asignar al Registro, Preguntas y Alternativas, Ver Resultados
+- **Preguntas y Alternativas:**
+  - Modal completo para gestionar preguntas de un examen
+  - **Tipos de Preguntas Soportados:**
+    - ✅ ALTERNATIVAS (Opción múltiple)
+    - ✅ COMPLETAR (Completar espacios en blanco)
+    - ✅ VERDADERO_FALSO (Verdadero o Falso)
+    - ✅ RESPUESTA_CORTA (Respuesta corta)
+    - ✅ ORDENAR (Ordenar elementos)
+    - ✅ EMPAREJAR (Emparejar elementos de dos columnas)
+    - ✅ ARRASTRAR_Y_SOLTAR (Drag & drop a zonas)
+  - **Funcionalidades:**
+    - Drag & drop para reordenar preguntas (usando `@dnd-kit`)
+    - Vista previa de preguntas (modal read-only)
+    - Editor de texto enriquecido (ReactQuill) para descripciones
+    - Gestión de alternativas según tipo de pregunta
+    - Lógica de puntos: Si examen es GENERAL → muestra `puntos_correcta` del examen, Si es INDIVIDUAL → muestra `puntos` de la pregunta
+    - Botones de acción solo con iconos (Ver, Editar, Eliminar)
+  - **EMPAREJAR:**
+    - Selector "EMPAREJAR CON" que muestra otras alternativas
+    - Prevención de auto-emparejamiento y emparejamientos duplicados
+    - Sección visual "Pares Creados" para mostrar emparejamientos actuales
+    - Manejo de índices temporales para nuevas alternativas
+  - **ARRASTRAR_Y_SOLTAR:**
+    - Input para `zona_drop` con sugerencias de zonas existentes
+    - Sección visual "Zonas Creadas" mostrando zonas únicas y alternativas asignadas
+    - Múltiples alternativas pueden compartir la misma zona
+  - **VERDADERO_FALSO:**
+    - Inicialización automática con alternativas "Verdadero" y "Falso"
+  - **CRUD Completo:**
+    - Crear pregunta con alternativas
+    - Editar pregunta y alternativas
+    - Eliminar pregunta (con cascada de alternativas)
+    - Reordenar preguntas (drag & drop)
+  - **Backend Endpoints:**
+    - `GET /aula-virtual/examenes/:examenId/preguntas` - Listar preguntas
+    - `POST /aula-virtual/examenes/:examenId/preguntas` - Crear pregunta
+    - `PUT /aula-virtual/preguntas/:preguntaId` - Editar pregunta
+    - `DELETE /aula-virtual/preguntas/:preguntaId` - Eliminar pregunta
+    - `GET /aula-virtual/preguntas/:preguntaId/alternativas` - Listar alternativas
+    - `POST /aula-virtual/preguntas/:preguntaId/alternativas` - Crear alternativa
+    - `PUT /aula-virtual/alternativas/:alternativaId` - Editar alternativa
+    - `DELETE /aula-virtual/alternativas/:alternativaId` - Eliminar alternativa
+- **Auditoría:**
+  - Todas las acciones (crear, editar, eliminar, cambiar estado) registran auditoría ANTES de ejecutar la acción
+  - Descripción incluye nombre/título del examen
+  - Prevención de duplicados usando `req.skipAudit = true`
+- **Base de Datos:**
+  - Tabla `asignaturas_examenes_preguntas` extendida con:
+    - Campo `tipo` ENUM extendido con nuevos tipos
+    - Campo `datos_adicionales` JSON para datos complejos
+  - Tabla `asignaturas_examenes_preguntas_alternativas` extendida con:
+    - Campo `orden_posicion` INT para tipo ORDENAR
+    - Campo `par_id` INT para tipo EMPAREJAR
+    - Campo `zona_drop` VARCHAR para tipo ARRASTRAR_Y_SOLTAR
+  - Scripts SQL creados: `backup_preguntas_antes_modificacion.sql`, `modificar_estructura_preguntas.sql`, `restaurar_backup_preguntas.sql`
 
 #### Horario
 - Horario semanal del docente en formato tabla
@@ -1335,10 +1419,12 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
    - Dashboard
    - Ver hijos
 
-2. **Exámenes en Línea**
-   - Crear exámenes
-   - Rendir exámenes
-   - Bloqueo de pantalla durante examen
+2. **Exámenes en Línea (Módulo Alumno)**
+   - ✅ Crear exámenes (Módulo Docente - Completado)
+   - ✅ Preguntas y Alternativas (Módulo Docente - Completado)
+   - 🔄 Rendir exámenes (Módulo Alumno - Pendiente)
+   - 🔄 Bloqueo de pantalla durante examen (Módulo Alumno - Pendiente)
+   - 📄 **Documentación Técnica:** Ver `IMPLEMENTACION_EXAMENES_ALUMNO.md` para guía completa de implementación
 
 3. **Tareas**
    - Crear tareas
@@ -1495,9 +1581,43 @@ Todos los archivos `.md` en la carpeta `md/` contienen documentación detallada 
 - Configuración de PWA
 - Guías de despliegue
 
+**Documentos Técnicos en la Raíz:**
+- `IMPLEMENTACION_EXAMENES_ALUMNO.md` - Guía técnica completa para implementar la vista de exámenes para alumnos, incluyendo prevención de salida de ventana, todos los tipos de preguntas, temporizador, guardado automático y diseño responsive.
+
 ---
 
 ## 📝 HISTORIAL DE CAMBIOS
+
+### Versión 1.0.8 - Enero 2026 - Implementación Completa de Exámenes y Preguntas
+
+**Fecha:** Enero 2026
+
+**Cambios Principales:**
+
+1. **Sistema de Exámenes Completo (Módulo Docente)**
+   - ✅ Crear, editar, eliminar exámenes (tipo PDF y VIRTUAL)
+   - ✅ Habilitar/deshabilitar exámenes
+   - ✅ Gestión completa de preguntas y alternativas
+   - ✅ Soporte para 7 tipos de preguntas: ALTERNATIVAS, COMPLETAR, VERDADERO_FALSO, RESPUESTA_CORTA, ORDENAR, EMPAREJAR, ARRASTRAR_Y_SOLTAR
+   - ✅ Drag & drop para reordenar preguntas
+   - ✅ Vista previa de preguntas
+   - ✅ Editor de texto enriquecido (ReactQuill)
+   - ✅ Lógica de puntos según tipo de calificación (GENERAL/INDIVIDUAL)
+
+2. **Extensión de Base de Datos**
+   - ✅ Modificación de `asignaturas_examenes_preguntas` (nuevos tipos ENUM, campo JSON)
+   - ✅ Modificación de `asignaturas_examenes_preguntas_alternativas` (campos para ORDENAR, EMPAREJAR, ARRASTRAR_Y_SOLTAR)
+   - ✅ Scripts SQL de backup y modificación creados
+
+3. **Documentación Técnica**
+   - ✅ Creado `IMPLEMENTACION_EXAMENES_ALUMNO.md` con guía completa para implementar vista de alumnos
+   - ✅ Incluye: prevención de salida de ventana, todos los tipos de preguntas, temporizador, guardado automático, diseño responsive
+
+4. **Mejoras de Auditoría**
+   - ✅ Auditoría registrada ANTES de ejecutar acciones
+   - ✅ Descripciones incluyen nombres/títulos de recursos
+   - ✅ Prevención de duplicados con `req.skipAudit`
+   - ✅ Auditoría asíncrona para mejor rendimiento
 
 ### Versión 1.0.7 - Enero 2026 - Función de Impresión PDF de Notas con Diseño Completo
 

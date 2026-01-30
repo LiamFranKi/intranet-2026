@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import Swal from 'sweetalert2';
@@ -121,6 +123,21 @@ function DocenteAulaVirtual() {
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
   const [mostrarDetallesTarea, setMostrarDetallesTarea] = useState(false);
   const [tareaDetalle, setTareaDetalle] = useState(null);
+  
+  // Estados para preguntas y alternativas
+  const [examenSeleccionado, setExamenSeleccionado] = useState(null);
+  const [mostrarPreguntasAlternativas, setMostrarPreguntasAlternativas] = useState(false);
+  const [preguntas, setPreguntas] = useState([]);
+  const [cargandoPreguntas, setCargandoPreguntas] = useState(false);
+  const [preguntaEditando, setPreguntaEditando] = useState(null);
+  const [mostrarFormPregunta, setMostrarFormPregunta] = useState(false);
+  const [alternativas, setAlternativas] = useState([]);
+  const [formPregunta, setFormPregunta] = useState({
+    descripcion: '',
+    tipo: 'ALTERNATIVAS',
+    puntos: 0,
+    datos_adicionales: null
+  });
   
   // Estados para dropdowns con portal
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -1693,7 +1710,7 @@ function DocenteAulaVirtual() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="dropdown-menu-opciones">
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Preguntas/Alternativas */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handlePreguntasAlternativas(examen); }}>
                             📝 Preguntas / Alternativas
                           </a>
                           <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
@@ -1981,6 +1998,110 @@ function DocenteAulaVirtual() {
     }
   };
 
+  // Funciones para manejar preguntas y alternativas
+  const handlePreguntasAlternativas = async (examen) => {
+    setExamenSeleccionado(examen);
+    setMostrarPreguntasAlternativas(true);
+    setOpenDropdown(null);
+    await cargarPreguntas(examen.id);
+  };
+
+  const cargarPreguntas = async (examenId) => {
+    setCargandoPreguntas(true);
+    try {
+      const response = await api.get(`/docente/aula-virtual/examenes/${examenId}/preguntas`);
+      setPreguntas(response.data.preguntas || []);
+    } catch (error) {
+      console.error('Error cargando preguntas:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar las preguntas',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setCargandoPreguntas(false);
+    }
+  };
+
+  const handleNuevaPregunta = (examen) => {
+    setPreguntaEditando(null);
+    setFormPregunta({
+      descripcion: '',
+      tipo: 'ALTERNATIVAS',
+      puntos: 0,
+      datos_adicionales: null
+    });
+    setAlternativas([]);
+    setMostrarFormPregunta(true);
+  };
+
+  const handleEditarPregunta = async (pregunta) => {
+    setPreguntaEditando(pregunta);
+    setFormPregunta({
+      descripcion: pregunta.descripcion || '',
+      tipo: pregunta.tipo || 'ALTERNATIVAS',
+      puntos: pregunta.puntos || 0,
+      datos_adicionales: pregunta.datos_adicionales ? (typeof pregunta.datos_adicionales === 'string' ? JSON.parse(pregunta.datos_adicionales) : pregunta.datos_adicionales) : null
+    });
+    
+    // Cargar alternativas de la pregunta
+    try {
+      const response = await api.get(`/docente/aula-virtual/preguntas/${pregunta.id}/alternativas`);
+      setAlternativas(response.data.alternativas || []);
+    } catch (error) {
+      console.error('Error cargando alternativas:', error);
+      setAlternativas([]);
+    }
+    
+    setMostrarFormPregunta(true);
+  };
+
+  const handleEliminarPregunta = async (pregunta) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar esta pregunta? Esta acción también eliminará todas las alternativas asociadas.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmColor: '#d33',
+      cancelColor: '#3085d6',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/preguntas/${pregunta.id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Pregunta eliminada!',
+          text: 'La pregunta y sus alternativas se han eliminado correctamente',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        await cargarPreguntas(examenSeleccionado.id);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar la pregunta',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
   // Funciones para manejar enlaces
   const handleCrearEnlace = async (e) => {
     e.preventDefault();
@@ -2113,7 +2234,7 @@ function DocenteAulaVirtual() {
     const videosCicloActual = videos.filter(v => v.ciclo === bimestreGlobal);
     
     return (
-      <div className="card-content-expanded">
+    <div className="card-content-expanded">
         {/* Modal de Formulario de Video */}
         {mostrarFormVideo && createPortal(
           <div 
@@ -2307,7 +2428,7 @@ function DocenteAulaVirtual() {
     const enlacesCicloActual = enlaces.filter(e => e.ciclo === bimestreGlobal);
     
     return (
-      <div className="card-content-expanded">
+    <div className="card-content-expanded">
         {/* Modal de Formulario de Enlace */}
         {mostrarFormEnlace && createPortal(
           <div 
@@ -3248,6 +3369,52 @@ function DocenteAulaVirtual() {
         document.body
       )}
 
+      {/* Modal de Preguntas y Alternativas */}
+      {mostrarPreguntasAlternativas && examenSeleccionado && createPortal(
+        <PreguntasAlternativasModal
+          examen={examenSeleccionado}
+          preguntas={preguntas}
+          setPreguntas={setPreguntas}
+          cargandoPreguntas={cargandoPreguntas}
+          onClose={() => {
+            setMostrarPreguntasAlternativas(false);
+            setExamenSeleccionado(null);
+            setPreguntas([]);
+          }}
+          onNuevaPregunta={handleNuevaPregunta}
+          onEditarPregunta={handleEditarPregunta}
+          onEliminarPregunta={handleEliminarPregunta}
+          onRecargar={() => cargarPreguntas(examenSeleccionado.id)}
+        />,
+        document.body
+      )}
+
+      {/* Modal de Formulario de Pregunta */}
+      {mostrarFormPregunta && examenSeleccionado && createPortal(
+        <PreguntaFormModal
+          examen={examenSeleccionado}
+          pregunta={preguntaEditando}
+          formPregunta={formPregunta}
+          setFormPregunta={setFormPregunta}
+          alternativas={alternativas}
+          setAlternativas={setAlternativas}
+          onClose={() => {
+            setMostrarFormPregunta(false);
+            setPreguntaEditando(null);
+            setFormPregunta({ descripcion: '', tipo: 'ALTERNATIVAS', puntos: 0, datos_adicionales: null });
+            setAlternativas([]);
+          }}
+          onSuccess={async () => {
+            setMostrarFormPregunta(false);
+            setPreguntaEditando(null);
+            setFormPregunta({ descripcion: '', tipo: 'ALTERNATIVAS', puntos: 0, datos_adicionales: null });
+            setAlternativas([]);
+            await cargarPreguntas(examenSeleccionado.id);
+          }}
+        />,
+        document.body
+      )}
+
       </div>
     </DashboardLayout>
   );
@@ -3301,16 +3468,16 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
       }
       // Si es GENERAL, también requiere puntos_correcta
       if (formExamen.tipo_puntaje === 'GENERAL' && !formExamen.puntos_correcta) {
-        Swal.fire({
+      Swal.fire({
           icon: 'error',
           title: 'Error',
           text: 'Puntos por respuesta correcta es requerido cuando la calificación es GENERAL',
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 3000
-        });
-        return;
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
       }
     }
 
@@ -3377,16 +3544,16 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
           }
         });
 
-        Swal.fire({
-          icon: 'success',
-          title: '¡Examen creado!',
-          text: 'El examen se ha creado correctamente',
-          toast: true,
-          position: 'top-end',
-          showConfirmButton: false,
-          timer: 3000,
-          timerProgressBar: true
-        });
+      Swal.fire({
+        icon: 'success',
+        title: '¡Examen creado!',
+        text: 'El examen se ha creado correctamente',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+      });
       }
 
       onSuccess();
@@ -3414,7 +3581,7 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
         </div>
 
         <div className="modal-tema-body">
-          <form onSubmit={handleCrearExamen}>
+      <form onSubmit={handleCrearExamen}>
             <div className="form-group">
               <label htmlFor="examen-titulo">Título *</label>
               <input
@@ -3450,124 +3617,124 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
                   <select
                     id="examen-calificacion"
                     className="form-input"
-                    value={formExamen.tipo_puntaje}
-                    onChange={(e) => setFormExamen({ ...formExamen, tipo_puntaje: e.target.value })}
-                  >
+                value={formExamen.tipo_puntaje}
+                onChange={(e) => setFormExamen({ ...formExamen, tipo_puntaje: e.target.value })}
+              >
                     <option value="INDIVIDUAL">INDIVIDUAL</option>
                     <option value="GENERAL">GENERAL</option>
-                  </select>
-                </div>
+              </select>
+            </div>
 
                 {/* Solo mostrar "Puntos por respuesta correcta" si es GENERAL */}
                 {formExamen.tipo_puntaje === 'GENERAL' && (
-                  <div className="form-group">
+            <div className="form-group">
                     <label htmlFor="examen-puntos-correcta">Puntos por respuesta correcta *</label>
-                    <input
-                      type="number"
+              <input
+                type="number"
                       id="examen-puntos-correcta"
                       className="form-input"
-                      step="0.1"
-                      min="0"
-                      value={formExamen.puntos_correcta}
+                step="0.1"
+                min="0"
+                value={formExamen.puntos_correcta}
                       onChange={(e) => setFormExamen({ ...formExamen, puntos_correcta: parseFloat(e.target.value) || 1.0 })}
-                      required
-                    />
-                  </div>
+                required
+              />
+            </div>
                 )}
 
                 {/* Solo mostrar "Penalizar Incorrecta" si es GENERAL */}
                 {formExamen.tipo_puntaje === 'GENERAL' && (
                   <>
-                    <div className="form-group">
+            <div className="form-group">
                       <label htmlFor="examen-penalizar">Penalizar Incorrecta</label>
-                      <select
+              <select
                         id="examen-penalizar"
                         className="form-input"
-                        value={formExamen.penalizar_incorrecta}
-                        onChange={(e) => setFormExamen({ ...formExamen, penalizar_incorrecta: e.target.value })}
-                      >
+                value={formExamen.penalizar_incorrecta}
+                onChange={(e) => setFormExamen({ ...formExamen, penalizar_incorrecta: e.target.value })}
+              >
                         <option value="NO">NO</option>
                         <option value="SI">SI</option>
-                      </select>
-                    </div>
+              </select>
+            </div>
 
-                    {formExamen.penalizar_incorrecta === 'SI' && (
-                      <div className="form-group">
+            {formExamen.penalizar_incorrecta === 'SI' && (
+              <div className="form-group">
                         <label htmlFor="examen-penalizacion">Penalización por Incorrecta</label>
-                        <input
-                          type="number"
+                <input
+                  type="number"
                           id="examen-penalizacion"
                           className="form-input"
-                          step="0.1"
-                          min="0"
-                          value={formExamen.penalizacion_incorrecta}
+                  step="0.1"
+                  min="0"
+                  value={formExamen.penalizacion_incorrecta}
                           onChange={(e) => setFormExamen({ ...formExamen, penalizacion_incorrecta: parseFloat(e.target.value) || 0 })}
-                        />
-                      </div>
-                    )}
+                />
+              </div>
+            )}
                   </>
                 )}
 
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-tiempo">Tiempo *</label>
-                  <input
-                    type="number"
+              <input
+                type="number"
                     id="examen-tiempo"
                     className="form-input"
-                    min="1"
-                    value={formExamen.tiempo}
+                min="1"
+                value={formExamen.tiempo}
                     onChange={(e) => setFormExamen({ ...formExamen, tiempo: parseInt(e.target.value) || 60 })}
-                    required
-                  />
-                </div>
+                required
+              />
+            </div>
 
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-intentos">Intentos</label>
-                  <input
-                    type="number"
+              <input
+                type="number"
                     id="examen-intentos"
                     className="form-input"
-                    min="1"
-                    value={formExamen.intentos}
+                min="1"
+                value={formExamen.intentos}
                     onChange={(e) => setFormExamen({ ...formExamen, intentos: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
+              />
+            </div>
 
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-orden">Orden de Preguntas</label>
-                  <select
+              <select
                     id="examen-orden"
                     className="form-input"
-                    value={formExamen.orden_preguntas}
-                    onChange={(e) => setFormExamen({ ...formExamen, orden_preguntas: e.target.value })}
-                  >
+                value={formExamen.orden_preguntas}
+                onChange={(e) => setFormExamen({ ...formExamen, orden_preguntas: e.target.value })}
+              >
                     <option value="PREDETERMINADO">PREDETERMINADO</option>
                     <option value="ALEATORIO">ALEATORIO</option>
-                  </select>
-                </div>
+              </select>
+            </div>
 
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-preguntas-max">Preguntas Max. *</label>
-                  <input
-                    type="number"
+              <input
+                type="number"
                     id="examen-preguntas-max"
                     className="form-input"
-                    min="1"
-                    value={formExamen.preguntas_max}
+                min="1"
+                value={formExamen.preguntas_max}
                     onChange={(e) => setFormExamen({ ...formExamen, preguntas_max: parseInt(e.target.value) || 1 })}
                     required
-                  />
-                </div>
+              />
+            </div>
               </>
             )}
 
             {/* Campo Archivo PDF solo para PDF */}
             {formExamen.tipo === 'PDF' && (
-              <div className="form-group">
+            <div className="form-group">
                 <label htmlFor="examen-archivo-pdf">
                   Archivo PDF {examenEditando ? '(Opcional - dejar vacío para mantener el actual)' : '*'}
                 </label>
-                <input
+              <input
                   type="file"
                   id="examen-archivo-pdf"
                   className="form-input"
@@ -3615,29 +3782,29 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
             {/* Campos de fecha y hora solo si está habilitado */}
             {formExamen.habilitar_fecha_hora && (
               <>
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-fecha-desde">Desde</label>
-                  <input
-                    type="date"
+              <input
+                type="date"
                     id="examen-fecha-desde"
                     className="form-input"
                     value={formExamen.fecha_desde}
                     onChange={(e) => setFormExamen({ ...formExamen, fecha_desde: e.target.value })}
-                  />
-                </div>
+              />
+            </div>
 
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-hora-desde">Hora Desde</label>
-                  <input
-                    type="time"
+              <input
+                type="time"
                     id="examen-hora-desde"
                     className="form-input"
-                    value={formExamen.hora_desde}
-                    onChange={(e) => setFormExamen({ ...formExamen, hora_desde: e.target.value })}
-                  />
-                </div>
+                value={formExamen.hora_desde}
+                onChange={(e) => setFormExamen({ ...formExamen, hora_desde: e.target.value })}
+              />
+            </div>
 
-                <div className="form-group">
+            <div className="form-group">
                   <label htmlFor="examen-fecha-hasta">Hasta</label>
                   <input
                     type="date"
@@ -3650,14 +3817,14 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
 
                 <div className="form-group">
                   <label htmlFor="examen-hora-hasta">Hora Hasta</label>
-                  <input
-                    type="time"
+              <input
+                type="time"
                     id="examen-hora-hasta"
                     className="form-input"
-                    value={formExamen.hora_hasta}
-                    onChange={(e) => setFormExamen({ ...formExamen, hora_hasta: e.target.value })}
-                  />
-                </div>
+                value={formExamen.hora_hasta}
+                onChange={(e) => setFormExamen({ ...formExamen, hora_hasta: e.target.value })}
+              />
+            </div>
               </>
             )}
 
@@ -3673,7 +3840,7 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
                 <option value="ACTIVO">ACTIVO</option>
                 <option value="INACTIVO">INACTIVO</option>
               </select>
-            </div>
+          </div>
 
             <div className="form-actions">
               <button
@@ -3691,8 +3858,1237 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
               >
                 {guardandoExamen ? 'Guardando...' : 'Guardar Datos'}
               </button>
-            </div>
+        </div>
           </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente para el modal de Preguntas y Alternativas
+function PreguntasAlternativasModal({ examen, preguntas, setPreguntas, cargandoPreguntas, onClose, onNuevaPregunta, onEditarPregunta, onEliminarPregunta, onRecargar }) {
+  const [preguntaVistaPrevia, setPreguntaVistaPrevia] = useState(null);
+  const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = preguntas.findIndex(p => p.id === active.id);
+    const newIndex = preguntas.findIndex(p => p.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const nuevasPreguntas = arrayMove(preguntas, oldIndex, newIndex);
+    setPreguntas(nuevasPreguntas);
+
+    // Actualizar orden en el backend
+    try {
+      for (let i = 0; i < nuevasPreguntas.length; i++) {
+        await api.put(`/docente/aula-virtual/preguntas/${nuevasPreguntas[i].id}`, {
+          descripcion: nuevasPreguntas[i].descripcion,
+          tipo: nuevasPreguntas[i].tipo,
+          puntos: nuevasPreguntas[i].puntos,
+          orden: i + 1,
+          datos_adicionales: nuevasPreguntas[i].datos_adicionales
+        });
+      }
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Orden actualizado!',
+        text: 'El orden de las preguntas se ha guardado correctamente',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true
+      });
+    } catch (error) {
+      console.error('Error actualizando orden:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo actualizar el orden. Recargando...',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000
+      });
+      // Revertir en caso de error
+      onRecargar();
+    }
+  };
+
+  const verVistaPrevia = async (pregunta) => {
+    try {
+      const response = await api.get(`/docente/aula-virtual/preguntas/${pregunta.id}/alternativas`);
+      setPreguntaVistaPrevia({
+        ...pregunta,
+        alternativas: response.data.alternativas || []
+      });
+      setMostrarVistaPrevia(true);
+    } catch (error) {
+      console.error('Error cargando alternativas para vista previa:', error);
+      setPreguntaVistaPrevia({ ...pregunta, alternativas: [] });
+      setMostrarVistaPrevia(true);
+    }
+  };
+
+  return (
+    <>
+      <div className="modal-tema-overlay" onClick={onClose}>
+        <div className="modal-tema-container" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ maxWidth: '90%', width: '1200px', maxHeight: '90vh', overflow: 'auto' }}>
+          <div className="modal-tema-header" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)' }}>
+            <h2>📝 Preguntas y Alternativas - {examen.titulo}</h2>
+            <button className="modal-tema-close" onClick={onClose} aria-label="Cerrar">×</button>
+          </div>
+
+          <div className="modal-tema-body">
+            <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
+                  Total de preguntas: <strong style={{ color: '#6366f1', fontSize: '1.1rem' }}>{preguntas.length}</strong>
+                </p>
+              </div>
+              <button
+                className="btn-nuevo-item"
+                onClick={() => onNuevaPregunta(examen)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <span>➕</span> Registrar Nuevo
+              </button>
+            </div>
+
+            {cargandoPreguntas ? (
+              <div className="empty-state">
+                <p>⏳ Cargando preguntas...</p>
+              </div>
+            ) : preguntas.length > 0 ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <table className="tabla-aula-virtual">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}></th>
+                      <th style={{ textAlign: 'left' }}>DESCRIPCIÓN</th>
+                      <th style={{ textAlign: 'center', width: '150px' }}>TIPO</th>
+                      <th style={{ textAlign: 'center', width: '100px' }}>PUNTOS</th>
+                      <th style={{ textAlign: 'center', width: '200px' }}>ACCIONES</th>
+                    </tr>
+                  </thead>
+                  <SortableContext items={preguntas.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                    <tbody>
+                      {preguntas.map((pregunta, index) => (
+                        <SortablePreguntaRow
+                          key={pregunta.id}
+                          pregunta={pregunta}
+                          examen={examen}
+                          index={index}
+                          onEditar={onEditarPregunta}
+                          onEliminar={onEliminarPregunta}
+                          onVistaPrevia={verVistaPrevia}
+                        />
+                      ))}
+                    </tbody>
+                  </SortableContext>
+                </table>
+              </DndContext>
+            ) : (
+              <div className="empty-state">
+                <p>📋 No hay preguntas registradas para este examen</p>
+                <button
+                  className="btn-nuevo-item"
+                  onClick={() => onNuevaPregunta(examen)}
+                  style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem auto 0' }}
+                >
+                  <span>➕</span> Registrar Primera Pregunta
+                </button>
+            </div>
+            )}
+            </div>
+
+          <div className="modal-tema-footer" style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn-cancelar-tema" onClick={onClose}>
+              ✖️ Cerrar
+            </button>
+          </div>
+          </div>
+        </div>
+
+      {/* Modal de Vista Previa */}
+      {mostrarVistaPrevia && preguntaVistaPrevia && (
+        <VistaPreviaPreguntaModal
+          pregunta={preguntaVistaPrevia}
+          examen={examen}
+          onClose={() => {
+            setMostrarVistaPrevia(false);
+            setPreguntaVistaPrevia(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+// Componente para fila ordenable de pregunta
+function SortablePreguntaRow({ pregunta, examen, index, onEditar, onEliminar, onVistaPrevia }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: pregunta.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+  };
+
+  const getTipoColor = (tipo) => {
+    const colores = {
+      'ALTERNATIVAS': { bg: '#dbeafe', color: '#1e40af' },
+      'COMPLETAR': { bg: '#fef3c7', color: '#92400e' },
+      'VERDADERO_FALSO': { bg: '#d1fae5', color: '#065f46' },
+      'RESPUESTA_CORTA': { bg: '#e0e7ff', color: '#3730a3' },
+      'ORDENAR': { bg: '#fce7f3', color: '#831843' },
+      'EMPAREJAR': { bg: '#f3e8ff', color: '#6b21a8' },
+      'ARRASTRAR_Y_SOLTAR': { bg: '#fef3c7', color: '#78350f' }
+    };
+    return colores[tipo] || { bg: '#f3f4f6', color: '#374151' };
+  };
+
+  const tipoColor = getTipoColor(pregunta.tipo);
+
+  // Calcular puntos según el tipo de calificación del examen
+  const puntosMostrar = examen.tipo_puntaje === 'GENERAL' 
+    ? (examen.puntos_correcta || 0)  // Si es GENERAL, mostrar puntos_correcta del examen
+    : (pregunta.puntos || 0);         // Si es INDIVIDUAL, mostrar puntos de la pregunta
+
+  return (
+    <tr ref={setNodeRef} style={style} className={isDragging ? 'dragging' : ''}>
+      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+        <div
+          {...attributes}
+          {...listeners}
+          className="drag-handle"
+          style={{ cursor: 'grab', fontSize: '1.2rem', userSelect: 'none' }}
+        >
+          ⋮⋮
+        </div>
+      </td>
+      <td style={{ padding: '0.75rem' }}>
+        <div 
+          dangerouslySetInnerHTML={{ __html: pregunta.descripcion }} 
+          style={{ 
+            maxHeight: '60px', 
+            overflow: 'hidden',
+            lineHeight: '1.5',
+            color: '#1f2937'
+          }} 
+        />
+      </td>
+      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+        <span style={{ 
+          padding: '0.375rem 0.875rem', 
+          borderRadius: '12px', 
+          fontSize: '0.75rem',
+          fontWeight: '600',
+          backgroundColor: tipoColor.bg,
+          color: tipoColor.color,
+          display: 'inline-block'
+        }}>
+          {pregunta.tipo.replace(/_/g, ' ')}
+        </span>
+      </td>
+      <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600', color: '#6366f1' }}>
+        {puntosMostrar}
+      </td>
+      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+          <button
+            className="btn-opciones"
+            onClick={() => onVistaPrevia(pregunta)}
+            style={{ 
+              fontSize: '1.2rem', 
+              padding: '0.5rem',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px'
+            }}
+            title="Vista previa"
+          >
+            👁️
+          </button>
+          <button
+            className="btn-opciones"
+            onClick={() => onEditar(pregunta)}
+            style={{ 
+              fontSize: '1.2rem', 
+              padding: '0.5rem',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px'
+            }}
+            title="Editar"
+          >
+            ✏️
+          </button>
+          <button
+            className="btn-opciones"
+            onClick={() => onEliminar(pregunta)}
+            style={{ 
+              fontSize: '1.2rem', 
+              padding: '0.5rem',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white'
+            }}
+            title="Eliminar"
+          >
+            🗑️
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// Componente para vista previa de pregunta
+function VistaPreviaPreguntaModal({ pregunta, examen, onClose }) {
+  // Calcular puntos según el tipo de calificación del examen
+  const puntosMostrar = examen.tipo_puntaje === 'GENERAL' 
+    ? (examen.puntos_correcta || 0)  // Si es GENERAL, mostrar puntos_correcta del examen
+    : (pregunta.puntos || 0);         // Si es INDIVIDUAL, mostrar puntos de la pregunta
+
+  return (
+    <div className="modal-tema-overlay" onClick={onClose}>
+      <div className="modal-tema-container" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ maxWidth: '90%', width: '800px', maxHeight: '90vh', overflow: 'auto' }}>
+        <div className="modal-tema-header" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>
+          <h2>👁️ Vista Previa de Pregunta</h2>
+          <button className="modal-tema-close" onClick={onClose} aria-label="Cerrar">×</button>
+        </div>
+
+        <div className="modal-tema-body">
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem', color: '#6b7280', fontWeight: '600' }}>
+              TIPO: <span style={{ color: '#6366f1' }}>{pregunta.tipo.replace(/_/g, ' ')}</span>
+            </div>
+            <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem', color: '#6b7280', fontWeight: '600' }}>
+              PUNTOS: <span style={{ color: '#6366f1' }}>{puntosMostrar}</span>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', color: '#374151' }}>
+              PREGUNTA:
+            </label>
+            <div 
+              style={{ 
+                padding: '1rem', 
+                background: 'white', 
+                border: '2px solid #e5e7eb', 
+                borderRadius: '8px',
+                minHeight: '80px'
+              }}
+              dangerouslySetInnerHTML={{ __html: pregunta.descripcion }} 
+            />
+          </div>
+
+          {pregunta.alternativas && pregunta.alternativas.length > 0 && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', color: '#374151' }}>
+                ALTERNATIVAS:
+                        </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {pregunta.alternativas.map((alt, index) => (
+                  <div
+                    key={alt.id || index}
+                    style={{
+                      padding: '0.875rem',
+                      background: alt.correcta === 'SI' ? '#d1fae5' : 'white',
+                      border: `2px solid ${alt.correcta === 'SI' ? '#10b981' : '#e5e7eb'}`,
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    <div style={{ 
+                      width: '24px', 
+                      height: '24px', 
+                      borderRadius: '50%', 
+                      background: alt.correcta === 'SI' ? '#10b981' : '#e5e7eb',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '0.75rem',
+                      flexShrink: 0
+                    }}>
+                      {alt.correcta === 'SI' ? '✓' : index + 1}
+                      </div>
+                    <div 
+                      style={{ flex: 1 }}
+                      dangerouslySetInnerHTML={{ __html: alt.descripcion || '' }} 
+                    />
+                    {alt.orden_posicion && (
+                      <span style={{ 
+                        padding: '0.25rem 0.5rem', 
+                        background: '#f3f4f6', 
+                        borderRadius: '4px', 
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        color: '#6366f1'
+                      }}>
+                        Pos: {alt.orden_posicion}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              </div>
+            )}
+        </div>
+
+        <div className="modal-tema-footer" style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn-cancelar-tema" onClick={onClose}>
+            ✖️ Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente para el formulario de pregunta
+function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, alternativas, setAlternativas, onClose, onSuccess }) {
+  const [guardando, setGuardando] = useState(false);
+  const quillRefDescripcion = useRef(null);
+  const quillRefsAlternativas = useRef({});
+
+  // Cargar alternativas cuando se edita una pregunta
+  useEffect(() => {
+    if (pregunta && pregunta.id) {
+      const cargarAlternativas = async () => {
+        try {
+          const response = await api.get(`/docente/aula-virtual/preguntas/${pregunta.id}/alternativas`);
+          setAlternativas(response.data.alternativas || []);
+        } catch (error) {
+          console.error('Error cargando alternativas:', error);
+          setAlternativas([]);
+        }
+      };
+      cargarAlternativas();
+    }
+  }, [pregunta]);
+
+  // No usar useEffect para inicializar VERDADERO_FALSO - se maneja en el onChange del select
+
+  const agregarAlternativa = () => {
+    const nuevaAlternativa = {
+      id: null,
+      descripcion: '',
+      correcta: 'NO',
+      orden_posicion: formPregunta.tipo === 'ORDENAR' ? alternativas.length + 1 : null,
+      par_id: null,
+      zona_drop: null
+    };
+    setAlternativas([...alternativas, nuevaAlternativa]);
+  };
+
+  const eliminarAlternativa = (index) => {
+    const nuevasAlternativas = alternativas.filter((_, i) => i !== index);
+    // Reordenar posiciones si es tipo ORDENAR
+    if (formPregunta.tipo === 'ORDENAR') {
+      nuevasAlternativas.forEach((alt, i) => {
+        alt.orden_posicion = i + 1;
+      });
+    }
+    setAlternativas(nuevasAlternativas);
+  };
+
+  const actualizarAlternativa = useCallback((index, campo, valor) => {
+    // Usar la forma funcional de setState para evitar dependencias y bucles infinitos
+    setAlternativas(prevAlternativas => {
+      // Verificar si el valor realmente cambió
+      if (prevAlternativas[index] && prevAlternativas[index][campo] === valor) {
+        return prevAlternativas; // Retornar el mismo array si no hay cambios
+      }
+      
+      const nuevasAlternativas = [...prevAlternativas];
+      nuevasAlternativas[index] = { ...nuevasAlternativas[index], [campo]: valor };
+      return nuevasAlternativas;
+    });
+  }, []); // Sin dependencias para evitar recrear la función
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formPregunta.descripcion || formPregunta.descripcion.trim() === '') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'La descripción es requerida',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    // Validar alternativas según el tipo
+    if (formPregunta.tipo === 'ALTERNATIVAS' || formPregunta.tipo === 'VERDADERO_FALSO' || formPregunta.tipo === 'ORDENAR' || formPregunta.tipo === 'EMPAREJAR') {
+      if (alternativas.length < 2) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Debe agregar al menos 2 alternativas',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+
+      // Para ALTERNATIVAS y VERDADERO_FALSO, debe haber al menos una correcta
+      if ((formPregunta.tipo === 'ALTERNATIVAS' || formPregunta.tipo === 'VERDADERO_FALSO') && 
+          !alternativas.some(alt => alt.correcta === 'SI')) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Debe marcar al menos una alternativa como correcta',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+    }
+
+    setGuardando(true);
+    try {
+      let preguntaId;
+
+      if (pregunta && pregunta.id) {
+        // Editar pregunta existente
+        await api.put(`/docente/aula-virtual/preguntas/${pregunta.id}`, {
+          descripcion: formPregunta.descripcion,
+          tipo: formPregunta.tipo,
+          puntos: examen.tipo_puntaje === 'INDIVIDUAL' ? formPregunta.puntos : 0,
+          orden: pregunta.orden,
+          datos_adicionales: formPregunta.datos_adicionales
+        });
+        preguntaId = pregunta.id;
+      } else {
+        // Crear nueva pregunta
+        const response = await api.post(`/docente/aula-virtual/examenes/${examen.id}/preguntas`, {
+          descripcion: formPregunta.descripcion,
+          tipo: formPregunta.tipo,
+          puntos: examen.tipo_puntaje === 'INDIVIDUAL' ? formPregunta.puntos : 0,
+          datos_adicionales: formPregunta.datos_adicionales
+        });
+        preguntaId = response.data.pregunta_id;
+      }
+
+      // Guardar/actualizar alternativas
+      if (formPregunta.tipo !== 'RESPUESTA_CORTA' && formPregunta.tipo !== 'COMPLETAR') {
+        // Obtener alternativas existentes para comparar
+        const alternativasExistentes = pregunta && pregunta.id 
+          ? (await api.get(`/docente/aula-virtual/preguntas/${pregunta.id}/alternativas`)).data.alternativas || []
+          : [];
+
+        // Eliminar alternativas que ya no están
+        for (const altExistente of alternativasExistentes) {
+          if (!alternativas.find(alt => alt.id === altExistente.id)) {
+            await api.delete(`/docente/aula-virtual/alternativas/${altExistente.id}`);
+          }
+        }
+
+        // Crear/actualizar alternativas
+        // Primero crear todas las alternativas para obtener sus IDs
+        const alternativasConIds = [];
+        
+        for (let i = 0; i < alternativas.length; i++) {
+          const alternativa = alternativas[i];
+          if (!alternativa.descripcion || alternativa.descripcion.trim() === '') continue;
+
+          // Para EMPAREJAR, no enviar par_id todavía si es un índice temporal
+          let parIdParaGuardar = alternativa.par_id;
+          if (formPregunta.tipo === 'EMPAREJAR' && parIdParaGuardar !== null && typeof parIdParaGuardar === 'number' && parIdParaGuardar < alternativas.length) {
+            // Es un índice temporal, no enviarlo todavía
+            parIdParaGuardar = null;
+          }
+
+          const datosAlternativa = {
+            descripcion: alternativa.descripcion,
+            correcta: alternativa.correcta === 'SI' || alternativa.correcta === true,
+            orden_posicion: alternativa.orden_posicion || null,
+            par_id: parIdParaGuardar,
+            zona_drop: alternativa.zona_drop || null
+          };
+
+          if (alternativa.id) {
+            // Actualizar alternativa existente
+            await api.put(`/docente/aula-virtual/alternativas/${alternativa.id}`, datosAlternativa);
+            alternativasConIds.push({ ...alternativa, id: alternativa.id, par_id_temporal: alternativa.par_id });
+          } else {
+            // Crear nueva alternativa
+            const response = await api.post(`/docente/aula-virtual/preguntas/${preguntaId}/alternativas`, datosAlternativa);
+            alternativasConIds.push({ ...alternativa, id: response.data.alternativa_id, par_id_temporal: alternativa.par_id });
+          }
+        }
+
+        // Ahora actualizar los par_id con los IDs reales para tipo EMPAREJAR
+        if (formPregunta.tipo === 'EMPAREJAR') {
+          for (let i = 0; i < alternativasConIds.length; i++) {
+            const alt = alternativasConIds[i];
+            if (alt.par_id_temporal !== null && alt.par_id_temporal !== undefined && typeof alt.par_id_temporal === 'number') {
+              // Si es un índice, buscar la alternativa correspondiente
+              if (alt.par_id_temporal < alternativasConIds.length) {
+                const alternativaPar = alternativasConIds[alt.par_id_temporal];
+                if (alternativaPar && alternativaPar.id) {
+                  // Actualizar con el ID real
+                  await api.put(`/docente/aula-virtual/alternativas/${alt.id}`, {
+                    descripcion: alt.descripcion,
+                    correcta: alt.correcta,
+                    orden_posicion: alt.orden_posicion,
+                    par_id: alternativaPar.id,
+                    zona_drop: alt.zona_drop
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: pregunta ? '¡Pregunta actualizada!' : '¡Pregunta creada!',
+        text: 'Los datos se han guardado correctamente',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+      });
+
+      onSuccess();
+    } catch (error) {
+      console.error('Error guardando pregunta:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo guardar la pregunta',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const requiereAlternativas = ['ALTERNATIVAS', 'VERDADERO_FALSO', 'ORDENAR', 'EMPAREJAR', 'ARRASTRAR_Y_SOLTAR'].includes(formPregunta.tipo);
+  const requiereCompletar = formPregunta.tipo === 'COMPLETAR';
+
+  return (
+    <div className="modal-tema-overlay" onClick={onClose}>
+      <div className="modal-tema-container" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ maxWidth: '90%', width: '1000px', maxHeight: '90vh', overflow: 'auto' }}>
+        <div className="modal-tema-header" style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%)' }}>
+          <h2>{pregunta ? '✏️ Editar Pregunta' : '📝 Registrar Pregunta'}</h2>
+          <button className="modal-tema-close" onClick={onClose} aria-label="Cerrar">×</button>
+        </div>
+
+        <div className="modal-tema-body">
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="pregunta-tipo">
+                <span style={{ marginRight: '0.5rem' }}>🎯</span>Tipo de Pregunta *
+              </label>
+              <select
+                id="pregunta-tipo"
+                className="form-input"
+                value={formPregunta.tipo}
+                onChange={(e) => {
+                  setFormPregunta({ ...formPregunta, tipo: e.target.value });
+                  // Resetear alternativas cuando cambia el tipo
+                  if (e.target.value === 'VERDADERO_FALSO') {
+                    setAlternativas([
+                      { id: null, descripcion: 'Verdadero', correcta: 'NO', orden_posicion: null, par_id: null, zona_drop: null },
+                      { id: null, descripcion: 'Falso', correcta: 'NO', orden_posicion: null, par_id: null, zona_drop: null }
+                    ]);
+                  } else if (e.target.value === 'RESPUESTA_CORTA' || e.target.value === 'COMPLETAR') {
+                    setAlternativas([]);
+                  } else if (e.target.value === 'ORDENAR') {
+                    setAlternativas([]);
+                  } else if (e.target.value === 'EMPAREJAR') {
+                    setAlternativas([]);
+                  } else if (e.target.value === 'ARRASTRAR_Y_SOLTAR') {
+                    setAlternativas([]);
+                  }
+                }}
+                  required
+              >
+                <option value="ALTERNATIVAS">📋 ALTERNATIVAS (Opción Múltiple)</option>
+                <option value="COMPLETAR">✏️ COMPLETAR (Completar espacios)</option>
+                <option value="VERDADERO_FALSO">✅ VERDADERO_FALSO</option>
+                <option value="RESPUESTA_CORTA">💬 RESPUESTA_CORTA (Texto libre)</option>
+                <option value="ORDENAR">🔢 ORDENAR (Ordenar elementos)</option>
+                <option value="EMPAREJAR">🔗 EMPAREJAR (Emparejar elementos)</option>
+                <option value="ARRASTRAR_Y_SOLTAR">🎯 ARRASTRAR_Y_SOLTAR (Drag & Drop)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Descripción *</label>
+              <div id="pregunta-descripcion-wrapper">
+                <ReactQuill
+                  ref={quillRefDescripcion}
+                  theme="snow"
+                  value={formPregunta.descripcion}
+                  onChange={(value) => setFormPregunta({ ...formPregunta, descripcion: value })}
+                placeholder="Escribe la pregunta aquí..."
+                  modules={{
+                    toolbar: [
+                      [{ 'header': [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline', 'strike'],
+                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ 'color': [] }, { 'background': [] }],
+                      [{ 'align': [] }],
+                      ['link', 'image'],
+                      ['clean']
+                    ]
+                  }}
+                  formats={[
+                    'header', 'bold', 'italic', 'underline', 'strike',
+                    'list', 'bullet', 'color', 'background', 'align',
+                    'link', 'image'
+                  ]}
+                />
+              </div>
+              {requiereCompletar && (
+                <small style={{ display: 'block', marginTop: '0.5rem', color: '#6b7280' }}>
+                  Coloque los campos a completar de la forma: [[respuesta]]. Ej: La capital del Perú es [[Lima]]
+                </small>
+            )}
+            </div>
+
+            {examen.tipo_puntaje === 'INDIVIDUAL' && (
+            <div className="form-group">
+                <label>Puntos *</label>
+              <input
+                type="number"
+                  className="form-input"
+                  value={formPregunta.puntos}
+                  onChange={(e) => setFormPregunta({ ...formPregunta, puntos: parseFloat(e.target.value) || 0 })}
+                min="0"
+                  step="0.1"
+                  required
+              />
+            </div>
+            )}
+
+            {/* Sección de Alternativas */}
+            {requiereAlternativas && (
+              <div className="form-group" style={{ marginTop: '2rem' }}>
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  color: 'white', 
+                  padding: '1rem 1.25rem', 
+                  borderRadius: '12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1.5rem',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                }}>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>📝</span> Alternativas
+                    {formPregunta.tipo === 'EMPAREJAR' && (
+                      <span style={{ fontSize: '0.875rem', fontWeight: '400', marginLeft: '1rem', opacity: 0.9 }}>
+                        (Crea pares: cada alternativa se empareja con otra)
+                      </span>
+                    )}
+                    {formPregunta.tipo === 'ARRASTRAR_Y_SOLTAR' && (
+                      <span style={{ fontSize: '0.875rem', fontWeight: '400', marginLeft: '1rem', opacity: 0.9 }}>
+                        (Asigna zona de destino: varias alternativas pueden ir a la misma zona)
+                      </span>
+                    )}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={agregarAlternativa}
+                    className="btn-nuevo-item"
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.5rem',
+                      fontSize: '0.875rem',
+                      padding: '0.5rem 1rem'
+                    }}
+                  >
+                    <span>➕</span> Agregar
+                  </button>
+                </div>
+
+                {/* Vista de zonas para ARRASTRAR_Y_SOLTAR */}
+                {formPregunta.tipo === 'ARRASTRAR_Y_SOLTAR' && alternativas.length > 0 && (
+                  <div style={{ 
+                    marginBottom: '1.5rem', 
+                    padding: '1rem', 
+                    background: '#fef3c7', 
+                    borderRadius: '8px',
+                    border: '1px solid #fbbf24'
+                  }}>
+                    <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: '600', color: '#78350f' }}>
+                      🎯 Zonas de Destino Creadas:
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {(() => {
+                        // Obtener zonas únicas
+                        const zonasUnicas = [...new Set(alternativas
+                          .map(alt => alt.zona_drop)
+                          .filter(zona => zona && zona.trim() !== ''))];
+                        
+                        if (zonasUnicas.length === 0) {
+                          return (
+                            <div style={{ 
+                              padding: '1rem', 
+                              background: 'white', 
+                              borderRadius: '6px',
+                              border: '1px dashed #fbbf24'
+                            }}>
+                              <p style={{ margin: 0, color: '#78350f', fontSize: '0.875rem' }}>
+                                <strong>📌 Instrucciones:</strong> Asigna una zona de destino a cada alternativa en la columna "ZONA DROP". 
+                                Varias alternativas pueden tener la misma zona (ej: "Mamíferos", "Reptiles", etc.).
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        return zonasUnicas.map((zona, idx) => {
+                          const alternativasEnZona = alternativas.filter(alt => alt.zona_drop === zona);
+                          const descripciones = alternativasEnZona.map(alt => {
+                            const texto = alt.descripcion ? alt.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                            return texto || 'Sin descripción';
+                          });
+                          
+                          return (
+                            <div key={idx} style={{ 
+                              padding: '0.75rem', 
+                              background: 'white', 
+                              borderRadius: '6px',
+                              border: '2px solid #fbbf24',
+                              boxShadow: '0 2px 4px rgba(251, 191, 36, 0.1)'
+                            }}>
+                              <div style={{ fontWeight: '700', color: '#78350f', marginBottom: '0.5rem', fontSize: '0.95rem' }}>
+                                🎯 Zona: <span style={{ color: '#92400e' }}>{zona}</span>
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                {descripciones.map((desc, i) => (
+                                  <span key={i} style={{
+                                    padding: '0.375rem 0.75rem',
+                                    background: '#fef3c7',
+                                    borderRadius: '4px',
+                                    fontSize: '0.875rem',
+                                    color: '#78350f',
+                                    fontWeight: '500'
+                                  }}>
+                                    {desc.length > 30 ? desc.substring(0, 30) + '...' : desc}
+                                  </span>
+                                ))}
+                              </div>
+                              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#92400e' }}>
+                                {alternativasEnZona.length} alternativa(s) en esta zona
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Vista de pares para EMPAREJAR */}
+                {formPregunta.tipo === 'EMPAREJAR' && alternativas.length > 0 && (
+                  <div style={{ 
+                    marginBottom: '1.5rem', 
+                    padding: '1rem', 
+                    background: '#f3f4f6', 
+                    borderRadius: '8px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: '600', color: '#374151' }}>
+                      🔗 Pares Creados:
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {(() => {
+                        // Mostrar solo una vez cada par (evitar duplicados)
+                        const paresMostrados = new Set();
+                        const pares = [];
+                        
+                        alternativas.forEach((alt, i) => {
+                          const parIndex = typeof alt.par_id === 'number' && alt.par_id < alternativas.length ? alt.par_id : null;
+                          if (parIndex !== null && !paresMostrados.has(`${Math.min(i, parIndex)}-${Math.max(i, parIndex)}`)) {
+                            paresMostrados.add(`${Math.min(i, parIndex)}-${Math.max(i, parIndex)}`);
+                            const parAlt = alternativas[parIndex];
+                            const descripcionAlt = alt.descripcion ? alt.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                            const descripcionPar = parAlt && parAlt.descripcion ? parAlt.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                            
+                            pares.push({
+                              index1: i,
+                              index2: parIndex,
+                              desc1: descripcionAlt || `Alternativa ${i + 1}`,
+                              desc2: descripcionPar || `Alternativa ${parIndex + 1}`
+                            });
+                          }
+                        });
+                        
+                        if (pares.length === 0) {
+                          return (
+                            <div style={{ 
+                              padding: '1rem', 
+                              background: '#fef3c7', 
+                              borderRadius: '6px',
+                              border: '1px solid #fbbf24'
+                            }}>
+                              <p style={{ margin: 0, color: '#78350f', fontSize: '0.875rem' }}>
+                                <strong>📌 Instrucciones:</strong> Agrega alternativas y luego selecciona un par para cada una en la columna "EMPAREJAR CON". 
+                                Cada alternativa se empareja con otra alternativa de la lista.
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        return pares.map((par, idx) => (
+                          <div key={idx} style={{ 
+                            padding: '0.75rem', 
+                            background: 'white', 
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            border: '2px solid #10b981',
+                            boxShadow: '0 2px 4px rgba(16, 185, 129, 0.1)'
+                          }}>
+                            <span style={{ fontWeight: '600', color: '#6366f1', flex: 1, textAlign: 'right' }}>
+                              {par.desc1}
+                            </span>
+                            <span style={{ color: '#10b981', fontSize: '1.2rem' }}>↔️</span>
+                            <span style={{ fontWeight: '600', color: '#6366f1', flex: 1, textAlign: 'left' }}>
+                              {par.desc2}
+                            </span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {alternativas.length > 0 ? (
+                  <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                    <table className="tabla-aula-virtual" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: formPregunta.tipo === 'EMPAREJAR' || formPregunta.tipo === 'ARRASTRAR_Y_SOLTAR' ? '50px' : 'auto' }}>DESCRIPCIÓN</th>
+                          {formPregunta.tipo === 'ORDENAR' && (
+                            <th style={{ textAlign: 'center', width: '120px' }}>🔢 POSICIÓN</th>
+                          )}
+                          {formPregunta.tipo === 'EMPAREJAR' && (
+                            <th style={{ textAlign: 'center', width: '200px' }}>🔗 EMPAREJAR CON</th>
+                          )}
+                          {formPregunta.tipo === 'ARRASTRAR_Y_SOLTAR' && (
+                            <th style={{ textAlign: 'center', width: '200px' }}>🎯 ZONA DROP</th>
+                          )}
+                          {(formPregunta.tipo === 'ALTERNATIVAS' || formPregunta.tipo === 'VERDADERO_FALSO') && (
+                            <th style={{ textAlign: 'center', width: '120px' }}>✅ CORRECTA</th>
+                          )}
+                          <th style={{ textAlign: 'center', width: '80px' }}>🗑️</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {alternativas.map((alternativa, index) => (
+                          <tr key={index}>
+                            <td style={{ padding: '1rem' }}>
+                              <div id={`alternativa-${index}-wrapper`} style={{ minHeight: '60px' }}>
+                                <ReactQuill
+                                  ref={(el) => {
+                                    if (el) quillRefsAlternativas.current[index] = el;
+                                  }}
+                                  theme="snow"
+                                  value={alternativa.descripcion || ''}
+                                  onChange={(value) => actualizarAlternativa(index, 'descripcion', value)}
+                                  placeholder="Escribe la alternativa..."
+                                  modules={{
+                                    toolbar: [
+                                      [{ 'header': [1, 2, 3, false] }],
+                                      ['bold', 'italic', 'underline'],
+                                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                      ['link', 'image'],
+                                      ['clean']
+                                    ]
+                                  }}
+                                  formats={[
+                                    'header', 'bold', 'italic', 'underline',
+                                    'list', 'bullet', 'link', 'image'
+                                  ]}
+                                />
+              </div>
+                            </td>
+                            {formPregunta.tipo === 'ORDENAR' && (
+                              <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={alternativa.orden_posicion || index + 1}
+                                  onChange={(e) => actualizarAlternativa(index, 'orden_posicion', parseInt(e.target.value) || index + 1)}
+                                  min="1"
+                                  style={{ width: '100px', textAlign: 'center', fontWeight: '600', color: '#6366f1' }}
+                                />
+                              </td>
+                            )}
+                            {formPregunta.tipo === 'EMPAREJAR' && (
+                              <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                <select
+                                  className="form-input"
+                                  value={
+                                    alternativa.par_id !== null && alternativa.par_id !== undefined
+                                      ? (() => {
+                                          // Si par_id es un índice (número menor que el número de alternativas), usarlo directamente
+                                          if (typeof alternativa.par_id === 'number' && alternativa.par_id < alternativas.length) {
+                                            return alternativa.par_id;
+                                          }
+                                          // Si es un ID real, buscar el índice de la alternativa con ese ID
+                                          if (typeof alternativa.par_id === 'number') {
+                                            const indicePar = alternativas.findIndex(alt => alt.id === alternativa.par_id);
+                                            return indicePar !== -1 ? indicePar : '';
+                                          }
+                                          return '';
+                                        })()
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    const valorSeleccionado = e.target.value;
+                                    if (valorSeleccionado === '') {
+                                      actualizarAlternativa(index, 'par_id', null);
+                                    } else {
+                                      const indicePar = parseInt(valorSeleccionado);
+                                      
+                                      // Verificar que no se empareje consigo mismo
+                                      if (indicePar === index) {
+                                        Swal.fire({
+                                          icon: 'warning',
+                                          title: 'Error',
+                                          text: 'No puedes emparejar una alternativa consigo misma',
+                                          toast: true,
+                                          position: 'top-end',
+                                          showConfirmButton: false,
+                                          timer: 2000
+                                        });
+                                        return;
+                                      }
+                                      
+                                      // Verificar si la alternativa destino ya está emparejada con otra
+                                      const destinoYaEmparejada = alternativas[indicePar] && 
+                                        alternativas[indicePar].par_id !== null && 
+                                        alternativas[indicePar].par_id !== undefined &&
+                                        alternativas[indicePar].par_id !== index;
+                                      
+                                      if (destinoYaEmparejada) {
+                                        Swal.fire({
+                                          icon: 'warning',
+                                          title: 'Ya está emparejada',
+                                          text: 'Esta alternativa ya está emparejada con otra. Desempareja primero la otra alternativa.',
+                                          toast: true,
+                                          position: 'top-end',
+                                          showConfirmButton: false,
+                                          timer: 3000
+                                        });
+                                        return;
+                                      }
+                                      
+                                      actualizarAlternativa(index, 'par_id', indicePar);
+                                    }
+                                  }}
+                                  style={{ width: '100%', minWidth: '200px' }}
+                                >
+                                  <option value="">🔗 Seleccionar par...</option>
+                                  {alternativas.map((alt, i) => {
+                                    // No mostrar la misma alternativa en el select
+                                    if (i === index) return null;
+                                    
+                                    // Verificar si ya está emparejada con otra alternativa (excepto la actual)
+                                    const yaEmparejada = typeof alt.par_id === 'number' && 
+                                      alt.par_id < alternativas.length && 
+                                      alt.par_id !== index;
+                                    
+                                    // Obtener una descripción corta de la alternativa para mostrar
+                                    let descripcionCorta = `Alternativa ${i + 1}`;
+                                    if (alt.descripcion) {
+                                      // Remover HTML tags y obtener texto plano
+                                      const textoPlano = alt.descripcion.replace(/<[^>]*>/g, '').trim();
+                                      if (textoPlano) {
+                                        descripcionCorta = textoPlano.length > 35 
+                                          ? textoPlano.substring(0, 35) + '...' 
+                                          : textoPlano;
+                                      }
+                                    }
+                                    
+                                    return (
+                                      <option 
+                                        key={i} 
+                                        value={i}
+                                        disabled={yaEmparejada}
+                                        style={{ 
+                                          color: yaEmparejada ? '#9ca3af' : '#1f2937',
+                                          fontStyle: yaEmparejada ? 'italic' : 'normal'
+                                        }}
+                                      >
+                                        {yaEmparejada ? `🔒 ${descripcionCorta} (ya emparejada)` : `✓ ${descripcionCorta}`}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </td>
+                            )}
+                            {formPregunta.tipo === 'ARRASTRAR_Y_SOLTAR' && (
+                              <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  <input
+                                    type="text"
+                                    className="form-input"
+                                    value={alternativa.zona_drop || ''}
+                                    onChange={(e) => actualizarAlternativa(index, 'zona_drop', e.target.value)}
+                                    placeholder="Ej: Mamíferos, Reptiles..."
+                                    style={{ width: '100%', textAlign: 'center' }}
+                                    list={`zonas-sugeridas-${index}`}
+                                  />
+                                  <datalist id={`zonas-sugeridas-${index}`}>
+                                    {(() => {
+                                      // Obtener zonas únicas de otras alternativas como sugerencias
+                                      const zonasExistentes = [...new Set(alternativas
+                                        .map((alt, i) => i !== index ? alt.zona_drop : null)
+                                        .filter(zona => zona && zona.trim() !== ''))];
+                                      return zonasExistentes.map((zona, i) => (
+                                        <option key={i} value={zona} />
+                                      ));
+                                    })()}
+                                  </datalist>
+                                  <small style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                    Puede repetirse (ej: varias alternativas a "Mamíferos")
+                                  </small>
+                                </div>
+                              </td>
+                            )}
+                            {(formPregunta.tipo === 'ALTERNATIVAS' || formPregunta.tipo === 'VERDADERO_FALSO') && (
+                              <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                <label className="checkbox-label" style={{ justifyContent: 'center', cursor: 'pointer' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={alternativa.correcta === 'SI' || alternativa.correcta === true}
+                  onChange={(e) => {
+                                      // Para VERDADERO_FALSO, solo una puede ser correcta
+                                      if (formPregunta.tipo === 'VERDADERO_FALSO' && e.target.checked) {
+                                        const nuevasAlternativas = alternativas.map((alt, i) => ({
+                                          ...alt,
+                                          correcta: i === index ? 'SI' : 'NO'
+                                        }));
+                                        setAlternativas(nuevasAlternativas);
+                                      } else {
+                                        actualizarAlternativa(index, 'correcta', e.target.checked ? 'SI' : 'NO');
+                                      }
+                                    }}
+                                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                  />
+                                  <span style={{ marginLeft: '0.5rem', fontWeight: '600', color: alternativa.correcta === 'SI' ? '#10b981' : '#6b7280' }}>
+                                    {alternativa.correcta === 'SI' ? '✓ Correcta' : 'Marcar'}
+                                  </span>
+                                </label>
+                              </td>
+                            )}
+                            <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <button
+                      type="button"
+                                onClick={() => eliminarAlternativa(index)}
+                                className="btn-opciones"
+                                style={{
+                                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '0.5rem 0.75rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.875rem',
+                                  fontWeight: '600'
+                                }}
+                                title="Eliminar alternativa"
+                              >
+                                🗑️
+                    </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '3rem 2rem', 
+                    color: '#6b7280',
+                    background: '#f9fafb',
+                    borderRadius: '12px',
+                    border: '2px dashed #e5e7eb'
+                  }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+                    <p style={{ margin: 0, fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                      No hay alternativas registradas
+                    </p>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#9ca3af' }}>
+                      Haz clic en "➕ Agregar" para crear la primera alternativa
+                    </p>
+            </div>
+          )}
+        </div>
+            )}
+
+            <div className="modal-tema-footer" style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
+              <button type="button" className="btn-cancelar-tema" onClick={onClose} disabled={guardando}>
+                ✖️ Cancelar
+          </button>
+              <button type="submit" className="btn-guardar-tema" disabled={guardando}>
+                {guardando ? '⏳ Guardando...' : '💾 Guardar Datos'}
+          </button>
+        </div>
+      </form>
         </div>
       </div>
     </div>

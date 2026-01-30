@@ -7117,5 +7117,558 @@ router.post('/actividades/importar-calendario', async (req, res) => {
   }
 });
 
+/**
+ * ============================================================
+ * ENDPOINTS PARA PREGUNTAS Y ALTERNATIVAS DE EXÁMENES
+ * ============================================================
+ */
+
+/**
+ * GET /api/docente/aula-virtual/examenes/:examenId/preguntas
+ * Obtener todas las preguntas de un examen
+ */
+router.get('/aula-virtual/examenes/:examenId/preguntas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el examen existe y pertenece al docente
+    const examen = await query(
+      `SELECT ae.*, a.personal_id, a.colegio_id, g.anio 
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este examen' });
+    }
+
+    // Obtener preguntas ordenadas por orden
+    const preguntas = await query(
+      `SELECT * FROM asignaturas_examenes_preguntas 
+       WHERE examen_id = ? 
+       ORDER BY orden ASC, id ASC`,
+      [examenId]
+    );
+
+    res.json({ preguntas: preguntas || [] });
+  } catch (error) {
+    console.error('Error obteniendo preguntas:', error);
+    res.status(500).json({ error: 'Error al obtener preguntas' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/examenes/:examenId/preguntas
+ * Crear una nueva pregunta
+ */
+router.post('/aula-virtual/examenes/:examenId/preguntas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+    const { descripcion, tipo, puntos, datos_adicionales } = req.body;
+
+    if (!descripcion || !tipo) {
+      return res.status(400).json({ error: 'descripcion y tipo son requeridos' });
+    }
+
+    // Verificar que el examen existe y pertenece al docente
+    const examen = await query(
+      `SELECT ae.*, a.personal_id, a.colegio_id, g.anio 
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este examen' });
+    }
+
+    // Obtener el siguiente orden
+    const ultimaPregunta = await query(
+      `SELECT MAX(orden) as max_orden FROM asignaturas_examenes_preguntas WHERE examen_id = ?`,
+      [examenId]
+    );
+    const siguienteOrden = (ultimaPregunta[0]?.max_orden || 0) + 1;
+
+    // Si el tipo de puntaje es INDIVIDUAL, puntos es requerido
+    const puntosFinal = examen[0].tipo_puntaje === 'INDIVIDUAL' 
+      ? (parseFloat(puntos) || 0) 
+      : 0;
+
+    // Preparar datos adicionales como JSON
+    const datosAdicionalesJson = datos_adicionales ? JSON.stringify(datos_adicionales) : null;
+
+    // Insertar pregunta
+    const result = await execute(
+      `INSERT INTO asignaturas_examenes_preguntas 
+       (examen_id, descripcion, puntos, orden, tipo, imagen_puzzle, datos_adicionales)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        examenId,
+        descripcion,
+        puntosFinal,
+        siguienteOrden,
+        tipo,
+        '', // imagen_puzzle por defecto vacío
+        datosAdicionalesJson
+      ]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'pregunta',
+      entidad_id: result.insertId,
+      descripcion: `Creó pregunta tipo ${tipo} para examen ID: ${examenId}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: JSON.stringify({ descripcion, tipo, puntos: puntosFinal }),
+      resultado: 'EXITOSO'
+    });
+
+    req.skipAudit = true;
+
+    res.json({ 
+      success: true, 
+      message: 'Pregunta creada correctamente',
+      pregunta_id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando pregunta:', error);
+    res.status(500).json({ error: 'Error al crear pregunta' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/preguntas/:preguntaId
+ * Actualizar una pregunta existente
+ */
+router.put('/aula-virtual/preguntas/:preguntaId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { preguntaId } = req.params;
+    const { descripcion, tipo, puntos, orden, datos_adicionales } = req.body;
+
+    // Verificar que la pregunta existe y pertenece al docente
+    const pregunta = await query(
+      `SELECT ep.*, ae.asignatura_id, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_examenes_preguntas ep
+       INNER JOIN asignaturas_examenes ae ON ae.id = ep.examen_id
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ep.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [preguntaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (pregunta.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta pregunta' });
+    }
+
+    // Obtener examen para verificar tipo_puntaje
+    const examen = await query(
+      `SELECT tipo_puntaje FROM asignaturas_examenes WHERE id = ?`,
+      [pregunta[0].examen_id]
+    );
+
+    const puntosFinal = examen[0]?.tipo_puntaje === 'INDIVIDUAL' 
+      ? (parseFloat(puntos) || pregunta[0].puntos) 
+      : pregunta[0].puntos;
+
+    // Preparar datos adicionales como JSON
+    const datosAdicionalesJson = datos_adicionales ? JSON.stringify(datos_adicionales) : null;
+
+    // Datos anteriores para auditoría
+    const datosAnteriores = {
+      descripcion: pregunta[0].descripcion,
+      tipo: pregunta[0].tipo,
+      puntos: pregunta[0].puntos,
+      orden: pregunta[0].orden
+    };
+
+    // Actualizar pregunta
+    await execute(
+      `UPDATE asignaturas_examenes_preguntas 
+       SET descripcion = ?, tipo = ?, puntos = ?, orden = ?, datos_adicionales = ?
+       WHERE id = ?`,
+      [
+        descripcion || pregunta[0].descripcion,
+        tipo || pregunta[0].tipo,
+        puntosFinal,
+        orden !== undefined ? parseInt(orden) : pregunta[0].orden,
+        datosAdicionalesJson,
+        preguntaId
+      ]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'pregunta',
+      entidad_id: parseInt(preguntaId),
+      descripcion: `Editó pregunta tipo ${tipo || pregunta[0].tipo} (ID: ${preguntaId})`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(datosAnteriores),
+      datos_nuevos: JSON.stringify({ descripcion, tipo, puntos: puntosFinal, orden }),
+      resultado: 'EXITOSO'
+    });
+
+    req.skipAudit = true;
+
+    res.json({ 
+      success: true, 
+      message: 'Pregunta actualizada correctamente'
+    });
+  } catch (error) {
+    console.error('Error actualizando pregunta:', error);
+    res.status(500).json({ error: 'Error al actualizar pregunta' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/preguntas/:preguntaId
+ * Eliminar una pregunta y sus alternativas
+ */
+router.delete('/aula-virtual/preguntas/:preguntaId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { preguntaId } = req.params;
+
+    // Verificar que la pregunta existe y pertenece al docente
+    const pregunta = await query(
+      `SELECT ep.*, ae.asignatura_id, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_examenes_preguntas ep
+       INNER JOIN asignaturas_examenes ae ON ae.id = ep.examen_id
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ep.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [preguntaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (pregunta.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta pregunta' });
+    }
+
+    // Obtener alternativas para auditoría
+    const alternativas = await query(
+      `SELECT COUNT(*) as total FROM asignaturas_examenes_preguntas_alternativas WHERE pregunta_id = ?`,
+      [preguntaId]
+    );
+
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'pregunta',
+      entidad_id: parseInt(preguntaId),
+      descripcion: `Eliminó pregunta tipo ${pregunta[0].tipo} (ID: ${preguntaId}) con ${alternativas[0]?.total || 0} alternativa(s)`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(pregunta[0]),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
+    });
+
+    // Eliminar alternativas primero (cascada)
+    await execute(
+      `DELETE FROM asignaturas_examenes_preguntas_alternativas WHERE pregunta_id = ?`,
+      [preguntaId]
+    );
+
+    // Eliminar pregunta
+    await execute(
+      `DELETE FROM asignaturas_examenes_preguntas WHERE id = ?`,
+      [preguntaId]
+    );
+
+    req.skipAudit = true;
+
+    res.json({ 
+      success: true, 
+      message: 'Pregunta eliminada correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando pregunta:', error);
+    res.status(500).json({ error: 'Error al eliminar pregunta' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/preguntas/:preguntaId/alternativas
+ * Obtener todas las alternativas de una pregunta
+ */
+router.get('/aula-virtual/preguntas/:preguntaId/alternativas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { preguntaId } = req.params;
+
+    // Verificar que la pregunta existe y pertenece al docente
+    const pregunta = await query(
+      `SELECT ep.*, ae.asignatura_id, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_examenes_preguntas ep
+       INNER JOIN asignaturas_examenes ae ON ae.id = ep.examen_id
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ep.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [preguntaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (pregunta.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta pregunta' });
+    }
+
+    // Obtener alternativas
+    const alternativas = await query(
+      `SELECT * FROM asignaturas_examenes_preguntas_alternativas 
+       WHERE pregunta_id = ? 
+       ORDER BY id ASC`,
+      [preguntaId]
+    );
+
+    res.json({ alternativas: alternativas || [] });
+  } catch (error) {
+    console.error('Error obteniendo alternativas:', error);
+    res.status(500).json({ error: 'Error al obtener alternativas' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/preguntas/:preguntaId/alternativas
+ * Crear una nueva alternativa
+ */
+router.post('/aula-virtual/preguntas/:preguntaId/alternativas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { preguntaId } = req.params;
+    const { descripcion, correcta, orden_posicion, par_id, zona_drop } = req.body;
+
+    if (!descripcion) {
+      return res.status(400).json({ error: 'descripcion es requerido' });
+    }
+
+    // Verificar que la pregunta existe y pertenece al docente
+    const pregunta = await query(
+      `SELECT ep.*, ae.asignatura_id, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_examenes_preguntas ep
+       INNER JOIN asignaturas_examenes ae ON ae.id = ep.examen_id
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ep.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [preguntaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (pregunta.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta pregunta' });
+    }
+
+    // Insertar alternativa
+    const result = await execute(
+      `INSERT INTO asignaturas_examenes_preguntas_alternativas 
+       (pregunta_id, descripcion, correcta, orden_posicion, par_id, zona_drop)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        preguntaId,
+        descripcion,
+        correcta === true || correcta === 'SI' ? 'SI' : 'NO',
+        orden_posicion || null,
+        par_id || null,
+        zona_drop || null
+      ]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'CREAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'alternativa',
+      entidad_id: result.insertId,
+      descripcion: `Creó alternativa para pregunta ID: ${preguntaId}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: JSON.stringify({ descripcion, correcta }),
+      resultado: 'EXITOSO'
+    });
+
+    req.skipAudit = true;
+
+    res.json({ 
+      success: true, 
+      message: 'Alternativa creada correctamente',
+      alternativa_id: result.insertId 
+    });
+  } catch (error) {
+    console.error('Error creando alternativa:', error);
+    res.status(500).json({ error: 'Error al crear alternativa' });
+  }
+});
+
+/**
+ * PUT /api/docente/aula-virtual/alternativas/:alternativaId
+ * Actualizar una alternativa existente
+ */
+router.put('/aula-virtual/alternativas/:alternativaId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { alternativaId } = req.params;
+    const { descripcion, correcta, orden_posicion, par_id, zona_drop } = req.body;
+
+    // Verificar que la alternativa existe y pertenece al docente
+    const alternativa = await query(
+      `SELECT aa.*, ep.examen_id, ae.asignatura_id, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_examenes_preguntas_alternativas aa
+       INNER JOIN asignaturas_examenes_preguntas ep ON ep.id = aa.pregunta_id
+       INNER JOIN asignaturas_examenes ae ON ae.id = ep.examen_id
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE aa.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [alternativaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (alternativa.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta alternativa' });
+    }
+
+    // Datos anteriores para auditoría
+    const datosAnteriores = {
+      descripcion: alternativa[0].descripcion,
+      correcta: alternativa[0].correcta
+    };
+
+    // Actualizar alternativa
+    await execute(
+      `UPDATE asignaturas_examenes_preguntas_alternativas 
+       SET descripcion = ?, correcta = ?, orden_posicion = ?, par_id = ?, zona_drop = ?
+       WHERE id = ?`,
+      [
+        descripcion || alternativa[0].descripcion,
+        correcta !== undefined ? (correcta === true || correcta === 'SI' ? 'SI' : 'NO') : alternativa[0].correcta,
+        orden_posicion !== undefined ? orden_posicion : alternativa[0].orden_posicion,
+        par_id !== undefined ? par_id : alternativa[0].par_id,
+        zona_drop !== undefined ? zona_drop : alternativa[0].zona_drop,
+        alternativaId
+      ]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'EDITAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'alternativa',
+      entidad_id: parseInt(alternativaId),
+      descripcion: `Editó alternativa (ID: ${alternativaId}) de pregunta ID: ${alternativa[0].pregunta_id}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(datosAnteriores),
+      datos_nuevos: JSON.stringify({ descripcion, correcta }),
+      resultado: 'EXITOSO'
+    });
+
+    req.skipAudit = true;
+
+    res.json({ 
+      success: true, 
+      message: 'Alternativa actualizada correctamente'
+    });
+  } catch (error) {
+    console.error('Error actualizando alternativa:', error);
+    res.status(500).json({ error: 'Error al actualizar alternativa' });
+  }
+});
+
+/**
+ * DELETE /api/docente/aula-virtual/alternativas/:alternativaId
+ * Eliminar una alternativa
+ */
+router.delete('/aula-virtual/alternativas/:alternativaId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { alternativaId } = req.params;
+
+    // Verificar que la alternativa existe y pertenece al docente
+    const alternativa = await query(
+      `SELECT aa.*, ep.examen_id, ae.asignatura_id, a.personal_id, a.colegio_id, g.anio
+       FROM asignaturas_examenes_preguntas_alternativas aa
+       INNER JOIN asignaturas_examenes_preguntas ep ON ep.id = aa.pregunta_id
+       INNER JOIN asignaturas_examenes ae ON ae.id = ep.examen_id
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE aa.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [alternativaId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (alternativa.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a esta alternativa' });
+    }
+
+    // Registrar auditoría ANTES de eliminar
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ELIMINAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'alternativa',
+      entidad_id: parseInt(alternativaId),
+      descripcion: `Eliminó alternativa (ID: ${alternativaId}) de pregunta ID: ${alternativa[0].pregunta_id}`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(alternativa[0]),
+      datos_nuevos: JSON.stringify({}),
+      resultado: 'EXITOSO'
+    });
+
+    // Eliminar alternativa
+    await execute(
+      `DELETE FROM asignaturas_examenes_preguntas_alternativas WHERE id = ?`,
+      [alternativaId]
+    );
+
+    req.skipAudit = true;
+
+    res.json({ 
+      success: true, 
+      message: 'Alternativa eliminada correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando alternativa:', error);
+    res.status(500).json({ error: 'Error al eliminar alternativa' });
+  }
+});
+
 module.exports = router;
 
