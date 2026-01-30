@@ -2114,17 +2114,116 @@ function DocenteAulaVirtual() {
     }
   };
 
-  const handleDescargarExcel = () => {
-    // TODO: Implementar descarga de Excel
-    Swal.fire({
-      icon: 'info',
-      title: 'Próximamente',
-      text: 'La descarga en Excel estará disponible pronto',
-      toast: true,
-      position: 'top-end',
-      showConfirmButton: false,
-      timer: 3000
+  const handleDescargarPDF = async () => {
+    if (!examenParaResultados) return;
+    
+    try {
+      // Obtener la URL base del backend (sin /api al final)
+      const hostname = window.location.hostname || '';
+      const isProduction = hostname === 'intranet.vanguardschools.com';
+      const isDevelopment = !isProduction;
+      
+      let apiBaseUrl;
+      if (isDevelopment) {
+        apiBaseUrl = 'http://localhost:5000';
+      } else if (isProduction) {
+        apiBaseUrl = 'http://intranet.vanguardschools.com';
+      } else {
+        apiBaseUrl = 'http://localhost:5000';
+      }
+      
+      const url = `${apiBaseUrl}/api/docente/aula-virtual/examenes/${examenParaResultados.id}/resultados/pdf`;
+      
+      // Obtener el token para autenticación
+      const token = localStorage.getItem('token');
+      
+      // Hacer la petición con fetch para obtener el blob
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al generar el PDF');
+      }
+      
+      // Convertir la respuesta a blob
+      const blob = await response.blob();
+      
+      // Crear un enlace temporal para descargar el PDF
+      const link = document.createElement('a');
+      const blobUrl = window.URL.createObjectURL(blob);
+      link.href = blobUrl;
+      link.download = `Resultados_${examenParaResultados.titulo.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Limpiar el blob URL
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error descargando PDF:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.message || 'No se pudo descargar el PDF',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    }
+  };
+
+  const handleVolverCalificar = async () => {
+    if (!examenParaResultados) return;
+
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Se recalificarán todos los resultados del examen. Se sobreescribirán las calificaciones actuales con los nuevos parámetros del examen.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, recalificar',
+      cancelButtonText: 'Cancelar'
     });
+
+    if (result.isConfirmed) {
+      try {
+        // Mostrar loading
+        Swal.fire({
+          title: 'Recalificando...',
+          text: 'Por favor espera mientras se recalifican los resultados',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        const response = await api.post(`/docente/aula-virtual/examenes/${examenParaResultados.id}/calificar`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Recalificación completada!',
+          text: response.data.message,
+          confirmButtonText: 'Aceptar'
+        });
+
+        // Recargar resultados
+        await handleVerResultados(examenParaResultados);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo recalificar el examen',
+          confirmButtonText: 'Aceptar'
+        });
+      }
+    }
   };
 
   // Funciones para manejar preguntas y alternativas
@@ -3531,7 +3630,8 @@ function DocenteAulaVirtual() {
           }}
           onVerDetalles={handleVerDetallesResultado}
           onBorrarResultado={handleBorrarResultado}
-          onDescargarExcel={handleDescargarExcel}
+          onDescargarPDF={handleDescargarPDF}
+          onVolverCalificar={handleVolverCalificar}
         />,
         document.body
       )}
@@ -5258,7 +5358,7 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
 }
 
 // Componente Modal de Resultados de Examen
-function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose, onVerDetalles, onBorrarResultado, onDescargarExcel }) {
+function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose, onVerDetalles, onBorrarResultado, onDescargarPDF, onVolverCalificar }) {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPosition, setDropdownPosition] = useState(null);
   const buttonRef = useRef({});
@@ -5333,13 +5433,13 @@ function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button 
               className="btn-guardar" 
-              onClick={onDescargarExcel}
+              onClick={onDescargarPDF}
             >
               📥 Descargar
             </button>
             <button 
               className="btn-cancelar" 
-              onClick={onClose}
+              onClick={onVolverCalificar}
             >
               ✏️ Volver a Calificar
             </button>
@@ -5387,9 +5487,9 @@ function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose
                       <tr key={uniqueKey} style={{ borderBottom: '1px solid #e5e7eb' }}>
                         <td style={{ padding: '0.75rem', textAlign: 'center' }}>{index + 1}</td>
                         <td style={{ padding: '0.75rem' }}>{resultado.nombre_completo}</td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600' }}>{resultado.puntaje || 0}</td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center', color: '#10b981', fontWeight: '600' }}>{resultado.correctas || 0}</td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center', color: '#ef4444', fontWeight: '600' }}>{resultado.incorrectas || 0}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600' }}>{tieneResultado ? resultado.puntaje : '-'}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', color: tieneResultado ? '#10b981' : '#6b7280', fontWeight: '600' }}>{tieneResultado ? resultado.correctas : '-'}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', color: tieneResultado ? '#ef4444' : '#6b7280', fontWeight: '600' }}>{tieneResultado ? resultado.incorrectas : '-'}</td>
                         <td style={{ padding: '0.75rem', textAlign: 'center' }}>
                           <div className="btn-group-opciones" style={{ position: 'relative' }}>
                     <button

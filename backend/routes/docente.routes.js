@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { query, execute, getAnioActivo } = require('../utils/mysql');
+const PDFDocument = require('pdfkit');
 const { authenticateToken, requireUserType } = require('../middleware/auth');
 const { registrarAccion } = require('../utils/auditoria');
 const { uploadToPHPServer } = require('../utils/ftpUpload');
@@ -5813,15 +5814,15 @@ router.get('/aula-virtual/examenes/:examenId/resultados', async (req, res) => {
     const grupoId = asignatura[0].grupo_id;
 
     // Obtener TODOS los alumnos del grupo con LEFT JOIN a resultados
-    // Si no tienen resultado, mostrar 0 en puntaje, correctas e incorrectas
+    // Si no tienen resultado, devolver NULL para mostrar "-" en el frontend
     const resultados = await query(
       `SELECT 
         COALESCE(aep.id, NULL) as resultado_id,
         m.id as matricula_id,
         COALESCE(aep.fecha_hora, NULL) as fecha_hora,
-        COALESCE(aep.puntaje, 0) as puntaje,
-        COALESCE(aep.correctas, 0) as correctas,
-        COALESCE(aep.incorrectas, 0) as incorrectas,
+        aep.puntaje as puntaje,
+        aep.correctas as correctas,
+        aep.incorrectas as incorrectas,
         COALESCE(aep.estado, NULL) as estado,
         CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
         a.nombres,
@@ -6027,6 +6028,565 @@ router.delete('/aula-virtual/resultados/:resultadoId', async (req, res) => {
   } catch (error) {
     console.error('Error eliminando resultado del examen:', error);
     res.status(500).json({ error: 'Error al eliminar el resultado del examen' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/examenes/:examenId/calificar
+ * Recalcular calificaciones de todos los alumnos que han dado el examen
+ * Toma en cuenta las respuestas del alumno y los parámetros actuales del examen
+ */
+router.post('/aula-virtual/examenes/:examenId/calificar', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el examen existe y el docente tiene acceso
+    const examen = await query(
+      `SELECT ae.* FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este examen' });
+    }
+
+    const examenInfo = examen[0];
+
+    // Obtener todas las pruebas (resultados) del examen
+    const pruebas = await query(
+      `SELECT * FROM asignaturas_examenes_pruebas WHERE examen_id = ?`,
+      [examenId]
+    );
+
+    if (pruebas.length === 0) {
+      return res.json({ 
+        success: true,
+        message: 'No hay resultados para recalificar',
+        recalificados: 0
+      });
+    }
+
+    // Obtener todas las preguntas del examen con sus alternativas
+    const preguntas = await query(
+      `SELECT 
+        aep.*,
+        GROUP_CONCAT(
+          CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta, ':', COALESCE(aepa.orden_posicion, ''), ':', COALESCE(aepa.par_id, ''), ':', COALESCE(aepa.zona_drop, ''))
+          ORDER BY aepa.id ASC
+          SEPARATOR '||'
+        ) as alternativas_raw
+       FROM asignaturas_examenes_preguntas aep
+       LEFT JOIN asignaturas_examenes_preguntas_alternativas aepa ON aepa.pregunta_id = aep.id
+       WHERE aep.examen_id = ?
+       GROUP BY aep.id
+       ORDER BY aep.orden ASC`,
+      [examenId]
+    );
+
+    // Procesar preguntas con alternativas
+    const preguntasConAlternativas = preguntas.map(pregunta => {
+      const alternativas = [];
+      if (pregunta.alternativas_raw) {
+        const altArray = pregunta.alternativas_raw.split('||');
+        altArray.forEach(altStr => {
+          const [id, descripcion, correcta, orden_posicion, par_id, zona_drop] = altStr.split(':');
+          alternativas.push({
+            id: parseInt(id),
+            descripcion: descripcion || '',
+            correcta: correcta || 'NO',
+            orden_posicion: orden_posicion ? parseInt(orden_posicion) : null,
+            par_id: par_id ? parseInt(par_id) : null,
+            zona_drop: zona_drop || null
+          });
+        });
+      }
+      return {
+        ...pregunta,
+        alternativas
+      };
+    });
+
+    const phpSerialize = require('php-serialize');
+    let recalificados = 0;
+    let errores = 0;
+
+    // Recalificar cada prueba
+    for (const prueba of pruebas) {
+      try {
+        // Parsear respuestas del alumno
+        let respuestasAlumno = {};
+        if (prueba.respuestas && prueba.respuestas.trim() !== '') {
+          try {
+            const decoded = Buffer.from(prueba.respuestas, 'base64').toString('utf-8');
+            respuestasAlumno = phpSerialize.unserialize(decoded) || {};
+            // Normalizar claves a strings
+            const respuestasNormalizadas = {};
+            Object.keys(respuestasAlumno).forEach(key => {
+              respuestasNormalizadas[key.toString()] = respuestasAlumno[key];
+            });
+            respuestasAlumno = respuestasNormalizadas;
+          } catch (parseError) {
+            console.error(`Error parseando respuestas de prueba ${prueba.id}:`, parseError);
+            respuestasAlumno = {};
+          }
+        }
+
+        // Calcular puntaje
+        let puntaje = 0;
+        let correctas = 0;
+        let incorrectas = 0;
+
+        for (const pregunta of preguntasConAlternativas) {
+          const respuestaAlumno = respuestasAlumno[pregunta.id.toString()];
+          let esCorrecta = false;
+
+          // Evaluar según el tipo de pregunta
+          switch (pregunta.tipo) {
+            case 'ALTERNATIVAS':
+            case 'VERDADERO_FALSO':
+              // Verificar si la alternativa marcada es correcta
+              if (respuestaAlumno) {
+                const alternativaMarcada = pregunta.alternativas.find(alt => alt.id === parseInt(respuestaAlumno));
+                if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
+                  esCorrecta = true;
+                }
+              }
+              break;
+
+            case 'COMPLETAR':
+              // Verificar si la respuesta coincide (case-insensitive, trim)
+              if (respuestaAlumno) {
+                const respuestaNormalizada = String(respuestaAlumno).trim().toLowerCase();
+                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                if (alternativaCorrecta) {
+                  const correctaNormalizada = alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
+                  if (respuestaNormalizada === correctaNormalizada) {
+                    esCorrecta = true;
+                  }
+                }
+              }
+              break;
+
+            case 'ORDENAR':
+              // Verificar si el orden es correcto
+              if (respuestaAlumno) {
+                const ordenAlumno = parseInt(respuestaAlumno);
+                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.orden_posicion === ordenAlumno);
+                if (alternativaCorrecta && alternativaCorrecta.correcta === 'SI') {
+                  esCorrecta = true;
+                }
+              }
+              break;
+
+            case 'EMPAREJAR':
+              // Verificar si el par es correcto
+              // En EMPAREJAR, la respuesta del alumno es el ID de la alternativa que marcó
+              // Necesitamos verificar si esa alternativa tiene como par_id a la alternativa correcta
+              if (respuestaAlumno) {
+                const alternativaIdMarcada = parseInt(respuestaAlumno);
+                // Buscar la alternativa que el alumno marcó
+                const alternativaMarcada = pregunta.alternativas.find(alt => alt.id === alternativaIdMarcada);
+                if (alternativaMarcada) {
+                  // Buscar la alternativa correcta (la que tiene correcta === 'SI')
+                  const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                  if (alternativaCorrecta) {
+                    // Verificar si la alternativa marcada tiene como par_id a la alternativa correcta
+                    // O si la alternativa correcta tiene como par_id a la alternativa marcada (emparejamiento bidireccional)
+                    if (alternativaMarcada.par_id === alternativaCorrecta.id || 
+                        alternativaCorrecta.par_id === alternativaMarcada.id) {
+                      esCorrecta = true;
+                    }
+                  }
+                }
+              }
+              break;
+
+            case 'ARRASTRAR_Y_SOLTAR':
+              // Verificar si la zona es correcta
+              if (respuestaAlumno) {
+                const zonaAlumno = String(respuestaAlumno).trim().toLowerCase();
+                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                if (alternativaCorrecta && alternativaCorrecta.zona_drop) {
+                  const zonaCorrecta = alternativaCorrecta.zona_drop.trim().toLowerCase();
+                  if (zonaAlumno === zonaCorrecta) {
+                    esCorrecta = true;
+                  }
+                }
+              }
+              break;
+
+            case 'RESPUESTA_CORTA':
+              // Comparar texto (case-insensitive, trim)
+              if (respuestaAlumno) {
+                const respuestaNormalizada = String(respuestaAlumno).trim().toLowerCase();
+                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                if (alternativaCorrecta) {
+                  const correctaNormalizada = alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
+                  if (respuestaNormalizada === correctaNormalizada) {
+                    esCorrecta = true;
+                  }
+                }
+              }
+              break;
+          }
+
+          // Calcular puntos
+          if (esCorrecta) {
+            if (examenInfo.tipo_puntaje === 'GENERAL') {
+              puntaje += parseFloat(examenInfo.puntos_correcta) || 0;
+            } else {
+              puntaje += parseFloat(pregunta.puntos) || 0;
+            }
+            correctas++;
+          } else {
+            // Penalizar incorrecta si está habilitado
+            if (examenInfo.penalizar_incorrecta === 'SI' && examenInfo.penalizacion_incorrecta) {
+              puntaje -= parseFloat(examenInfo.penalizacion_incorrecta) || 0;
+            }
+            incorrectas++;
+          }
+        }
+
+        // Limitar puntaje entre 0 y 20
+        if (puntaje < 0) puntaje = 0;
+        if (puntaje > 20) puntaje = 20;
+
+        // Actualizar la prueba
+        await execute(
+          `UPDATE asignaturas_examenes_pruebas 
+           SET puntaje = ?, correctas = ?, incorrectas = ?
+           WHERE id = ?`,
+          [puntaje, correctas, incorrectas, prueba.id]
+        );
+
+        recalificados++;
+      } catch (error) {
+        console.error(`Error recalificando prueba ${prueba.id}:`, error);
+        errores++;
+      }
+    }
+
+    // Registrar auditoría
+    req.skipAudit = true;
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'RECALIFICAR',
+      modulo: 'Aula Virtual',
+      entidad: 'Examen',
+      entidad_id: examenId,
+      descripcion: `Recalificó examen "${examenInfo.titulo}". ${recalificados} resultado(s) actualizado(s)${errores > 0 ? `, ${errores} error(es)` : ''}`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
+      datos_nuevos: {
+        examen_id: examenId,
+        total_pruebas: pruebas.length,
+        recalificados: recalificados,
+        errores: errores
+      },
+      resultado: errores === 0 ? 'EXITOSO' : 'PARCIAL'
+    }).catch(err => console.error('Error en auditoría:', err));
+
+    res.json({ 
+      success: true,
+      message: errores === 0 
+        ? `Se recalificaron ${recalificados} resultado(s) correctamente.`
+        : `Se recalificaron ${recalificados} resultado(s). ${errores} error(es) encontrado(s).`,
+      recalificados: recalificados,
+      errores: errores,
+      total: pruebas.length
+    });
+  } catch (error) {
+    console.error('Error recalificando examen:', error);
+    res.status(500).json({ error: 'Error al recalificar el examen' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/examenes/:examenId/resultados/pdf
+ * Generar PDF con los resultados del examen
+ */
+router.get('/aula-virtual/examenes/:examenId/resultados/pdf', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el examen existe y el docente tiene acceso
+    // Incluir información de curso, grado y nivel
+    const examen = await query(
+      `SELECT 
+        ae.*,
+        a.grupo_id,
+        c.nombre as curso_nombre,
+        g.grado,
+        g.seccion,
+        n.nombre as nivel_nombre
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este examen' });
+    }
+
+    const examenInfo = examen[0];
+    const grupoId = examenInfo.grupo_id;
+    
+    if (!grupoId) {
+      return res.status(404).json({ error: 'Asignatura no encontrada' });
+    }
+
+    // Obtener resultados
+    const resultados = await query(
+      `SELECT 
+        COALESCE(aep.id, NULL) as resultado_id,
+        m.id as matricula_id,
+        COALESCE(aep.fecha_hora, NULL) as fecha_hora,
+        aep.puntaje as puntaje,
+        aep.correctas as correctas,
+        aep.incorrectas as incorrectas,
+        COALESCE(aep.estado, NULL) as estado,
+        CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
+        a.nombres,
+        a.apellido_paterno,
+        a.apellido_materno
+       FROM alumnos a
+       INNER JOIN matriculas m ON m.alumno_id = a.id
+       LEFT JOIN asignaturas_examenes_pruebas aep ON aep.matricula_id = m.id AND aep.examen_id = ?
+       WHERE m.grupo_id = ? 
+         AND m.colegio_id = ?
+         AND (m.estado = 0 OR m.estado = 4)
+       ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres ASC`,
+      [examenId, grupoId, colegio_id]
+    );
+
+    // Calcular puntos por respuesta correcta
+    const puntosPorRespuesta = examenInfo.tipo_puntaje === 'GENERAL' ? (examenInfo.puntos_correcta || 0) : 0;
+
+    // Crear PDF
+    const doc = new PDFDocument({ 
+      size: 'A4',
+      margin: 50,
+      layout: 'portrait'
+    });
+
+    // Configurar headers para descarga
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Resultados_${examenInfo.titulo.replace(/[^a-z0-9]/gi, '_')}.pdf"`);
+
+    // Pipe PDF a la respuesta
+    doc.pipe(res);
+
+    // Colores
+    const colorHeader = '#667eea';
+    const colorHeaderEnd = '#764ba2';
+    const colorText = '#1f2937';
+    const colorGray = '#6b7280';
+    const colorGreen = '#10b981';
+    const colorRed = '#ef4444';
+    const colorBg = '#f3f4f6';
+
+    // Header con gradiente (simulado con múltiples rectángulos)
+    for (let i = 0; i < 80; i++) {
+      const ratio = i / 80;
+      const r = Math.floor(parseInt(colorHeader.slice(1, 3), 16) * (1 - ratio) + parseInt(colorHeaderEnd.slice(1, 3), 16) * ratio);
+      const g = Math.floor(parseInt(colorHeader.slice(3, 5), 16) * (1 - ratio) + parseInt(colorHeaderEnd.slice(3, 5), 16) * ratio);
+      const b = Math.floor(parseInt(colorHeader.slice(5, 7), 16) * (1 - ratio) + parseInt(colorHeaderEnd.slice(5, 7), 16) * ratio);
+      const color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      doc.rect(0, i, 595, 1).fill(color);
+    }
+    
+    // Título del header (sin emoji para evitar problemas de codificación)
+    doc.fontSize(20)
+       .fillColor('white')
+       .font('Helvetica-Bold')
+       .text('RESULTADOS', 50, 25, { align: 'left' });
+    
+    // Construir título completo: Examen - Curso - Grado - Nivel
+    const gradoTexto = examenInfo.grado ? `${examenInfo.grado}°` : '';
+    const seccionTexto = examenInfo.seccion || '';
+    const gradoSeccion = `${gradoTexto} ${seccionTexto}`.trim();
+    const tituloCompleto = `${examenInfo.titulo} - ${examenInfo.curso_nombre || ''} - ${gradoSeccion} - ${examenInfo.nivel_nombre || ''}`.replace(/\s+/g, ' ').trim();
+    
+    doc.fontSize(14)
+       .fillColor('white')
+       .font('Helvetica')
+       .text(tituloCompleto, 50, 50, { align: 'left', width: 495 });
+
+    let yPos = 120;
+
+    // Información del examen
+    doc.rect(50, yPos, 495, 40)
+       .fill(colorBg)
+       .stroke();
+    
+    doc.fontSize(11)
+       .fillColor(colorText)
+       .font('Helvetica-Bold')
+       .text('EXAMEN:', 60, yPos + 10);
+    
+    doc.font('Helvetica')
+       .text(examenInfo.titulo, 130, yPos + 10);
+    
+    if (examenInfo.tipo_puntaje === 'GENERAL') {
+      doc.font('Helvetica-Bold')
+         .text('PUNTAJE POR RESPUESTA CORRECTA:', 60, yPos + 25);
+      
+      doc.font('Helvetica')
+         .text(`${puntosPorRespuesta} Punto(s)`, 280, yPos + 25);
+    }
+
+    yPos += 70;
+
+    // Tabla de resultados
+    const tableTop = yPos;
+    const itemHeight = 25;
+    const tableLeft = 50;
+    const tableWidth = 495;
+    
+    // Encabezado de tabla con gradiente (simulado)
+    for (let i = 0; i < itemHeight; i++) {
+      const ratio = i / itemHeight;
+      const r = Math.floor(parseInt(colorHeader.slice(1, 3), 16) * (1 - ratio) + parseInt(colorHeaderEnd.slice(1, 3), 16) * ratio);
+      const g = Math.floor(parseInt(colorHeader.slice(3, 5), 16) * (1 - ratio) + parseInt(colorHeaderEnd.slice(3, 5), 16) * ratio);
+      const b = Math.floor(parseInt(colorHeader.slice(5, 7), 16) * (1 - ratio) + parseInt(colorHeaderEnd.slice(5, 7), 16) * ratio);
+      const color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      doc.rect(tableLeft, tableTop + i, tableWidth, 1).fill(color);
+    }
+    doc.rect(tableLeft, tableTop, tableWidth, itemHeight).stroke();
+    
+    // Columnas del encabezado
+    const colWidths = [40, 250, 70, 70, 70];
+    const headers = ['N°', 'APELLIDOS Y NOMBRES', 'PUNTAJE', 'CORRECTAS', 'INCORRECTAS'];
+    let xPos = tableLeft;
+    
+    doc.fillColor('white')
+       .font('Helvetica-Bold');
+    
+    headers.forEach((header, index) => {
+      const align = index === 0 ? 'center' : (index === 1 ? 'left' : 'center');
+      // Usar fuente más pequeña para CORRECTAS e INCORRECTAS
+      const fontSize = (index === 3 || index === 4) ? 8 : 10;
+      doc.fontSize(fontSize)
+         .text(header, xPos + 5, tableTop + (index === 3 || index === 4 ? 10 : 8), { 
+           width: colWidths[index] - 10, 
+           align: align 
+         });
+      xPos += colWidths[index];
+    });
+
+    yPos = tableTop + itemHeight;
+
+    // Filas de datos
+    resultados.forEach((resultado, index) => {
+      const tieneResultado = resultado.resultado_id !== null && resultado.resultado_id !== undefined;
+      
+      // Fondo alternado para filas
+      if (index % 2 === 0) {
+        doc.rect(tableLeft, yPos, tableWidth, itemHeight)
+           .fill('#f9fafb')
+           .stroke();
+      } else {
+        doc.rect(tableLeft, yPos, tableWidth, itemHeight)
+           .fill('white')
+           .stroke();
+      }
+
+      xPos = tableLeft;
+      doc.fontSize(9)
+         .fillColor(colorText)
+         .font('Helvetica');
+
+      // N°
+      doc.text((index + 1).toString(), xPos + 5, yPos + 8, { 
+        width: colWidths[0] - 10, 
+        align: 'center' 
+      });
+      xPos += colWidths[0];
+
+      // Nombre
+      doc.text(resultado.nombre_completo, xPos + 5, yPos + 8, { 
+        width: colWidths[1] - 10, 
+        align: 'left' 
+      });
+      xPos += colWidths[1];
+
+      // Puntaje
+      const puntajeText = tieneResultado ? resultado.puntaje.toString() : '-';
+      doc.fillColor(tieneResultado ? colorText : colorGray)
+         .font('Helvetica-Bold')
+         .text(puntajeText, xPos + 5, yPos + 8, { 
+           width: colWidths[2] - 10, 
+           align: 'center' 
+         });
+      xPos += colWidths[2];
+
+      // Correctas
+      const correctasText = tieneResultado ? resultado.correctas.toString() : '-';
+      doc.fillColor(tieneResultado ? colorGreen : colorGray)
+         .text(correctasText, xPos + 5, yPos + 8, { 
+           width: colWidths[3] - 10, 
+           align: 'center' 
+         });
+      xPos += colWidths[3];
+
+      // Incorrectas
+      const incorrectasText = tieneResultado ? resultado.incorrectas.toString() : '-';
+      doc.fillColor(tieneResultado ? colorRed : colorGray)
+         .text(incorrectasText, xPos + 5, yPos + 8, { 
+           width: colWidths[4] - 10, 
+           align: 'center' 
+         });
+
+      yPos += itemHeight;
+
+      // Nueva página si es necesario (dejando espacio para el footer)
+      if (yPos > 720) {
+        doc.addPage();
+        yPos = 50;
+      }
+    });
+
+    // Pie de página (justo después de la tabla, sin espacio extra)
+    const totalConResultado = resultados.filter(r => r.resultado_id !== null).length;
+    const totalSinResultado = resultados.length - totalConResultado;
+    
+    // Asegurar que el footer esté en la misma página que la última fila
+    if (yPos > 720) {
+      // Si no cabe, mover a nueva página
+      doc.addPage();
+      yPos = 50;
+    }
+    
+    yPos += 10; // Pequeño espacio después de la tabla
+    
+    doc.fontSize(9)
+       .fillColor(colorGray)
+       .font('Helvetica')
+       .text(`Total de alumnos: ${resultados.length} | Con resultado: ${totalConResultado} | Sin resultado: ${totalSinResultado}`, 
+             50, yPos, { align: 'center', width: 495 });
+
+    // Finalizar PDF
+    doc.end();
+
+  } catch (error) {
+    console.error('Error generando PDF de resultados:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error al generar el PDF' });
+    }
   }
 });
 
