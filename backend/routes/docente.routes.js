@@ -2777,6 +2777,439 @@ router.get('/cursos/:cursoId/aula-virtual', async (req, res) => {
  * PUT /api/docente/cursos/:cursoId/aula-virtual
  * Actualizar link del aula virtual de un curso
  */
+// GET: Obtener datos para copiar contenido (otras secciones y contenido disponible)
+router.get('/cursos/:cursoId/copiar-contenido', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { cursoId } = req.params;
+
+    // Verificar que el curso pertenece al docente
+    const curso = await query(
+      `SELECT a.*, c.nombre as curso_nombre, g.grado, g.seccion, g.nivel_id, g.anio
+       FROM asignaturas a
+       INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (curso.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este curso' });
+    }
+
+    const cursoInfo = curso[0];
+
+    // Obtener otras asignaturas del mismo curso, mismo grado, mismo año (pero diferente sección)
+    const otrasAsignaturas = await query(
+      `SELECT a.id, a.curso_id, c.nombre as curso_nombre, g.grado, g.seccion, g.turno_id, t.nombre as turno_nombre
+       FROM asignaturas a
+       INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       LEFT JOIN turnos t ON t.id = g.turno_id
+       WHERE a.id != ? 
+         AND a.curso_id = ? 
+         AND a.personal_id = ?
+         AND a.colegio_id = ?
+         AND g.anio = ?
+         AND g.grado = ?
+       ORDER BY g.seccion ASC`,
+      [cursoId, cursoInfo.curso_id, personal_id, colegio_id, anio_activo, cursoInfo.grado]
+    );
+
+    // Obtener todos los temas (archivos) de la asignatura actual
+    const temas = await query(
+      `SELECT id, nombre, ciclo, orden FROM asignaturas_archivos
+       WHERE asignatura_id = ?
+       ORDER BY ciclo ASC, orden ASC`,
+      [cursoId]
+    );
+
+    // Obtener todas las tareas de la asignatura actual
+    const tareas = await query(
+      `SELECT id, titulo, ciclo FROM asignaturas_tareas
+       WHERE asignatura_id = ?
+       ORDER BY ciclo ASC, id ASC`,
+      [cursoId]
+    );
+
+    // Obtener todos los exámenes de la asignatura actual
+    const examenes = await query(
+      `SELECT id, titulo, ciclo FROM asignaturas_examenes
+       WHERE asignatura_id = ?
+       ORDER BY ciclo ASC, id ASC`,
+      [cursoId]
+    );
+
+    // Obtener todos los videos de la asignatura actual
+    const videos = await query(
+      `SELECT id, descripcion, ciclo FROM asignaturas_videos
+       WHERE asignatura_id = ?
+       ORDER BY ciclo ASC, id ASC`,
+      [cursoId]
+    );
+
+    // Obtener todos los enlaces de la asignatura actual
+    const enlaces = await query(
+      `SELECT id, descripcion, ciclo FROM asignaturas_enlaces
+       WHERE asignatura_id = ?
+       ORDER BY ciclo ASC, id ASC`,
+      [cursoId]
+    );
+
+    res.json({
+      otrasAsignaturas: otrasAsignaturas.map(a => ({
+        id: a.id,
+        nombre: `${a.curso_nombre} - ${a.grado}° ${a.seccion} - ${a.turno_nombre || ''}`
+      })),
+      temas: temas.map(t => ({
+        id: t.id,
+        nombre: `B${t.ciclo} - ${t.nombre}`
+      })),
+      tareas: tareas.map(t => ({
+        id: t.id,
+        nombre: `B${t.ciclo} - ${t.titulo}`
+      })),
+      examenes: examenes.map(e => ({
+        id: e.id,
+        nombre: `B${e.ciclo} - ${e.titulo}`
+      })),
+      videos: videos.map(v => ({
+        id: v.id,
+        nombre: `B${v.ciclo} - ${v.descripcion}`
+      })),
+      enlaces: enlaces.map(e => ({
+        id: e.id,
+        nombre: `B${e.ciclo} - ${e.descripcion}`
+      }))
+    });
+  } catch (error) {
+    console.error('Error obteniendo datos para copiar contenido:', error);
+    res.status(500).json({ error: 'Error al obtener datos para copiar contenido' });
+  }
+});
+
+// POST: Ejecutar copia de contenido
+router.post('/cursos/:cursoId/copiar-contenido', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { cursoId } = req.params;
+    const { asignatura_destino_id, temas_id, tareas_id, examenes_id, videos_id, enlaces_id } = req.body;
+
+    if (!asignatura_destino_id) {
+      return res.status(400).json({ error: 'Debe seleccionar una asignatura destino' });
+    }
+
+    // Verificar que ambas asignaturas pertenecen al docente
+    const asignaturaOrigen = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [cursoId, personal_id, colegio_id, anio_activo]
+    );
+
+    const asignaturaDestino = await query(
+      `SELECT a.* FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [asignatura_destino_id, personal_id, colegio_id, anio_activo]
+    );
+
+    if (asignaturaOrigen.length === 0 || asignaturaDestino.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a una o ambas asignaturas' });
+    }
+
+    let copiados = {
+      temas: 0,
+      tareas: 0,
+      examenes: 0,
+      videos: 0,
+      enlaces: 0
+    };
+
+    // Copiar temas (archivos)
+    if (temas_id && temas_id.length > 0) {
+      for (const temaId of temas_id) {
+        const tema = await query(
+          `SELECT * FROM asignaturas_archivos WHERE id = ? AND asignatura_id = ?`,
+          [temaId, cursoId]
+        );
+
+        if (tema.length > 0) {
+          await execute(
+            `INSERT INTO asignaturas_archivos (asignatura_id, trabajador_id, nombre, archivo, fecha_hora, ciclo, orden)
+             VALUES (?, ?, ?, ?, NOW(), ?, ?)`,
+            [
+              asignatura_destino_id,
+              tema[0].trabajador_id,
+              tema[0].nombre,
+              tema[0].archivo,
+              tema[0].ciclo,
+              tema[0].orden
+            ]
+          );
+          copiados.temas++;
+        }
+      }
+    }
+
+    // Copiar tareas (con sus archivos)
+    if (tareas_id && tareas_id.length > 0) {
+      for (const tareaId of tareas_id) {
+        const tarea = await query(
+          `SELECT * FROM asignaturas_tareas WHERE id = ? AND asignatura_id = ?`,
+          [tareaId, cursoId]
+        );
+
+        if (tarea.length > 0) {
+          const resultado = await execute(
+            `INSERT INTO asignaturas_tareas (titulo, descripcion, fecha_hora, fecha_entrega, trabajador_id, asignatura_id, ciclo)
+             VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
+            [
+              tarea[0].titulo,
+              tarea[0].descripcion,
+              tarea[0].fecha_entrega,
+              tarea[0].trabajador_id,
+              asignatura_destino_id,
+              tarea[0].ciclo
+            ]
+          );
+
+          const nuevaTareaId = resultado.insertId;
+
+          // Copiar archivos de la tarea
+          const archivosTarea = await query(
+            `SELECT * FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
+            [tareaId]
+          );
+
+          for (const archivo of archivosTarea) {
+            await execute(
+              `INSERT INTO asignaturas_tareas_archivos (tarea_id, nombre, archivo)
+               VALUES (?, ?, ?)`,
+              [nuevaTareaId, archivo.nombre, archivo.archivo]
+            );
+          }
+
+          copiados.tareas++;
+        }
+      }
+    }
+
+    // Copiar exámenes (con preguntas y alternativas)
+    if (examenes_id && examenes_id.length > 0) {
+      for (const examenId of examenes_id) {
+        const examen = await query(
+          `SELECT * FROM asignaturas_examenes WHERE id = ? AND asignatura_id = ?`,
+          [examenId, cursoId]
+        );
+
+        if (examen.length > 0) {
+          const examenData = examen[0];
+          const resultado = await execute(
+            `INSERT INTO asignaturas_examenes (
+              trabajador_id, titulo, tipo, archivo_pdf, fecha_desde, fecha_hasta, hora_desde, hora_hasta,
+              asignatura_id, ciclo, preguntas_max, tipo_puntaje, puntos_correcta, penalizar_incorrecta,
+              penalizacion_incorrecta, tiempo, intentos, estado, orden_preguntas
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              examenData.trabajador_id,
+              examenData.titulo,
+              examenData.tipo,
+              examenData.archivo_pdf,
+              examenData.fecha_desde,
+              examenData.fecha_hasta,
+              examenData.hora_desde,
+              examenData.hora_hasta,
+              asignatura_destino_id,
+              examenData.ciclo,
+              examenData.preguntas_max,
+              examenData.tipo_puntaje,
+              examenData.puntos_correcta,
+              examenData.penalizar_incorrecta,
+              examenData.penalizacion_incorrecta,
+              examenData.tiempo,
+              examenData.intentos,
+              examenData.estado,
+              examenData.orden_preguntas
+            ]
+          );
+
+          const nuevoExamenId = resultado.insertId;
+
+          // Copiar preguntas
+          const preguntas = await query(
+            `SELECT * FROM asignaturas_examenes_preguntas WHERE examen_id = ? ORDER BY orden ASC`,
+            [examenId]
+          );
+
+          // Mapeo global de IDs antiguos a nuevos para alternativas (para actualizar par_id)
+          const mapeoAlternativasGlobal = {}; // { alternativa_id_antigua: alternativa_id_nueva }
+
+          for (const pregunta of preguntas) {
+            const resultadoPregunta = await execute(
+              `INSERT INTO asignaturas_examenes_preguntas (
+                examen_id, descripcion, puntos, orden, tipo, imagen_puzzle, datos_adicionales
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                nuevoExamenId,
+                pregunta.descripcion,
+                pregunta.puntos,
+                pregunta.orden,
+                pregunta.tipo,
+                pregunta.imagen_puzzle,
+                pregunta.datos_adicionales
+              ]
+            );
+
+            const nuevaPreguntaId = resultadoPregunta.insertId;
+
+            // Copiar alternativas
+            const alternativas = await query(
+              `SELECT * FROM asignaturas_examenes_preguntas_alternativas WHERE pregunta_id = ? ORDER BY id ASC`,
+              [pregunta.id]
+            );
+
+            for (const alternativa of alternativas) {
+              const resultadoAlternativa = await execute(
+                `INSERT INTO asignaturas_examenes_preguntas_alternativas (
+                  pregunta_id, descripcion, correcta, orden_posicion, par_id, zona_drop
+                ) VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                  nuevaPreguntaId,
+                  alternativa.descripcion,
+                  alternativa.correcta,
+                  alternativa.orden_posicion,
+                  null, // Temporalmente null, se actualizará después
+                  alternativa.zona_drop
+                ]
+              );
+
+              // Guardar mapeo de ID antiguo a nuevo
+              mapeoAlternativasGlobal[alternativa.id] = resultadoAlternativa.insertId;
+            }
+          }
+
+          // Actualizar par_id de las alternativas copiadas
+          for (const pregunta of preguntas) {
+            const alternativas = await query(
+              `SELECT * FROM asignaturas_examenes_preguntas_alternativas WHERE pregunta_id = ? ORDER BY id ASC`,
+              [pregunta.id]
+            );
+
+            const nuevasPreguntas = await query(
+              `SELECT id FROM asignaturas_examenes_preguntas WHERE examen_id = ? ORDER BY orden ASC`,
+              [nuevoExamenId]
+            );
+
+            // Encontrar el índice de la pregunta actual
+            const preguntaIndex = preguntas.findIndex(p => p.id === pregunta.id);
+            const nuevaPreguntaId = nuevasPreguntas[preguntaIndex].id;
+
+            const nuevasAlternativas = await query(
+              `SELECT id FROM asignaturas_examenes_preguntas_alternativas WHERE pregunta_id = ? ORDER BY id ASC`,
+              [nuevaPreguntaId]
+            );
+
+            for (let i = 0; i < alternativas.length; i++) {
+              const alternativa = alternativas[i];
+              const nuevaAlternativaId = nuevasAlternativas[i].id;
+
+              if (alternativa.par_id && mapeoAlternativasGlobal[alternativa.par_id]) {
+                const nuevoParId = mapeoAlternativasGlobal[alternativa.par_id];
+                await execute(
+                  `UPDATE asignaturas_examenes_preguntas_alternativas SET par_id = ? WHERE id = ?`,
+                  [nuevoParId, nuevaAlternativaId]
+                );
+              }
+            }
+          }
+
+          copiados.examenes++;
+        }
+      }
+    }
+
+    // Copiar videos
+    if (videos_id && videos_id.length > 0) {
+      for (const videoId of videos_id) {
+        const video = await query(
+          `SELECT * FROM asignaturas_videos WHERE id = ? AND asignatura_id = ?`,
+          [videoId, cursoId]
+        );
+
+        if (video.length > 0) {
+          await execute(
+            `INSERT INTO asignaturas_videos (asignatura_id, trabajador_id, descripcion, enlace, ciclo, fecha_hora)
+             VALUES (?, ?, ?, ?, ?, NOW())`,
+            [
+              asignatura_destino_id,
+              video[0].trabajador_id,
+              video[0].descripcion,
+              video[0].enlace,
+              video[0].ciclo
+            ]
+          );
+          copiados.videos++;
+        }
+      }
+    }
+
+    // Copiar enlaces
+    if (enlaces_id && enlaces_id.length > 0) {
+      for (const enlaceId of enlaces_id) {
+        const enlace = await query(
+          `SELECT * FROM asignaturas_enlaces WHERE id = ? AND asignatura_id = ?`,
+          [enlaceId, cursoId]
+        );
+
+        if (enlace.length > 0) {
+          await execute(
+            `INSERT INTO asignaturas_enlaces (asignatura_id, trabajador_id, descripcion, enlace, ciclo, fecha_hora)
+             VALUES (?, ?, ?, ?, ?, NOW())`,
+            [
+              asignatura_destino_id,
+              enlace[0].trabajador_id,
+              enlace[0].descripcion,
+              enlace[0].enlace,
+              enlace[0].ciclo
+            ]
+          );
+          copiados.enlaces++;
+        }
+      }
+    }
+
+    // Registrar auditoría
+    req.skipAudit = true;
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'COPIAR',
+      modulo: 'Cursos Asignados',
+      entidad: 'Contenido Aula Virtual',
+      entidad_id: cursoId,
+      descripcion: `Copió contenido de asignatura (ID: ${cursoId}) a asignatura (ID: ${asignatura_destino_id}). Temas: ${copiados.temas}, Tareas: ${copiados.tareas}, Exámenes: ${copiados.examenes}, Videos: ${copiados.videos}, Enlaces: ${copiados.enlaces}`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
+      datos_nuevos: JSON.stringify({ asignatura_destino_id, copiados }),
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error en auditoría:', err));
+
+    res.json({
+      success: true,
+      message: 'Contenido copiado correctamente',
+      copiados: copiados
+    });
+  } catch (error) {
+    console.error('Error copiando contenido:', error);
+    res.status(500).json({ error: 'Error al copiar contenido' });
+  }
+});
+
 router.put('/cursos/:cursoId/aula-virtual', async (req, res) => {
   try {
     const { cursoId } = req.params;

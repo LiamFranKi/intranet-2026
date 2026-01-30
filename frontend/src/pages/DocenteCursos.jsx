@@ -74,6 +74,21 @@ function DocenteCursos() {
   const [notasEditadas, setNotasEditadas] = useState({}); // { matricula_id: { criterio_id: { indicador_id: [notas...] } } }
   const [forceUpdate, setForceUpdate] = useState(0); // Para forzar re-render cuando cambien las notas
 
+  // Estados para modal de copiar contenido
+  const [mostrarModalCopiarContenido, setMostrarModalCopiarContenido] = useState(false);
+  const [cursoParaCopiar, setCursoParaCopiar] = useState(null);
+  const [datosCopiarContenido, setDatosCopiarContenido] = useState(null); // { otrasAsignaturas, temas, tareas, examenes, videos, enlaces }
+  const [loadingCopiarContenido, setLoadingCopiarContenido] = useState(false);
+  const [guardandoCopiarContenido, setGuardandoCopiarContenido] = useState(false);
+  const [formCopiarContenido, setFormCopiarContenido] = useState({
+    asignatura_destino_id: '',
+    temas_id: [],
+    tareas_id: [],
+    examenes_id: [],
+    videos_id: [],
+    enlaces_id: []
+  });
+
   useEffect(() => {
     cargarCursos();
   }, []);
@@ -1554,8 +1569,10 @@ function DocenteCursos() {
         cargarLinkAulaVirtual(curso.id);
         break;
       case 'copiar':
-        // TODO: Implementar funcionalidad de copiar contenido
-        console.log('Copiar contenido del curso:', curso.id);
+        console.log('Abriendo modal de copiar contenido para curso:', curso.id);
+        setCursoParaCopiar(curso);
+        setMostrarModalCopiarContenido(true);
+        cargarDatosCopiarContenido(curso.id);
         break;
       case 'horario':
         // Abrir modal de horario para el curso
@@ -2402,6 +2419,97 @@ function DocenteCursos() {
   };
 
   // Cargar horario de un curso específico
+  // Cargar datos para copiar contenido
+  const cargarDatosCopiarContenido = async (cursoId) => {
+    try {
+      setLoadingCopiarContenido(true);
+      const response = await api.get(`/docente/cursos/${cursoId}/copiar-contenido`);
+      setDatosCopiarContenido(response.data);
+      setFormCopiarContenido({
+        asignatura_destino_id: '',
+        temas_id: [],
+        tareas_id: [],
+        examenes_id: [],
+        videos_id: [],
+        enlaces_id: []
+      });
+    } catch (error) {
+      console.error('Error cargando datos para copiar contenido:', error);
+      Swal.fire({
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar los datos para copiar contenido',
+        icon: 'error',
+        confirmButtonText: 'Aceptar'
+      });
+      // Inicializar con datos vacíos para que el modal se muestre
+      setDatosCopiarContenido({
+        otrasAsignaturas: [],
+        temas: [],
+        tareas: [],
+        examenes: [],
+        videos: [],
+        enlaces: []
+      });
+    } finally {
+      setLoadingCopiarContenido(false);
+    }
+  };
+
+  // Guardar copia de contenido
+  const handleGuardarCopiarContenido = async () => {
+    if (!formCopiarContenido.asignatura_destino_id) {
+      Swal.fire('Error', 'Debe seleccionar una asignatura destino', 'error');
+      return;
+    }
+
+    const totalSeleccionado = 
+      formCopiarContenido.temas_id.length +
+      formCopiarContenido.tareas_id.length +
+      formCopiarContenido.examenes_id.length +
+      formCopiarContenido.videos_id.length +
+      formCopiarContenido.enlaces_id.length;
+
+    if (totalSeleccionado === 0) {
+      Swal.fire('Error', 'Debe seleccionar al menos un elemento para copiar', 'error');
+      return;
+    }
+
+    try {
+      setGuardandoCopiarContenido(true);
+      const response = await api.post(
+        `/docente/cursos/${cursoParaCopiar.id}/copiar-contenido`,
+        formCopiarContenido
+      );
+
+      Swal.fire({
+        title: '¡Éxito!',
+        html: `Contenido copiado correctamente.<br>
+               <strong>Temas:</strong> ${response.data.copiados.temas}<br>
+               <strong>Tareas:</strong> ${response.data.copiados.tareas}<br>
+               <strong>Exámenes:</strong> ${response.data.copiados.examenes}<br>
+               <strong>Videos:</strong> ${response.data.copiados.videos}<br>
+               <strong>Enlaces:</strong> ${response.data.copiados.enlaces}`,
+        icon: 'success',
+        confirmButtonText: 'Aceptar'
+      });
+
+      setMostrarModalCopiarContenido(false);
+      setFormCopiarContenido({
+        asignatura_destino_id: '',
+        temas_id: [],
+        tareas_id: [],
+        examenes_id: [],
+        videos_id: [],
+        enlaces_id: []
+      });
+    } catch (error) {
+      console.error('Error copiando contenido:', error);
+      Swal.fire('Error', error.response?.data?.error || 'No se pudo copiar el contenido', 'error');
+    } finally {
+      setGuardandoCopiarContenido(false);
+    }
+  };
+
   const cargarHorarioCurso = async (cursoId) => {
     try {
       setLoadingHorario(true);
@@ -4181,6 +4289,403 @@ function DocenteCursos() {
                   <p className="loading-text-notas">No se pudieron cargar las notas</p>
                 </div>
               )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Modal de Copiar Contenido */}
+        {mostrarModalCopiarContenido && cursoParaCopiar && createPortal(
+          <div 
+            className="modal-overlay" 
+            onClick={() => setMostrarModalCopiarContenido(false)}
+            style={{ zIndex: 100000 }}
+          >
+            <div 
+              className="modal-container modal-copiar-contenido" 
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-copiar-contenido-title"
+            >
+              <div className="modal-header-copiar-contenido">
+                <div className="modal-header-gradient">
+                  <h2 id="modal-copiar-contenido-title">📋 Copiar Contenido</h2>
+                </div>
+                <button
+                  className="modal-close"
+                  onClick={() => setMostrarModalCopiarContenido(false)}
+                  type="button"
+                  aria-label="Cerrar modal"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="modal-body-copiar-contenido">
+                {loadingCopiarContenido ? (
+                  <div className="loading-overlay">
+                    <div className="loading-spinner">
+                      <div className="spinner-ring"></div>
+                      <div className="spinner-ring"></div>
+                      <div className="spinner-ring"></div>
+                      <div className="spinner-ring"></div>
+                    </div>
+                    <p className="loading-text">Cargando datos...</p>
+                  </div>
+                ) : !datosCopiarContenido ? (
+                  <div className="empty-state">
+                    <p>No se pudieron cargar los datos. Por favor, intente nuevamente.</p>
+                    <button
+                      type="button"
+                      className="btn-guardar"
+                      onClick={() => cursoParaCopiar && cargarDatosCopiarContenido(cursoParaCopiar.id)}
+                      style={{ marginTop: '1rem' }}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : datosCopiarContenido.otrasAsignaturas && datosCopiarContenido.otrasAsignaturas.length === 0 ? (
+                  <div className="empty-state">
+                    <p>No hay otras secciones disponibles para copiar contenido.</p>
+                    <p style={{ fontSize: '0.9rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                      Solo puedes copiar contenido a otras secciones del mismo grado y curso.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Selector de Asignatura Destino */}
+                    <div className="form-group-copiar">
+                      <label htmlFor="asignatura-destino" className="form-label-copiar">
+                        Copiar A <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="asignatura-destino"
+                        className="form-select-copiar"
+                        value={formCopiarContenido.asignatura_destino_id}
+                        onChange={(e) => setFormCopiarContenido(prev => ({
+                          ...prev,
+                          asignatura_destino_id: e.target.value
+                        }))}
+                      >
+                        <option value="">-- Seleccione --</option>
+                        {datosCopiarContenido.otrasAsignaturas.map(asig => (
+                          <option key={asig.id} value={asig.id}>{asig.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Selector de Temas Interactivos */}
+                    <div className="form-group-copiar">
+                      <label htmlFor="temas-id" className="form-label-copiar">
+                        📚 Temas Interactivos
+                      </label>
+                      <div className="checkbox-list-container">
+                        {datosCopiarContenido.temas.length > 0 ? (
+                          <>
+                            <div className="checkbox-list-header">
+                              <button
+                                type="button"
+                                className="btn-select-all"
+                                onClick={() => {
+                                  const allSelected = datosCopiarContenido.temas.every(t => 
+                                    formCopiarContenido.temas_id.includes(t.id)
+                                  );
+                                  setFormCopiarContenido(prev => ({
+                                    ...prev,
+                                    temas_id: allSelected ? [] : datosCopiarContenido.temas.map(t => t.id)
+                                  }));
+                                }}
+                              >
+                                {datosCopiarContenido.temas.every(t => formCopiarContenido.temas_id.includes(t.id)) 
+                                  ? '☑ Deseleccionar Todos' 
+                                  : '☐ Seleccionar Todos'}
+                              </button>
+                            </div>
+                            <div className="checkbox-list">
+                              {datosCopiarContenido.temas.map(tema => (
+                                <label key={tema.id} className="checkbox-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={formCopiarContenido.temas_id.includes(tema.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          temas_id: [...prev.temas_id, tema.id]
+                                        }));
+                                      } else {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          temas_id: prev.temas_id.filter(id => id !== tema.id)
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                  <span>{tema.nombre}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-list-text">No hay temas disponibles</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selector de Tareas Virtuales */}
+                    <div className="form-group-copiar">
+                      <label htmlFor="tareas-id" className="form-label-copiar">
+                        📝 Tareas Virtuales
+                      </label>
+                      <div className="checkbox-list-container">
+                        {datosCopiarContenido.tareas.length > 0 ? (
+                          <>
+                            <div className="checkbox-list-header">
+                              <button
+                                type="button"
+                                className="btn-select-all"
+                                onClick={() => {
+                                  const allSelected = datosCopiarContenido.tareas.every(t => 
+                                    formCopiarContenido.tareas_id.includes(t.id)
+                                  );
+                                  setFormCopiarContenido(prev => ({
+                                    ...prev,
+                                    tareas_id: allSelected ? [] : datosCopiarContenido.tareas.map(t => t.id)
+                                  }));
+                                }}
+                              >
+                                {datosCopiarContenido.tareas.every(t => formCopiarContenido.tareas_id.includes(t.id)) 
+                                  ? '☑ Deseleccionar Todos' 
+                                  : '☐ Seleccionar Todos'}
+                              </button>
+                            </div>
+                            <div className="checkbox-list">
+                              {datosCopiarContenido.tareas.map(tarea => (
+                                <label key={tarea.id} className="checkbox-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={formCopiarContenido.tareas_id.includes(tarea.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          tareas_id: [...prev.tareas_id, tarea.id]
+                                        }));
+                                      } else {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          tareas_id: prev.tareas_id.filter(id => id !== tarea.id)
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                  <span>{tarea.nombre}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-list-text">No hay tareas disponibles</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selector de Exámenes */}
+                    <div className="form-group-copiar">
+                      <label htmlFor="examenes-id" className="form-label-copiar">
+                        📋 Exámenes
+                      </label>
+                      <div className="checkbox-list-container">
+                        {datosCopiarContenido.examenes.length > 0 ? (
+                          <>
+                            <div className="checkbox-list-header">
+                              <button
+                                type="button"
+                                className="btn-select-all"
+                                onClick={() => {
+                                  const allSelected = datosCopiarContenido.examenes.every(e => 
+                                    formCopiarContenido.examenes_id.includes(e.id)
+                                  );
+                                  setFormCopiarContenido(prev => ({
+                                    ...prev,
+                                    examenes_id: allSelected ? [] : datosCopiarContenido.examenes.map(e => e.id)
+                                  }));
+                                }}
+                              >
+                                {datosCopiarContenido.examenes.every(e => formCopiarContenido.examenes_id.includes(e.id)) 
+                                  ? '☑ Deseleccionar Todos' 
+                                  : '☐ Seleccionar Todos'}
+                              </button>
+                            </div>
+                            <div className="checkbox-list">
+                              {datosCopiarContenido.examenes.map(examen => (
+                                <label key={examen.id} className="checkbox-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={formCopiarContenido.examenes_id.includes(examen.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          examenes_id: [...prev.examenes_id, examen.id]
+                                        }));
+                                      } else {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          examenes_id: prev.examenes_id.filter(id => id !== examen.id)
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                  <span>{examen.nombre}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-list-text">No hay exámenes disponibles</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selector de Videos */}
+                    <div className="form-group-copiar">
+                      <label htmlFor="videos-id" className="form-label-copiar">
+                        🎥 Videos
+                      </label>
+                      <div className="checkbox-list-container">
+                        {datosCopiarContenido.videos.length > 0 ? (
+                          <>
+                            <div className="checkbox-list-header">
+                              <button
+                                type="button"
+                                className="btn-select-all"
+                                onClick={() => {
+                                  const allSelected = datosCopiarContenido.videos.every(v => 
+                                    formCopiarContenido.videos_id.includes(v.id)
+                                  );
+                                  setFormCopiarContenido(prev => ({
+                                    ...prev,
+                                    videos_id: allSelected ? [] : datosCopiarContenido.videos.map(v => v.id)
+                                  }));
+                                }}
+                              >
+                                {datosCopiarContenido.videos.every(v => formCopiarContenido.videos_id.includes(v.id)) 
+                                  ? '☑ Deseleccionar Todos' 
+                                  : '☐ Seleccionar Todos'}
+                              </button>
+                            </div>
+                            <div className="checkbox-list">
+                              {datosCopiarContenido.videos.map(video => (
+                                <label key={video.id} className="checkbox-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={formCopiarContenido.videos_id.includes(video.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          videos_id: [...prev.videos_id, video.id]
+                                        }));
+                                      } else {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          videos_id: prev.videos_id.filter(id => id !== video.id)
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                  <span>{video.nombre}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-list-text">No hay videos disponibles</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selector de Enlaces */}
+                    <div className="form-group-copiar">
+                      <label htmlFor="enlaces-id" className="form-label-copiar">
+                        🔗 Enlaces
+                      </label>
+                      <div className="checkbox-list-container">
+                        {datosCopiarContenido.enlaces.length > 0 ? (
+                          <>
+                            <div className="checkbox-list-header">
+                              <button
+                                type="button"
+                                className="btn-select-all"
+                                onClick={() => {
+                                  const allSelected = datosCopiarContenido.enlaces.every(e => 
+                                    formCopiarContenido.enlaces_id.includes(e.id)
+                                  );
+                                  setFormCopiarContenido(prev => ({
+                                    ...prev,
+                                    enlaces_id: allSelected ? [] : datosCopiarContenido.enlaces.map(e => e.id)
+                                  }));
+                                }}
+                              >
+                                {datosCopiarContenido.enlaces.every(e => formCopiarContenido.enlaces_id.includes(e.id)) 
+                                  ? '☑ Deseleccionar Todos' 
+                                  : '☐ Seleccionar Todos'}
+                              </button>
+                            </div>
+                            <div className="checkbox-list">
+                              {datosCopiarContenido.enlaces.map(enlace => (
+                                <label key={enlace.id} className="checkbox-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={formCopiarContenido.enlaces_id.includes(enlace.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          enlaces_id: [...prev.enlaces_id, enlace.id]
+                                        }));
+                                      } else {
+                                        setFormCopiarContenido(prev => ({
+                                          ...prev,
+                                          enlaces_id: prev.enlaces_id.filter(id => id !== enlace.id)
+                                        }));
+                                      }
+                                    }}
+                                  />
+                                  <span>{enlace.nombre}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="empty-list-text">No hay enlaces disponibles</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="modal-footer-copiar-contenido">
+                <button
+                  type="button"
+                  className="btn-cancelar"
+                  onClick={() => setMostrarModalCopiarContenido(false)}
+                  disabled={guardandoCopiarContenido}
+                >
+                  ✕ Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn-guardar"
+                  onClick={handleGuardarCopiarContenido}
+                  disabled={guardandoCopiarContenido || loadingCopiarContenido}
+                >
+                  {guardandoCopiarContenido ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                </button>
+              </div>
             </div>
           </div>,
           document.body
