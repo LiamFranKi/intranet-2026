@@ -234,6 +234,18 @@ function DocenteAulaVirtual() {
   });
   const [examenEditando, setExamenEditando] = useState(null);
   const [guardandoExamen, setGuardandoExamen] = useState(false);
+  
+  // Estados para resultados de exámenes
+  const [mostrarResultadosExamen, setMostrarResultadosExamen] = useState(false);
+  const [resultadosExamen, setResultadosExamen] = useState([]);
+  const [examenParaResultados, setExamenParaResultados] = useState(null);
+  const [cargandoResultados, setCargandoResultados] = useState(false);
+  
+  // Estados para detalles del resultado
+  const [mostrarDetallesResultado, setMostrarDetallesResultado] = useState(false);
+  const [resultadoParaDetalles, setResultadoParaDetalles] = useState(null);
+  const [detallesResultado, setDetallesResultado] = useState(null);
+  const [cargandoDetallesResultado, setCargandoDetallesResultado] = useState(false);
 
   const cargarDatosCurso = useCallback(async () => {
     try {
@@ -1713,7 +1725,7 @@ function DocenteAulaVirtual() {
                           <a href="#" onClick={(e) => { e.preventDefault(); handlePreguntasAlternativas(examen); }}>
                             📝 Preguntas / Alternativas
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Ver resultados */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleVerResultados(examen); }}>
                             📊 Ver Resultados
                           </a>
                           <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar al Registro */ }}>
@@ -1996,6 +2008,123 @@ function DocenteAulaVirtual() {
         });
       }
     }
+  };
+
+  const handleVerResultados = async (examen) => {
+    setExamenParaResultados(examen);
+    setMostrarResultadosExamen(true);
+    setCargandoResultados(true);
+    setOpenDropdown(null);
+    
+    try {
+      const response = await api.get(`/docente/aula-virtual/examenes/${examen.id}/resultados`);
+      setResultadosExamen(response.data.resultados || []);
+    } catch (error) {
+      console.error('Error cargando resultados:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar los resultados',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setCargandoResultados(false);
+    }
+  };
+
+  const handleVerDetallesResultado = async (resultado) => {
+    // Si no tiene resultado, mostrar mensaje
+    if (!resultado.resultado_id) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin resultado',
+        text: 'El alumno aún no ha rendido este examen',
+        confirmButtonText: 'Cerrar'
+      });
+      return;
+    }
+
+    setCargandoDetallesResultado(true);
+    setMostrarDetallesResultado(true);
+    setResultadoParaDetalles(resultado);
+    
+    try {
+      const response = await api.get(`/docente/aula-virtual/resultados/${resultado.resultado_id}/detalles`);
+      setDetallesResultado(response.data);
+    } catch (error) {
+      console.error('Error cargando detalles:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar los detalles',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      setMostrarDetallesResultado(false);
+    } finally {
+      setCargandoDetallesResultado(false);
+    }
+  };
+
+  const handleBorrarResultado = async (resultado) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el resultado de ${resultado.nombre_completo}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/docente/aula-virtual/resultados/${resultado.resultado_id}`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Resultado eliminado!',
+          text: `El resultado de ${resultado.nombre_completo} ha sido eliminado. El alumno podrá volver a dar el examen si tiene intentos disponibles.`,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 4000,
+          timerProgressBar: true
+        });
+
+        // Recargar resultados
+        await handleVerResultados(examenParaResultados);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudo eliminar el resultado',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
+  const handleDescargarExcel = () => {
+    // TODO: Implementar descarga de Excel
+    Swal.fire({
+      icon: 'info',
+      title: 'Próximamente',
+      text: 'La descarga en Excel estará disponible pronto',
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 3000
+    });
   };
 
   // Funciones para manejar preguntas y alternativas
@@ -3389,6 +3518,39 @@ function DocenteAulaVirtual() {
         document.body
       )}
 
+      {/* Modal de Resultados de Examen */}
+      {mostrarResultadosExamen && examenParaResultados && createPortal(
+        <ResultadosExamenModal
+          examen={examenParaResultados}
+          resultados={resultadosExamen}
+          cargandoResultados={cargandoResultados}
+          onClose={() => {
+            setMostrarResultadosExamen(false);
+            setExamenParaResultados(null);
+            setResultadosExamen([]);
+          }}
+          onVerDetalles={handleVerDetallesResultado}
+          onBorrarResultado={handleBorrarResultado}
+          onDescargarExcel={handleDescargarExcel}
+        />,
+        document.body
+      )}
+
+      {/* Modal de Detalles del Resultado */}
+      {mostrarDetallesResultado && resultadoParaDetalles && detallesResultado && createPortal(
+        <DetallesResultadoModal
+          resultado={resultadoParaDetalles}
+          detalles={detallesResultado}
+          cargando={cargandoDetallesResultado}
+          onClose={() => {
+            setMostrarDetallesResultado(false);
+            setResultadoParaDetalles(null);
+            setDetallesResultado(null);
+          }}
+        />,
+        document.body
+      )}
+
       {/* Modal de Formulario de Pregunta */}
       {mostrarFormPregunta && examenSeleccionado && createPortal(
         <PreguntaFormModal
@@ -3849,14 +4011,14 @@ function ExamenForm({ asignaturaId, formExamen, setFormExamen, onClose, onSucces
                 onClick={onClose}
                 disabled={guardandoExamen}
               >
-                Cancelar
+                ✖️ Cancelar
               </button>
               <button
                 type="submit"
                 className="btn-guardar"
                 disabled={guardandoExamen}
               >
-                {guardandoExamen ? 'Guardando...' : 'Guardar Datos'}
+                {guardandoExamen ? '⏳ Guardando...' : '💾 Guardar Datos'}
               </button>
         </div>
           </form>
@@ -4861,11 +5023,11 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
                                     'list', 'bullet', 'link', 'image'
                                   ]}
                                 />
-              </div>
+                  </div>
                             </td>
                             {formPregunta.tipo === 'ORDENAR' && (
                               <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                <input
+                        <input
                                   type="number"
                                   className="form-input"
                                   value={alternativa.orden_posicion || index + 1}
@@ -4895,7 +5057,7 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
                                         })()
                                       : ''
                                   }
-                                  onChange={(e) => {
+                          onChange={(e) => {
                                     const valorSeleccionado = e.target.value;
                                     if (valorSeleccionado === '') {
                                       actualizarAlternativa(index, 'par_id', null);
@@ -5011,7 +5173,7 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
                             {(formPregunta.tipo === 'ALTERNATIVAS' || formPregunta.tipo === 'VERDADERO_FALSO') && (
                               <td style={{ padding: '1rem', textAlign: 'center' }}>
                                 <label className="checkbox-label" style={{ justifyContent: 'center', cursor: 'pointer' }}>
-                                  <input
+                          <input
                                     type="checkbox"
                                     checked={alternativa.correcta === 'SI' || alternativa.correcta === true}
                   onChange={(e) => {
@@ -5031,12 +5193,12 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
                                   <span style={{ marginLeft: '0.5rem', fontWeight: '600', color: alternativa.correcta === 'SI' ? '#10b981' : '#6b7280' }}>
                                     {alternativa.correcta === 'SI' ? '✓ Correcta' : 'Marcar'}
                                   </span>
-                                </label>
+                        </label>
                               </td>
                             )}
                             <td style={{ padding: '1rem', textAlign: 'center' }}>
-                    <button
-                      type="button"
+                        <button
+                          type="button"
                                 onClick={() => eliminarAlternativa(index)}
                                 className="btn-opciones"
                                 style={{
@@ -5052,7 +5214,7 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
                                 title="Eliminar alternativa"
                               >
                                 🗑️
-                    </button>
+                        </button>
                             </td>
                           </tr>
                         ))}
@@ -5076,8 +5238,8 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
                       Haz clic en "➕ Agregar" para crear la primera alternativa
                     </p>
             </div>
-          )}
-        </div>
+                )}
+              </div>
             )}
 
             <div className="modal-tema-footer" style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
@@ -5087,11 +5249,457 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
               <button type="submit" className="btn-guardar-tema" disabled={guardando}>
                 {guardando ? '⏳ Guardando...' : '💾 Guardar Datos'}
           </button>
-        </div>
+              </div>
       </form>
         </div>
       </div>
     </div>
+  );
+}
+
+// Componente Modal de Resultados de Examen
+function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose, onVerDetalles, onBorrarResultado, onDescargarExcel }) {
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState(null);
+  const buttonRef = useRef({});
+
+  const toggleDropdown = (uniqueKey, e, tipo) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (openDropdown === `resultado-${uniqueKey}`) {
+      setOpenDropdown(null);
+      setDropdownPosition(null);
+    } else {
+      const button = e.currentTarget;
+      const rect = button.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+        width: rect.width > 200 ? rect.width : 200
+      });
+      setOpenDropdown(`resultado-${uniqueKey}`);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Solo cerrar si es click del botón izquierdo (button === 0)
+      if (event.button !== 0) return;
+      
+      if (openDropdown !== null) {
+        const dropdownElement = document.querySelector('.dropdown-menu-portal-aula');
+        const buttonKey = openDropdown.replace('resultado-', '');
+        const buttonElement = buttonRef.current[`resultado-${buttonKey}`];
+        
+        // Verificar si el click fue fuera del dropdown y del botón
+        if (
+          dropdownElement && 
+          !dropdownElement.contains(event.target) &&
+          buttonElement &&
+          !buttonElement.contains(event.target)
+        ) {
+          setOpenDropdown(null);
+          setDropdownPosition(null);
+        }
+      }
+    };
+
+    if (openDropdown !== null) {
+      // Usar mousedown en lugar de click para mejor control
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [openDropdown]);
+
+  // Calcular puntos por respuesta correcta
+  const puntosPorRespuesta = examen.tipo_puntaje === 'GENERAL' ? (examen.puntos_correcta || 0) : 0;
+
+  return createPortal(
+    <div className="modal-tema-overlay" onClick={onClose}>
+      <div className="modal-tema-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1200px', width: '95%' }}>
+        <div className="modal-tema-header" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+          <h2>📊 RESULTADOS - {examen.titulo}</h2>
+          <button className="modal-tema-close" onClick={onClose} aria-label="Cerrar" style={{ color: 'white' }}>×</button>
+              </div>
+        
+        <div className="modal-tema-body" style={{ padding: '1.5rem' }}>
+          {/* Botones de acción */}
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button 
+              className="btn-guardar" 
+              onClick={onDescargarExcel}
+            >
+              📥 Descargar
+            </button>
+            <button 
+              className="btn-cancelar" 
+              onClick={onClose}
+            >
+              ✏️ Volver a Calificar
+            </button>
+          </div>
+
+          {/* Información del examen */}
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f3f4f6', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+              <div>
+                <strong>EXAMEN:</strong> {examen.titulo}
+              </div>
+              {examen.tipo_puntaje === 'GENERAL' && (
+                <div>
+                  <strong>PUNTAJE POR RESPUESTA CORRECTA:</strong> {puntosPorRespuesta} Punto(s)
+              </div>
+            )}
+            </div>
+          </div>
+
+          {/* Tabla de resultados */}
+          {cargandoResultados ? (
+            <div className="loading-spinner" style={{ textAlign: 'center', padding: '2rem' }}>
+              Cargando resultados...
+          </div>
+          ) : resultados.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', border: '1px solid rgba(255,255,255,0.3)' }}>N°</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left', border: '1px solid rgba(255,255,255,0.3)' }}>APELLIDOS Y NOMBRES</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.3)' }}>PUNTAJE</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.3)' }}>CORRECTAS</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.3)' }}>INCORRECTAS</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid rgba(255,255,255,0.3)' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resultados.map((resultado, index) => {
+                    // Usar matricula_id como key para que todos tengan dropdown, incluso sin resultado
+                    const uniqueKey = resultado.matricula_id || `alumno-${index}`;
+                    const tieneResultado = resultado.resultado_id !== null && resultado.resultado_id !== undefined;
+                    
+                    return (
+                      <tr key={uniqueKey} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>{index + 1}</td>
+                        <td style={{ padding: '0.75rem' }}>{resultado.nombre_completo}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600' }}>{resultado.puntaje || 0}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', color: '#10b981', fontWeight: '600' }}>{resultado.correctas || 0}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', color: '#ef4444', fontWeight: '600' }}>{resultado.incorrectas || 0}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                          <div className="btn-group-opciones" style={{ position: 'relative' }}>
+                    <button
+                              className="btn-opciones"
+                              ref={(el) => {
+                                if (el) {
+                                  buttonRef.current[`resultado-${uniqueKey}`] = el;
+                                }
+                              }}
+                              onClick={(e) => toggleDropdown(uniqueKey, e, 'resultado')}
+                            >
+                              Opciones {openDropdown === `resultado-${uniqueKey}` ? '▲' : '▼'}
+                    </button>
+                            {openDropdown === `resultado-${uniqueKey}` && dropdownPosition && createPortal(
+                              <div 
+                                className="dropdown-menu-portal-aula"
+                                style={{
+                                  position: 'fixed',
+                                  top: `${dropdownPosition.top}px`,
+                                  right: `${dropdownPosition.right}px`,
+                                  width: `${dropdownPosition.width}px`,
+                                  zIndex: 10000,
+                                  backgroundColor: 'white',
+                                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e5e7eb'
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="dropdown-menu-opciones">
+                                  <a href="#" onClick={(e) => { 
+                                    e.preventDefault(); 
+                                    e.stopPropagation();
+                                    onVerDetalles(resultado); 
+                                    setOpenDropdown(null); 
+                                  }}>
+                                    📄 Ver Detalles
+                                  </a>
+                                  {tieneResultado && (
+                                    <a href="#" onClick={(e) => { 
+                                      e.preventDefault(); 
+                                      e.stopPropagation();
+                                      onBorrarResultado(resultado); 
+                                      setOpenDropdown(null); 
+                                    }}>
+                                      🗑️ Borrar Resultados
+                                    </a>
+                                  )}
+            </div>
+                              </div>,
+                              document.body
+          )}
+        </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+        </div>
+          ) : (
+            <div className="empty-state" style={{ textAlign: 'center', padding: '3rem' }}>
+              <p>No hay resultados registrados para este examen</p>
+    </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Componente Modal de Detalles del Resultado
+function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
+  if (!detalles || !detalles.resultado || !detalles.preguntas) {
+    return null;
+  }
+
+  const { resultado: resultadoInfo, preguntas, respuestas } = detalles;
+  const puntosPorRespuesta = resultadoInfo.tipo_puntaje === 'GENERAL' ? (resultadoInfo.puntos_correcta || 0) : 0;
+
+  // Función para determinar el estado de una alternativa
+  const getEstadoAlternativa = (preguntaId, alternativaId, esCorrecta) => {
+    // Obtener la respuesta del alumno para esta pregunta
+    // Las respuestas vienen como: { pregunta_id: alternativa_id }
+    const respuestaAlumno = respuestas[preguntaId] || respuestas[preguntaId.toString()];
+    
+    // Normalizar IDs para comparación (pueden venir como número o string)
+    const alternativaIdNum = typeof alternativaId === 'number' ? alternativaId : parseInt(alternativaId);
+    const respuestaAlumnoNum = typeof respuestaAlumno === 'number' ? respuestaAlumno : parseInt(respuestaAlumno);
+    
+    // Verificar si el alumno marcó esta alternativa
+    const alumnoMarcó = respuestaAlumnoNum === alternativaIdNum;
+    
+    if (esCorrecta === 'SI') {
+      if (alumnoMarcó) {
+        return 'correcta_marcada'; // Verde: marcó correctamente
+      } else {
+        return 'correcta_no_marcada'; // Azul: es la correcta pero no la marcó
+      }
+    } else {
+      if (alumnoMarcó) {
+        return 'incorrecta_marcada'; // Rojo: marcó incorrectamente
+      } else {
+        return 'sin_marcar'; // Sin color: no la marcó y no es correcta
+      }
+    }
+  };
+
+  return createPortal(
+    <div className="modal-tema-overlay" onClick={onClose}>
+      <div className="modal-tema-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="modal-tema-header" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+          <h2>📄 Detalles del Resultado</h2>
+          <button className="modal-tema-close" onClick={onClose} aria-label="Cerrar" style={{ color: 'white' }}>×</button>
+        </div>
+        
+        <div className="modal-tema-body" style={{ padding: '1.5rem' }}>
+          {cargando ? (
+            <div className="loading-spinner" style={{ textAlign: 'center', padding: '2rem' }}>
+              Cargando detalles...
+            </div>
+          ) : (
+            <>
+              {/* Resumen del Resultado */}
+              <div style={{ 
+                marginBottom: '1.5rem', 
+                padding: '0.75rem 1rem', 
+                background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', 
+                borderRadius: '8px',
+                border: '2px solid #4caf50'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', width: '40%', fontSize: '0.9rem' }}>ALUMNO:</td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: '#1f2937', fontSize: '0.9rem' }}>{resultadoInfo.nombre_completo}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', fontSize: '0.9rem' }}>PUNTAJE POR RESPUESTA CORRECTA:</td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: '#1f2937', fontSize: '0.9rem' }}>{puntosPorRespuesta} Punto(s)</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', fontSize: '0.9rem' }}>PUNTAJE:</td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: '#1f2937', fontWeight: '700', fontSize: '1rem' }}>{resultadoInfo.puntaje}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', fontSize: '0.9rem' }}>CORRECTAS:</td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: '#10b981', fontWeight: '700', fontSize: '1rem' }}>{resultadoInfo.correctas}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', fontSize: '0.9rem' }}>INCORRECTAS:</td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: '#ef4444', fontWeight: '700', fontSize: '1rem' }}>{resultadoInfo.incorrectas}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Leyenda */}
+              <div style={{ 
+                marginBottom: '2rem', 
+                padding: '1rem', 
+                background: '#f9fafb', 
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#10b981', border: '2px solid #059669' }}></div>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>Marcada correctamente</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: '2px solid #dc2626' }}></div>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>Marcada incorrectamente</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#3b82f6', border: '2px solid #2563eb' }}></div>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>Respuesta correcta</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preguntas */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                {preguntas.map((pregunta, index) => {
+                  // Obtener la respuesta del alumno para esta pregunta
+                  const respuestaAlumno = respuestas[pregunta.id] || respuestas[pregunta.id.toString()];
+                  const respuestaAlumnoNum = respuestaAlumno ? (typeof respuestaAlumno === 'number' ? respuestaAlumno : parseInt(respuestaAlumno)) : null;
+                  
+                  return (
+                    <div 
+                      key={pregunta.id} 
+                      style={{ 
+                        padding: '1.5rem', 
+                        background: 'white', 
+                        borderRadius: '12px',
+                        border: '2px solid #e5e7eb',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <div style={{ marginBottom: '1rem' }}>
+                        <h3 style={{ 
+                          margin: 0, 
+                          marginBottom: '0.5rem',
+                          fontSize: '1.1rem', 
+                          fontWeight: '700', 
+                          color: '#1f2937' 
+                        }}>
+                          Pregunta {index + 1}
+                        </h3>
+                        <div 
+                          style={{ 
+                            fontSize: '1rem', 
+                            color: '#4b5563',
+                            lineHeight: '1.6'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: pregunta.descripcion }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {pregunta.alternativas && pregunta.alternativas.map((alternativa) => {
+                          const estado = getEstadoAlternativa(pregunta.id, alternativa.id, alternativa.correcta);
+                          // Verificar si el alumno marcó esta alternativa específica
+                          const alternativaIdNum = typeof alternativa.id === 'number' ? alternativa.id : parseInt(alternativa.id);
+                          const alumnoMarcó = respuestaAlumnoNum === alternativaIdNum;
+                          
+                          let estiloCirculo = {
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            border: '2px solid',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            marginRight: '0.75rem',
+                            fontWeight: 'bold',
+                            fontSize: '14px'
+                          };
+
+                          if (estado === 'correcta_marcada') {
+                            estiloCirculo.background = '#10b981';
+                            estiloCirculo.borderColor = '#059669';
+                            estiloCirculo.color = 'white';
+                          } else if (estado === 'incorrecta_marcada') {
+                            estiloCirculo.background = '#ef4444';
+                            estiloCirculo.borderColor = '#dc2626';
+                            estiloCirculo.color = 'white';
+                          } else if (estado === 'correcta_no_marcada') {
+                            estiloCirculo.background = '#3b82f6';
+                            estiloCirculo.borderColor = '#2563eb';
+                            estiloCirculo.color = 'white';
+                          } else {
+                            estiloCirculo.background = 'white';
+                            estiloCirculo.borderColor = '#d1d5db';
+                            estiloCirculo.color = '#9ca3af';
+                          }
+
+                          return (
+                            <div 
+                              key={alternativa.id}
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'flex-start',
+                                padding: '0.75rem',
+                                borderRadius: '8px',
+                                background: estado !== 'sin_marcar' ? '#f9fafb' : 'white',
+                                border: alumnoMarcó ? '2px solid' : '1px solid #e5e7eb',
+                                borderColor: estado === 'correcta_marcada' ? '#10b981' : 
+                                           estado === 'incorrecta_marcada' ? '#ef4444' : '#e5e7eb'
+                              }}
+                            >
+                              <div style={estiloCirculo}>
+                                {alumnoMarcó && '✓'}
+                              </div>
+                              <div 
+                                style={{ 
+                                  flex: 1,
+                                  fontSize: '0.95rem',
+                                  color: '#1f2937',
+                                  lineHeight: '1.5'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: alternativa.descripcion }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Botón Cerrar */}
+              <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                <button 
+                  className="btn-cancelar"
+                  onClick={onClose}
+                >
+                  ✖️ Cerrar
+          </button>
+        </div>
+            </>
+          )}
+    </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 

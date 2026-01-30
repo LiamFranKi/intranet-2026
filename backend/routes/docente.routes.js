@@ -5778,6 +5778,259 @@ router.put('/aula-virtual/examenes/:examenId/estado', async (req, res) => {
 });
 
 /**
+ * GET /api/docente/aula-virtual/examenes/:examenId/resultados
+ * Obtener resultados de un examen
+ */
+router.get('/aula-virtual/examenes/:examenId/resultados', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el docente tiene acceso a este examen
+    const examen = await query(
+      `SELECT ae.* FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este examen' });
+    }
+
+    // Obtener el grupo_id del examen para listar todos los alumnos
+    const examenInfo = examen[0];
+    const asignatura = await query(
+      `SELECT a.grupo_id FROM asignaturas a WHERE a.id = ?`,
+      [examenInfo.asignatura_id]
+    );
+    
+    if (asignatura.length === 0) {
+      return res.status(404).json({ error: 'Asignatura no encontrada' });
+    }
+    
+    const grupoId = asignatura[0].grupo_id;
+
+    // Obtener TODOS los alumnos del grupo con LEFT JOIN a resultados
+    // Si no tienen resultado, mostrar 0 en puntaje, correctas e incorrectas
+    const resultados = await query(
+      `SELECT 
+        COALESCE(aep.id, NULL) as resultado_id,
+        m.id as matricula_id,
+        COALESCE(aep.fecha_hora, NULL) as fecha_hora,
+        COALESCE(aep.puntaje, 0) as puntaje,
+        COALESCE(aep.correctas, 0) as correctas,
+        COALESCE(aep.incorrectas, 0) as incorrectas,
+        COALESCE(aep.estado, NULL) as estado,
+        CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
+        a.nombres,
+        a.apellido_paterno,
+        a.apellido_materno
+       FROM alumnos a
+       INNER JOIN matriculas m ON m.alumno_id = a.id
+       LEFT JOIN asignaturas_examenes_pruebas aep ON aep.matricula_id = m.id AND aep.examen_id = ?
+       WHERE m.grupo_id = ? 
+         AND m.colegio_id = ?
+         AND (m.estado = 0 OR m.estado = 4)
+       ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres ASC`,
+      [examenId, grupoId, colegio_id]
+    );
+
+    res.json({ 
+      examen: examen[0],
+      resultados: resultados || []
+    });
+  } catch (error) {
+    console.error('Error obteniendo resultados del examen:', error);
+    res.status(500).json({ error: 'Error al obtener resultados del examen' });
+  }
+});
+
+/**
+ * GET /api/docente/aula-virtual/resultados/:resultadoId/detalles
+ * Obtener detalles completos de un resultado de examen (preguntas y respuestas)
+ */
+router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { resultadoId } = req.params;
+
+    // Obtener el resultado con información del examen y alumno
+    const resultado = await query(
+      `SELECT 
+        aep.*,
+        ae.titulo as examen_titulo,
+        ae.tipo_puntaje,
+        ae.puntos_correcta,
+        CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo
+       FROM asignaturas_examenes_pruebas aep
+       INNER JOIN asignaturas_examenes ae ON ae.id = aep.examen_id
+       INNER JOIN asignaturas a_asig ON a_asig.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a_asig.grupo_id
+       INNER JOIN matriculas m ON m.id = aep.matricula_id
+       INNER JOIN alumnos a ON a.id = m.alumno_id
+       WHERE aep.id = ? AND a_asig.personal_id = ? AND a_asig.colegio_id = ? AND g.anio = ?`,
+      [resultadoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (resultado.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este resultado' });
+    }
+
+    const resultadoInfo = resultado[0];
+    const examenId = resultadoInfo.examen_id;
+
+    // Obtener todas las preguntas del examen con sus alternativas
+    const preguntas = await query(
+      `SELECT 
+        aep.*,
+        GROUP_CONCAT(
+          CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta)
+          ORDER BY aepa.id ASC
+          SEPARATOR '||'
+        ) as alternativas_raw
+       FROM asignaturas_examenes_preguntas aep
+       LEFT JOIN asignaturas_examenes_preguntas_alternativas aepa ON aepa.pregunta_id = aep.id
+       WHERE aep.examen_id = ?
+       GROUP BY aep.id
+       ORDER BY aep.orden ASC`,
+      [examenId]
+    );
+
+    // Procesar alternativas para cada pregunta
+    const preguntasConAlternativas = preguntas.map(pregunta => {
+      const alternativas = [];
+      if (pregunta.alternativas_raw) {
+        const altArray = pregunta.alternativas_raw.split('||');
+        altArray.forEach(altStr => {
+          const [id, descripcion, correcta] = altStr.split(':');
+          alternativas.push({
+            id: parseInt(id),
+            descripcion: descripcion || '',
+            correcta: correcta || 'NO'
+          });
+        });
+      }
+      return {
+        ...pregunta,
+        alternativas
+      };
+    });
+
+    // Parsear respuestas del alumno (formato PHP: base64_encode(serialize(array)))
+    // El formato es: [pregunta_id => alternativa_id, pregunta_id => alternativa_id, ...]
+    let respuestasAlumno = {};
+    try {
+      if (resultadoInfo.respuestas && resultadoInfo.respuestas.trim() !== '') {
+        const phpSerialize = require('php-serialize');
+        
+        // Decodificar base64 primero
+        const decoded = Buffer.from(resultadoInfo.respuestas, 'base64').toString('utf-8');
+        
+        // Deserializar el array PHP
+        respuestasAlumno = phpSerialize.unserialize(decoded) || {};
+        
+        // Asegurar que las claves sean strings para comparación consistente
+        const respuestasNormalizadas = {};
+        Object.keys(respuestasAlumno).forEach(key => {
+          respuestasNormalizadas[key.toString()] = respuestasAlumno[key];
+        });
+        respuestasAlumno = respuestasNormalizadas;
+      }
+    } catch (parseError) {
+      console.error('Error parseando respuestas del alumno:', parseError);
+      console.error('Respuestas raw:', resultadoInfo.respuestas);
+      // Si falla, respuestasAlumno queda como objeto vacío
+      respuestasAlumno = {};
+    }
+
+    res.json({
+      resultado: resultadoInfo,
+      preguntas: preguntasConAlternativas,
+      respuestas: respuestasAlumno
+    });
+    } catch (error) {
+      console.error('Error obteniendo detalles del resultado:', error);
+      res.status(500).json({ error: 'Error al obtener detalles del resultado' });
+    }
+  });
+
+/**
+ * DELETE /api/docente/aula-virtual/resultados/:resultadoId
+ * Borrar un resultado de examen (permite que el alumno vuelva a dar el examen)
+ */
+router.delete('/aula-virtual/resultados/:resultadoId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { resultadoId } = req.params;
+
+    // Verificar que el resultado existe y el docente tiene acceso
+    const resultado = await query(
+      `SELECT 
+        aep.*,
+        ae.titulo as examen_titulo,
+        CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo
+       FROM asignaturas_examenes_pruebas aep
+       INNER JOIN asignaturas_examenes ae ON ae.id = aep.examen_id
+       INNER JOIN asignaturas a_asig ON a_asig.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a_asig.grupo_id
+       INNER JOIN matriculas m ON m.id = aep.matricula_id
+       INNER JOIN alumnos a ON a.id = m.alumno_id
+       WHERE aep.id = ? AND a_asig.personal_id = ? AND a_asig.colegio_id = ? AND g.anio = ?`,
+      [resultadoId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (resultado.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este resultado' });
+    }
+
+    const resultadoInfo = resultado[0];
+
+    // Registrar auditoría ANTES de eliminar
+    req.skipAudit = true;
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'DELETE',
+      modulo: 'Aula Virtual',
+      entidad: 'Resultado de Examen',
+      entidad_id: resultadoId,
+      descripcion: `Resultado eliminado del examen "${resultadoInfo.examen_titulo}" del alumno ${resultadoInfo.nombre_completo}. El alumno podrá volver a dar el examen si tiene intentos disponibles.`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: {
+        examen_id: resultadoInfo.examen_id,
+        matricula_id: resultadoInfo.matricula_id,
+        puntaje: resultadoInfo.puntaje,
+        correctas: resultadoInfo.correctas,
+        incorrectas: resultadoInfo.incorrectas,
+        estado: resultadoInfo.estado
+      },
+      datos_nuevos: null,
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error en auditoría:', err));
+
+    // Eliminar el resultado
+    await execute(
+      `DELETE FROM asignaturas_examenes_pruebas WHERE id = ?`,
+      [resultadoId]
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Resultado eliminado correctamente. El alumno podrá volver a dar el examen si tiene intentos disponibles.'
+    });
+  } catch (error) {
+    console.error('Error eliminando resultado del examen:', error);
+    res.status(500).json({ error: 'Error al eliminar el resultado del examen' });
+  }
+});
+
+/**
  * DELETE /api/docente/aula-virtual/examenes/:examenId
  * Eliminar un examen (con cascada: alternativas -> preguntas -> examen)
  */
