@@ -202,7 +202,7 @@ function DocenteAulaVirtual() {
   const [notasTemporales, setNotasTemporales] = useState({});
   const [loadingEntregas, setLoadingEntregas] = useState(false);
   
-  // Estado para modal de Asignar a Registro
+  // Estado para modal de Asignar a Registro (Tareas)
   const [mostrarModalAsignarRegistro, setMostrarModalAsignarRegistro] = useState(false);
   const [tareaParaAsignar, setTareaParaAsignar] = useState(null);
   const [datosAsignarRegistro, setDatosAsignarRegistro] = useState(null);
@@ -210,6 +210,15 @@ function DocenteAulaVirtual() {
   const [cuadroSeleccionado, setCuadroSeleccionado] = useState('0');
   const [loadingAsignarRegistro, setLoadingAsignarRegistro] = useState(false);
   const [guardandoAsignarRegistro, setGuardandoAsignarRegistro] = useState(false);
+  
+  // Estado para modal de Asignar a Registro (Exámenes)
+  const [mostrarModalAsignarRegistroExamen, setMostrarModalAsignarRegistroExamen] = useState(false);
+  const [examenParaAsignar, setExamenParaAsignar] = useState(null);
+  const [datosAsignarRegistroExamen, setDatosAsignarRegistroExamen] = useState(null);
+  const [criterioSeleccionadoExamen, setCriterioSeleccionadoExamen] = useState('');
+  const [cuadroSeleccionadoExamen, setCuadroSeleccionadoExamen] = useState('0');
+  const [loadingAsignarRegistroExamen, setLoadingAsignarRegistroExamen] = useState(false);
+  const [guardandoAsignarRegistroExamen, setGuardandoAsignarRegistroExamen] = useState(false);
 
   // Formulario de examen
   const [formExamen, setFormExamen] = useState({
@@ -1030,6 +1039,108 @@ function DocenteAulaVirtual() {
     }
   };
 
+  const handleAsignarRegistroExamen = async (examen) => {
+    try {
+      setExamenParaAsignar(examen);
+      setLoadingAsignarRegistroExamen(true);
+      setMostrarModalAsignarRegistroExamen(true);
+      setOpenDropdown(null);
+
+      const response = await api.get(`/docente/aula-virtual/examenes/${examen.id}/asignar-registro`);
+      
+      setDatosAsignarRegistroExamen(response.data);
+      
+      // Seleccionar el primer criterio/indicador por defecto si hay
+      if (response.data.criterios && response.data.criterios.length > 0) {
+        const primerCriterio = response.data.criterios[0];
+        if (primerCriterio.indicadores && primerCriterio.indicadores.length > 0) {
+          const primerIndicador = primerCriterio.indicadores[0];
+          setCriterioSeleccionadoExamen(`${primerCriterio.id}_${primerIndicador.id}`);
+          setCuadroSeleccionadoExamen('0');
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando datos para asignar registro:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron cargar los datos',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setLoadingAsignarRegistroExamen(false);
+    }
+  };
+
+  const handleGuardarAsignarRegistroExamen = async () => {
+    if (!examenParaAsignar || !criterioSeleccionadoExamen || cuadroSeleccionadoExamen === '') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Debe seleccionar un criterio y un cuadro',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: 'Se reemplazarán las notas en el registro del cuadro seleccionado con los mejores puntajes del examen',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, asignar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    setGuardandoAsignarRegistroExamen(true);
+
+    try {
+      await api.post(`/docente/aula-virtual/examenes/${examenParaAsignar.id}/asignar-registro`, {
+        criterio_id: criterioSeleccionadoExamen,
+        cuadro: cuadroSeleccionadoExamen
+      });
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Notas asignadas!',
+        text: 'Las notas se han asignado al registro correctamente',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+      });
+
+      setMostrarModalAsignarRegistroExamen(false);
+      setExamenParaAsignar(null);
+      setDatosAsignarRegistroExamen(null);
+      setCriterioSeleccionadoExamen('');
+      setCuadroSeleccionadoExamen('0');
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudieron asignar las notas',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setGuardandoAsignarRegistroExamen(false);
+    }
+  };
+
   const handleAsignarRegistro = async (tarea) => {
     try {
       setTareaParaAsignar(tarea);
@@ -1728,7 +1839,7 @@ function DocenteAulaVirtual() {
                           <a href="#" onClick={(e) => { e.preventDefault(); handleVerResultados(examen); }}>
                             📊 Ver Resultados
                           </a>
-                          <a href="#" onClick={(e) => { e.preventDefault(); /* Asignar al Registro */ }}>
+                          <a href="#" onClick={(e) => { e.preventDefault(); handleAsignarRegistroExamen(examen); }}>
                             📋 Asignar al Registro
                           </a>
                           <a href="#" onClick={(e) => { e.preventDefault(); handleHabilitarDeshabilitarExamen(examen); }}>
@@ -3538,6 +3649,200 @@ function DocenteAulaVirtual() {
                       disabled={guardandoAsignarRegistro || !criterioSeleccionado}
                     >
                       {guardandoAsignarRegistro ? '⏳ Guardando...' : '💾 Guardar Datos'}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Asignar a Registro (Exámenes) */}
+      {mostrarModalAsignarRegistroExamen && createPortal(
+        <div 
+          className="modal-tema-overlay"
+          onClick={() => {
+            setMostrarModalAsignarRegistroExamen(false);
+            setExamenParaAsignar(null);
+            setDatosAsignarRegistroExamen(null);
+            setCriterioSeleccionadoExamen('');
+            setCuadroSeleccionadoExamen('0');
+          }}
+        >
+          <div 
+            className="modal-tema-container"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-asignar-registro-examen-title"
+            style={{ maxWidth: '600px', width: '90%' }}
+          >
+            <div className="modal-tema-header">
+              <h2 id="modal-asignar-registro-examen-title">
+                📋 ASIGNAR A REGISTRO
+              </h2>
+              <button
+                className="modal-tema-close"
+                onClick={() => {
+                  setMostrarModalAsignarRegistroExamen(false);
+                  setExamenParaAsignar(null);
+                  setDatosAsignarRegistroExamen(null);
+                  setCriterioSeleccionadoExamen('');
+                  setCuadroSeleccionadoExamen('0');
+                }}
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-tema-body" style={{ padding: '1.5rem' }}>
+              {loadingAsignarRegistroExamen ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <div className="loading-spinner-small"></div>
+                  <p>Cargando datos...</p>
+                </div>
+              ) : datosAsignarRegistroExamen ? (
+                <>
+                  {/* Campos read-only */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff' }}>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', backgroundColor: '#e8f5e9', fontWeight: 'bold', width: '40%', borderRight: '1px solid #ddd' }}>
+                            EXAMEN
+                          </td>
+                          <td style={{ padding: '12px', backgroundColor: '#fff' }}>
+                            {datosAsignarRegistroExamen.examen.titulo}
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>
+                            ASIGNATURA
+                          </td>
+                          <td style={{ padding: '12px', backgroundColor: '#fff' }}>
+                            {datosAsignarRegistroExamen.examen.curso_nombre}
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid #ddd' }}>
+                            BIMESTRE
+                          </td>
+                          <td style={{ padding: '12px', backgroundColor: '#fff' }}>
+                            {datosAsignarRegistroExamen.examen.ciclo}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Campo CRITERIO */}
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="criterio-select-examen" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                      CRITERIO
+                    </label>
+                    <select
+                      id="criterio-select-examen"
+                      className="form-input"
+                      value={criterioSeleccionadoExamen}
+                      onChange={(e) => {
+                        setCriterioSeleccionadoExamen(e.target.value);
+                        // Resetear cuadro cuando cambia el criterio
+                        if (e.target.value) {
+                          const [criterioId, indicadorId] = e.target.value.split('_');
+                          const criterio = datosAsignarRegistroExamen.criterios.find(c => c.id === parseInt(criterioId));
+                          if (criterio) {
+                            const indicador = criterio.indicadores.find(i => i.id === parseInt(indicadorId));
+                            if (indicador && indicador.cuadros > 0) {
+                              setCuadroSeleccionadoExamen('0');
+                            }
+                          }
+                        }
+                      }}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    >
+                      <option value="">Seleccionar criterio...</option>
+                      {datosAsignarRegistroExamen.criterios.map(criterio => 
+                        criterio.indicadores && criterio.indicadores.length > 0 ? (
+                          criterio.indicadores.map(indicador => (
+                            <option key={`${criterio.id}_${indicador.id}`} value={`${criterio.id}_${indicador.id}`}>
+                              {criterio.descripcion} - {indicador.descripcion}
+                            </option>
+                          ))
+                        ) : null
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Campo CUADRO */}
+                  {criterioSeleccionadoExamen && (() => {
+                    const [criterioId, indicadorId] = criterioSeleccionadoExamen.split('_');
+                    const criterio = datosAsignarRegistroExamen.criterios.find(c => c.id === parseInt(criterioId));
+                    if (criterio) {
+                      const indicador = criterio.indicadores.find(i => i.id === parseInt(indicadorId));
+                      if (indicador && indicador.cuadros > 0) {
+                        return (
+                          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                            <label htmlFor="cuadro-select-examen" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                              CUADRO
+                            </label>
+                            <select
+                              id="cuadro-select-examen"
+                              className="form-input"
+                              value={cuadroSeleccionadoExamen}
+                              onChange={(e) => setCuadroSeleccionadoExamen(e.target.value)}
+                              style={{ width: '100px', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+                            >
+                              {Array.from({ length: indicador.cuadros }, (_, i) => (
+                                <option key={i} value={i}>{i + 1}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
+
+                  {/* Warning */}
+                  <div style={{
+                    backgroundColor: '#fff3cd',
+                    border: '1px solid #ffc107',
+                    borderRadius: '4px',
+                    padding: '12px',
+                    marginBottom: '1.5rem',
+                    textAlign: 'center',
+                    color: '#856404',
+                    fontWeight: '500'
+                  }}>
+                    Se reemplazarán las notas en el registro del cuadro seleccionado con los mejores puntajes del examen
+                  </div>
+
+                  {/* Botones */}
+                  <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn-cancelar"
+                      onClick={() => {
+                        setMostrarModalAsignarRegistroExamen(false);
+                        setExamenParaAsignar(null);
+                        setDatosAsignarRegistroExamen(null);
+                        setCriterioSeleccionadoExamen('');
+                        setCuadroSeleccionadoExamen('0');
+                      }}
+                      disabled={guardandoAsignarRegistroExamen}
+                    >
+                      ✖️ Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-guardar"
+                      onClick={handleGuardarAsignarRegistroExamen}
+                      disabled={guardandoAsignarRegistroExamen || !criterioSeleccionadoExamen}
+                    >
+                      {guardandoAsignarRegistroExamen ? '⏳ Guardando...' : '💾 Guardar Datos'}
                     </button>
                   </div>
                 </>

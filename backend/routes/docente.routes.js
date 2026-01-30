@@ -5271,6 +5271,231 @@ router.post('/aula-virtual/tareas/:tareaId/asignar-registro', async (req, res) =
 });
 
 /**
+ * GET /api/docente/aula-virtual/examenes/:examenId/asignar-registro
+ * Obtener información para asignar examen a registro (criterios e indicadores)
+ */
+router.get('/aula-virtual/examenes/:examenId/asignar-registro', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el examen existe y pertenece a una asignatura del docente
+    const examen = await query(
+      `SELECT ae.*, a.id as asignatura_id, a.grupo_id, g.grado, g.seccion, c.nombre as curso_nombre
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin permisos' });
+    }
+
+    const examenInfo = examen[0];
+    const ciclo = examenInfo.ciclo;
+
+    // Obtener criterios de la asignatura para este ciclo (ciclo = 0 significa todos los ciclos)
+    const criterios = await query(
+      `SELECT * FROM asignaturas_criterios
+       WHERE asignatura_id = ? AND colegio_id = ? AND (ciclo = ? OR ciclo = 0)
+       ORDER BY orden ASC, id ASC`,
+      [examenInfo.asignatura_id, colegio_id, ciclo]
+    );
+
+    // Obtener indicadores para cada criterio
+    const criteriosConIndicadores = await Promise.all(criterios.map(async (criterio) => {
+      const indicadores = await query(
+        `SELECT * FROM asignaturas_indicadores
+         WHERE criterio_id = ?
+         ORDER BY id ASC`,
+        [criterio.id]
+      );
+      return {
+        ...criterio,
+        indicadores: indicadores || []
+      };
+    }));
+
+    res.json({
+      examen: {
+        id: examenInfo.id,
+        titulo: examenInfo.titulo,
+        curso_nombre: examenInfo.curso_nombre,
+        grado: examenInfo.grado,
+        seccion: examenInfo.seccion,
+        ciclo: ciclo
+      },
+      asignatura_id: examenInfo.asignatura_id,
+      criterios: criteriosConIndicadores
+    });
+  } catch (error) {
+    console.error('Error obteniendo datos para asignar registro:', error);
+    res.status(500).json({ error: 'Error al obtener datos para asignar registro' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/examenes/:examenId/asignar-registro
+ * Asignar notas de examen al registro general de notas
+ */
+router.post('/aula-virtual/examenes/:examenId/asignar-registro', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+    const { criterio_id, cuadro } = req.body;
+
+    if (!criterio_id || cuadro === undefined || cuadro === null) {
+      return res.status(400).json({ error: 'criterio_id y cuadro son requeridos' });
+    }
+
+    // Verificar que el examen existe y pertenece a una asignatura del docente
+    const examen = await query(
+      `SELECT ae.*, a.id as asignatura_id, a.grupo_id FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin permisos' });
+    }
+
+    const examenInfo = examen[0];
+    const asignaturaId = examenInfo.asignatura_id;
+    const ciclo = examenInfo.ciclo;
+    const grupoId = examenInfo.grupo_id;
+
+    // Parsear criterio_id (formato: "criterio_id_indicador_id")
+    const ids = criterio_id.split('_');
+    if (ids.length !== 2) {
+      return res.status(400).json({ error: 'Formato de criterio_id inválido' });
+    }
+    const criterioId = parseInt(ids[0]);
+    const indicadorId = parseInt(ids[1]);
+    const cuadroIndex = parseInt(cuadro); // El cuadro viene como índice (0-based)
+
+    // Obtener todas las matrículas del grupo
+    const matriculas = await query(
+      `SELECT m.id as matricula_id FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.grupo_id = ? AND m.colegio_id = ? AND (m.estado = 0 OR m.estado = 4) AND g.anio = ?`,
+      [grupoId, colegio_id, anio_activo]
+    );
+
+    // Obtener el mejor puntaje de cada alumno para este examen
+    // El mejor puntaje es el mayor puntaje de todas las pruebas del alumno
+    const mejoresPuntajes = await query(
+      `SELECT 
+        aep.matricula_id,
+        MAX(aep.puntaje) as mejor_puntaje
+       FROM asignaturas_examenes_pruebas aep
+       WHERE aep.examen_id = ?
+       GROUP BY aep.matricula_id`,
+      [examenId]
+    );
+
+    // Crear mapa de mejores puntajes por matricula_id
+    const puntajesPorMatricula = {};
+    mejoresPuntajes.forEach(resultado => {
+      puntajesPorMatricula[resultado.matricula_id] = resultado.mejor_puntaje;
+    });
+
+    const phpSerialize = require('php-serialize');
+
+    // Procesar cada matrícula
+    for (const matricula of matriculas) {
+      const matriculaId = matricula.matricula_id;
+      const mejorPuntaje = puntajesPorMatricula[matriculaId];
+
+      // Si no hay puntaje para esta matrícula, continuar
+      if (!mejorPuntaje || mejorPuntaje === null || mejorPuntaje === undefined) {
+        continue;
+      }
+
+      // Limitar el puntaje entre 0 y 20 (como en el sistema)
+      let puntajeFinal = parseFloat(mejorPuntaje);
+      if (puntajeFinal < 0) puntajeFinal = 0;
+      if (puntajeFinal > 20) puntajeFinal = 20;
+
+      // Obtener o crear Nota_Detalle
+      let detalles = await query(
+        `SELECT * FROM notas_detalles
+         WHERE matricula_id = ? AND asignatura_id = ? AND ciclo = ?`,
+        [matriculaId, asignaturaId, ciclo]
+      );
+
+      let datosDetalles = {};
+      if (detalles.length > 0) {
+        try {
+          datosDetalles = phpSerialize.unserialize(detalles[0].data) || {};
+        } catch (error) {
+          console.warn('Error deserializando notas_detalles:', error);
+          datosDetalles = {};
+        }
+      }
+
+      // Inicializar estructura si no existe
+      if (!datosDetalles[criterioId]) {
+        datosDetalles[criterioId] = {};
+      }
+      if (!datosDetalles[criterioId][indicadorId]) {
+        datosDetalles[criterioId][indicadorId] = {};
+      }
+
+      // Asignar el puntaje en la posición del cuadro
+      datosDetalles[criterioId][indicadorId][cuadroIndex] = puntajeFinal.toString();
+
+      // Serializar y guardar
+      const dataSerializada = phpSerialize.serialize(datosDetalles);
+
+      if (detalles.length > 0) {
+        // Actualizar existente
+        await execute(
+          `UPDATE notas_detalles SET data = ? WHERE id = ?`,
+          [dataSerializada, detalles[0].id]
+        );
+      } else {
+        // Crear nuevo
+        await execute(
+          `INSERT INTO notas_detalles (matricula_id, asignatura_id, ciclo, data)
+           VALUES (?, ?, ?, ?)`,
+          [matriculaId, asignaturaId, ciclo, dataSerializada]
+        );
+      }
+    }
+
+    // Registrar auditoría ANTES de responder
+    req.skipAudit = true;
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: req.user.tipo || 'DOCENTE',
+      accion: 'ACTUALIZAR',
+      modulo: 'AULA_VIRTUAL',
+      entidad: 'notas_detalles',
+      entidad_id: null,
+      descripcion: `Asignó notas de examen "${examenInfo.titulo}" (ID: ${examenId}) al registro - Criterio: ${criterioId}, Indicador: ${indicadorId}, Cuadro: ${cuadroIndex}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: null,
+      datos_nuevos: JSON.stringify({ examen_id: examenId, criterio_id, indicador_id: indicadorId, cuadro: cuadroIndex }),
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error en auditoría:', err));
+
+    res.json({ message: 'Notas asignadas al registro correctamente' });
+  } catch (error) {
+    console.error('Error asignando notas al registro:', error);
+    res.status(500).json({ error: 'Error al asignar notas al registro' });
+  }
+});
+
+/**
  * GET /api/docente/aula-virtual/examenes
  * Obtener exámenes de una asignatura (filtrados por ciclo/bimestre)
  */
