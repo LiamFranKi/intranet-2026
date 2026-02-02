@@ -1,5 +1,0 @@
-#!/usr/bin/sh
-
-git add . -A
-git commit -m "X"
-git push vanguard master

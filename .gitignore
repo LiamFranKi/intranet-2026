@@ -41,3 +41,14 @@ coverage/
 # Misc
 *.pem
 
+# Carpeta sistema-anterior (no subir a GitHub)
+sistema-anterior/
+
+# Archivos grandes de base de datos (no subir a GitHub)
+*.sql
+!database/migrations/*.sql
+!backup_preguntas_antes_modificacion.sql
+!modificar_estructura_preguntas.sql
+!restaurar_backup_preguntas.sql
+!agregar-perfiles-usuarios.sql
+

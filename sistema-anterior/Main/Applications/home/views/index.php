@@ -1,1 +1,0 @@
-{% extends '__index.php' %}

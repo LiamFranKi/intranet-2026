@@ -1,7 +1,0 @@
-{
-	"vendor":"Zarkiel",
-	"version":"1.0",
-	"require": {
-		"crystals": ["Yum:YumProject"]
-	}
-}
