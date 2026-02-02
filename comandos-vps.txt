@@ -1,0 +1,34 @@
+# Comandos para ejecutar en el VPS
+# Copia y pega estos comandos uno por uno en tu terminal SSH
+
+# 1. Navegar a la carpeta home
+cd ~
+
+# 2. Ir a la carpeta intranet206 (o crearla si no existe)
+cd intranet206 || mkdir -p intranet206 && cd intranet206
+
+# 3. Clonar el repositorio
+git clone https://github.com/LiamFranKi/intranet-2026.git .
+
+# Si ya existe, actualizar:
+# git pull origin main
+
+# 4. Verificar que se clonó correctamente
+ls -la
+
+# 5. Verificar Node.js (debe estar instalado)
+node --version
+npm --version
+
+# 6. Instalar dependencias del backend
+cd backend
+npm install --production
+
+# 7. Instalar dependencias del frontend
+cd ../frontend
+npm install
+
+# 8. Verificar estructura
+cd ~/intranet206
+ls -la
+
