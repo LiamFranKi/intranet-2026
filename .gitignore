@@ -30,6 +30,11 @@ dist/
 build/
 .port
 
+# Production
+logs/
+*.log
+ecosystem.config.js
+
 # Testing
 coverage/
 
