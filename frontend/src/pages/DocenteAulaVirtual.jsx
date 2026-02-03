@@ -3280,15 +3280,15 @@ function DocenteAulaVirtual() {
                       URL (Opcional)
                     </label>
                     <input
-                      type="url"
+                      type="text"
                       id="tema-enlace"
                       className="form-input"
                       value={formTema.enlace}
                       onChange={(e) => setFormTema({ ...formTema, enlace: e.target.value })}
-                      placeholder="https://ejemplo.com/tema"
+                      placeholder="ejemplo.com o https://ejemplo.com/tema"
                     />
                     <small className="form-help-text">
-                      Enlace externo al tema
+                      Enlace externo al tema (se agregará https:// automáticamente si falta)
                     </small>
                   </div>
 
