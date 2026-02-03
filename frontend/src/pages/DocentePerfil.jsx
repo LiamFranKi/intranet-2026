@@ -62,11 +62,26 @@ function DocentePerfil() {
       });
       
       // Cargar foto si existe
+      // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
       if (data.foto && data.foto !== '') {
-        const fotoUrl = data.foto.startsWith('http') 
-          ? data.foto 
-          : `${window.location.protocol}//${window.location.hostname}:5000${data.foto}`;
+        let fotoUrl;
+        if (data.foto.startsWith('http')) {
+          // Ya es una URL completa
+          fotoUrl = data.foto;
+        } else if (data.foto.startsWith('/Static/')) {
+          // Es una ruta completa del sistema anterior
+          fotoUrl = `https://nuevo.vanguardschools.edu.pe${data.foto}`;
+        } else if (data.foto.startsWith('/uploads/')) {
+          // Es una ruta de uploads (compatibilidad con archivos antiguos)
+          const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+          const currentHost = window.location.hostname;
+          fotoUrl = `${currentProtocol}//${currentHost}${data.foto}`;
+        } else {
+          // Es solo el nombre del archivo (formato del sistema PHP, igual que publicaciones)
+          fotoUrl = `https://nuevo.vanguardschools.edu.pe/Static/Image/Fotos/${data.foto}`;
+        }
         setFotoPreview(fotoUrl);
+        console.log('📸 Foto de perfil cargada:', fotoUrl);
       }
     } catch (error) {
       console.error('Error cargando perfil:', error);
@@ -203,13 +218,24 @@ function DocentePerfil() {
         
         if (user && perfilActualizado) {
           // Construir URL completa de la foto para el contexto
+          // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
           let fotoUrlForContext = null;
           if (perfilActualizado.foto) {
-            fotoUrlForContext = perfilActualizado.foto.startsWith('http') 
-              ? perfilActualizado.foto 
-              : perfilActualizado.foto.startsWith('/')
-              ? `${window.location.protocol}//${window.location.hostname}:5000${perfilActualizado.foto}`
-              : `${window.location.protocol}//${window.location.hostname}:5000/uploads/personal/${perfilActualizado.foto}`;
+            if (perfilActualizado.foto.startsWith('http')) {
+              // Ya es una URL completa
+              fotoUrlForContext = perfilActualizado.foto;
+            } else if (perfilActualizado.foto.startsWith('/Static/')) {
+              // Es una ruta completa del sistema anterior
+              fotoUrlForContext = `https://nuevo.vanguardschools.edu.pe${perfilActualizado.foto}`;
+            } else if (perfilActualizado.foto.startsWith('/uploads/')) {
+              // Es una ruta de uploads (compatibilidad con archivos antiguos)
+              const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+              const currentHost = window.location.hostname;
+              fotoUrlForContext = `${currentProtocol}//${currentHost}${perfilActualizado.foto}`;
+            } else {
+              // Es solo el nombre del archivo (formato del sistema PHP, igual que publicaciones)
+              fotoUrlForContext = `https://nuevo.vanguardschools.edu.pe/Static/Image/Fotos/${perfilActualizado.foto}`;
+            }
           }
           
           const updatedUser = {

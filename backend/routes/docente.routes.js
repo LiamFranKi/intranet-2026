@@ -298,10 +298,11 @@ router.get('/dashboard', async (req, res) => {
     let fotoUrl = null;
     if (docente.foto && docente.foto !== '') {
       // Fotos se guardan en Static/Image/Fotos/ (compartido con sistema PHP)
-      const frontendBaseUrl = process.env.FRONTEND_URL || 'https://sistema.vanguardschools.edu.pe';
+      // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
       const isProduction = process.env.NODE_ENV === 'production';
       if (isProduction) {
-        fotoUrl = `${frontendBaseUrl}/Static/Image/Fotos/${docente.foto}`;
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${docente.foto}`;
       } else {
         fotoUrl = `http://localhost:5000/Static/Image/Fotos/${docente.foto}`;
       }
@@ -356,10 +357,11 @@ router.get('/perfil', async (req, res) => {
     let fotoUrl = null;
     if (docente.foto && docente.foto !== '') {
       // Fotos se guardan en Static/Image/Fotos/ (compartido con sistema PHP)
-      const frontendBaseUrl = process.env.FRONTEND_URL || 'https://sistema.vanguardschools.edu.pe';
+      // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
       const isProduction = process.env.NODE_ENV === 'production';
       if (isProduction) {
-        fotoUrl = `${frontendBaseUrl}/Static/Image/Fotos/${docente.foto}`;
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${docente.foto}`;
       } else {
         fotoUrl = `http://localhost:5000/Static/Image/Fotos/${docente.foto}`;
       }
@@ -553,9 +555,10 @@ router.put('/perfil', uploadPersonal.single('foto'), async (req, res) => {
         fotoUrl = fotoEnBD;
       } else {
         // Es solo el nombre del archivo
-        const frontendBaseUrl = process.env.FRONTEND_URL || 'https://sistema.vanguardschools.edu.pe';
+        // Usar el dominio del sistema PHP para servir fotos (igual que publicaciones)
+        const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
         if (isProduction) {
-          fotoUrl = `${frontendBaseUrl}/Static/Image/Fotos/${fotoEnBD}`;
+          fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${fotoEnBD}`;
         } else {
           fotoUrl = `http://localhost:5000/Static/Image/Fotos/${fotoEnBD}`;
         }
@@ -4420,9 +4423,9 @@ function decodePublicacionImages(imagesString) {
               return match.replace('https://vanguardschools.edu.pe', frontendUrl);
             });
             imagenes.push(normalized);
-          } else {
-            // Si ya es una URL completa o ruta relativa, usarla tal cual
-            imagenes.push(ruta);
+        } else {
+          // Si ya es una URL completa o ruta relativa, usarla tal cual
+          imagenes.push(ruta);
           }
         }
       }
