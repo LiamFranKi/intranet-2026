@@ -4661,8 +4661,9 @@ router.post('/publicaciones', uploadPublicacionesCompleto.fields([
       const isImage = /jpeg|jpg|png|gif|webp/i.test(path.extname(req.files.archivo[0].originalname)) || 
                       req.files.archivo[0].mimetype.startsWith('image/');
       if (!isImage) {
-        // Guardar ruta como /Static/Archivos/ (compartido con sistema PHP)
-        archivoPath = `/Static/Archivos/${req.files.archivo[0].filename}`;
+        // IMPORTANTE: Guardar solo el nombre del archivo (como el sistema PHP)
+        // El sistema PHP guarda solo el nombre, no la ruta completa
+        archivoPath = req.files.archivo[0].filename;
       } else {
         // Si es una imagen pero viene en el campo "archivo", tratarla como imagen
         if (!imagenPath) {

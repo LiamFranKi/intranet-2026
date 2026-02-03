@@ -621,17 +621,37 @@ function PublicacionesWidget() {
               )}
               {pub.archivos && pub.archivos.length > 0 && (
                 <div className="publicacion-archivos">
-                  {pub.archivos.map((archivo, idx) => (
-                    <a 
-                      key={idx}
-                      href={archivo.startsWith('http') ? archivo : `${window.location.protocol}//${window.location.hostname}:5000${archivo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="archivo-link"
-                    >
-                      📎 {archivo.split('/').pop() || `Archivo ${idx + 1}`}
-                    </a>
-                  ))}
+                  {pub.archivos.map((archivo, idx) => {
+                    // El sistema PHP guarda solo el nombre del archivo (ej: "archivo.pdf")
+                    // Necesitamos construir la URL completa
+                    let archivoUrl;
+                    if (archivo.startsWith('http')) {
+                      // Ya es una URL completa
+                      archivoUrl = archivo;
+                    } else if (archivo.startsWith('/Static/')) {
+                      // Es una ruta completa del sistema antiguo (compatibilidad)
+                      const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                      const currentHost = window.location.hostname;
+                      archivoUrl = `${currentProtocol}//${currentHost}${archivo}`;
+                    } else {
+                      // Es solo el nombre del archivo (formato del sistema PHP)
+                      const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                      const currentHost = window.location.hostname;
+                      archivoUrl = `${currentProtocol}//${currentHost}/Static/Archivos/${archivo}`;
+                    }
+                    
+                    return (
+                      <a 
+                        key={idx}
+                        href={archivoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="archivo-link"
+                      >
+                        📎 {archivo.split('/').pop() || `Archivo ${idx + 1}`}
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
