@@ -6968,6 +6968,106 @@ router.delete('/aula-virtual/resultados/:resultadoId', async (req, res) => {
 });
 
 /**
+ * DELETE /api/docente/aula-virtual/examenes/:examenId/resultados/todos
+ * Eliminar todos los resultados de un examen (permite que todos los alumnos vuelvan a dar el examen)
+ */
+router.delete('/aula-virtual/examenes/:examenId/resultados/todos', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, personal_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar que el examen existe y el docente tiene acceso
+    const examen = await query(
+      `SELECT 
+        ae.*,
+        a.grupo_id,
+        c.nombre as curso_nombre,
+        g.grado,
+        g.seccion,
+        n.nombre as nivel_nombre
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN niveles n ON n.id = g.nivel_id
+       WHERE ae.id = ? AND a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?`,
+      [examenId, personal_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(403).json({ error: 'No tienes acceso a este examen' });
+    }
+
+    const examenInfo = examen[0];
+
+    // Obtener todos los resultados del examen para auditoría
+    const resultados = await query(
+      `SELECT 
+        aep.id,
+        aep.matricula_id,
+        aep.puntaje,
+        aep.correctas,
+        aep.incorrectas,
+        aep.estado,
+        CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo
+       FROM asignaturas_examenes_pruebas aep
+       INNER JOIN matriculas m ON m.id = aep.matricula_id
+       INNER JOIN alumnos a ON a.id = m.alumno_id
+       WHERE aep.examen_id = ?`,
+      [examenId]
+    );
+
+    const totalResultados = resultados.length;
+
+    // Registrar auditoría ANTES de eliminar
+    req.skipAudit = true;
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'DOCENTE',
+      accion: 'DELETE',
+      modulo: 'Aula Virtual',
+      entidad: 'Resultados de Examen (Todos)',
+      entidad_id: examenId,
+      descripcion: `Se eliminaron todos los resultados (${totalResultados}) del examen "${examenInfo.titulo}". Los alumnos podrán volver a dar el examen si tienen intentos disponibles.`,
+      url: req.originalUrl,
+      metodo_http: req.method,
+      ip_address: req.ip,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: {
+        examen_id: examenId,
+        total_resultados: totalResultados,
+        resultados: resultados.map(r => ({
+          id: r.id,
+          matricula_id: r.matricula_id,
+          nombre_completo: r.nombre_completo,
+          puntaje: r.puntaje,
+          correctas: r.correctas,
+          incorrectas: r.incorrectas
+        }))
+      },
+      datos_nuevos: null,
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error en auditoría:', err));
+
+    // Eliminar todos los resultados del examen
+    await execute(
+      `DELETE FROM asignaturas_examenes_pruebas WHERE examen_id = ?`,
+      [examenId]
+    );
+
+    res.json({ 
+      success: true,
+      message: `Se eliminaron ${totalResultados} resultado(s) correctamente. Los alumnos podrán volver a dar el examen si tienen intentos disponibles.`,
+      total_eliminados: totalResultados
+    });
+  } catch (error) {
+    console.error('Error eliminando todos los resultados del examen:', error);
+    res.status(500).json({ error: 'Error al eliminar los resultados del examen' });
+  }
+});
+
+/**
  * POST /api/docente/aula-virtual/examenes/:examenId/calificar
  * Recalcular calificaciones de todos los alumnos que han dado el examen
  * Toma en cuenta las respuestas del alumno y los parámetros actuales del examen

@@ -2293,6 +2293,78 @@ function DocenteAulaVirtual() {
     }
   };
 
+  const handleBorrarTodosResultados = async () => {
+    if (!examenParaResultados) return;
+
+    // Contar cuántos resultados hay
+    const totalResultados = resultadosExamen.filter(r => r.resultado_id !== null && r.resultado_id !== undefined).length;
+
+    if (totalResultados === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin resultados',
+        text: 'No hay resultados para eliminar',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      html: `¿Deseas eliminar <strong>todos los resultados</strong> (${totalResultados}) de este examen?<br><br>Esta acción eliminará los resultados de todos los alumnos. Los alumnos podrán volver a dar el examen si tienen intentos disponibles.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar todos',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Mostrar loading
+        Swal.fire({
+          title: 'Eliminando...',
+          text: 'Por favor espera mientras se eliminan los resultados',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        const response = await api.delete(`/docente/aula-virtual/examenes/${examenParaResultados.id}/resultados/todos`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Resultados eliminados!',
+          text: response.data.message,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 4000,
+          timerProgressBar: true
+        });
+
+        // Recargar resultados
+        await handleVerResultados(examenParaResultados);
+      } catch (error) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'No se pudieron eliminar los resultados',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      }
+    }
+  };
+
   const handleVolverCalificar = async () => {
     if (!examenParaResultados) return;
 
@@ -3722,7 +3794,7 @@ function DocenteAulaVirtual() {
               >
                 ×
               </button>
-            </div>
+      </div>
 
             <div className="modal-tema-body" style={{ padding: '1.5rem' }}>
               {loadingAsignarRegistroExamen ? (
@@ -3963,6 +4035,7 @@ function DocenteAulaVirtual() {
           onBorrarResultado={handleBorrarResultado}
           onDescargarPDF={handleDescargarPDF}
           onVolverCalificar={handleVolverCalificar}
+          onBorrarTodosResultados={handleBorrarTodosResultados}
         />,
         document.body
       )}
@@ -5691,7 +5764,7 @@ function PreguntaFormModal({ examen, pregunta, formPregunta, setFormPregunta, al
 }
 
 // Componente Modal de Resultados de Examen
-function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose, onVerDetalles, onBorrarResultado, onDescargarPDF, onVolverCalificar }) {
+function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose, onVerDetalles, onBorrarResultado, onDescargarPDF, onVolverCalificar, onBorrarTodosResultados }) {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [dropdownPosition, setDropdownPosition] = useState(null);
   const buttonRef = useRef({});
@@ -5775,6 +5848,13 @@ function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose
               onClick={onVolverCalificar}
             >
               ✏️ Volver a Calificar
+            </button>
+            <button 
+              className="btn-cancelar" 
+              onClick={onBorrarTodosResultados}
+              style={{ backgroundColor: '#ef4444', color: 'white', borderColor: '#ef4444' }}
+            >
+              🗑️ Eliminar Resultados Todos
             </button>
           </div>
 
