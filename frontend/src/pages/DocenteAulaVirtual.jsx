@@ -488,7 +488,12 @@ function DocenteAulaVirtual() {
     }
 
     // Validar que tenga al menos archivo o enlace
-    if (!formTema.archivo && !formTema.enlace.trim()) {
+    // Si está editando, considerar el archivo existente
+    const tieneArchivoNuevo = !!formTema.archivo;
+    const tieneArchivoExistente = temaEditando && (temaEditando.archivo || temaEditando.archivo_url);
+    const tieneEnlace = formTema.enlace.trim() !== '';
+    
+    if (!tieneArchivoNuevo && !tieneArchivoExistente && !tieneEnlace) {
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -3213,8 +3218,24 @@ function DocenteAulaVirtual() {
                   {/* Campo Archivo */}
                   <div className="form-group">
                     <label htmlFor="tema-archivo">
-                      Archivo PDF (Opcional)
+                      Archivo PDF {temaEditando ? '(Opcional - dejar vacío para mantener el actual)' : '(Opcional)'}
                     </label>
+                    {temaEditando && (temaEditando.archivo || temaEditando.archivo_url) && (
+                      <div style={{ 
+                        marginBottom: '0.5rem', 
+                        padding: '0.5rem', 
+                        backgroundColor: '#e3f2fd', 
+                        borderRadius: '4px',
+                        fontSize: '0.875rem'
+                      }}>
+                        📄 Archivo actual: {temaEditando.archivo_url ? 
+                          <a href={temaEditando.archivo_url} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'underline' }}>
+                            {temaEditando.archivo_url.split('/').pop()}
+                          </a> : 
+                          (temaEditando.archivo || 'Archivo existente')
+                        }
+                      </div>
+                    )}
                     <div className="file-input-wrapper">
                       <input
                         type="file"
@@ -3233,7 +3254,7 @@ function DocenteAulaVirtual() {
                         }}
                       />
                       <label htmlFor="tema-archivo" className="file-input-label">
-                        {formTema.archivoNombre || (temaEditando && temaEditando.archivo ? 'Archivo existente' : 'Seleccionar archivo')}
+                        {formTema.archivoNombre || (temaEditando && (temaEditando.archivo || temaEditando.archivo_url) ? 'Seleccionar nuevo archivo (opcional)' : 'Seleccionar archivo')}
                       </label>
                       {formTema.archivoNombre && (
                         <button
@@ -3246,7 +3267,10 @@ function DocenteAulaVirtual() {
                       )}
                     </div>
                     <small className="form-help-text">
-                      Puedes subir un archivo PDF o proporcionar una URL, o ambos
+                      {temaEditando ? 
+                        'Puedes subir un nuevo archivo PDF para reemplazar el actual, o proporcionar una URL, o ambos' :
+                        'Puedes subir un archivo PDF o proporcionar una URL, o ambos'
+                      }
                     </small>
                   </div>
 
