@@ -830,13 +830,14 @@ function DocenteMensajes() {
                         <h4>Archivos Adjuntos ({mensajeSeleccionado.archivos.length}):</h4>
                         <div className="archivos-lista-modal">
                           {mensajeSeleccionado.archivos.map((archivo, index) => {
-                        // Construir URL completa del archivo
-                        const baseURL = api.defaults.baseURL.replace('/api', '');
-                        // El backend devuelve archivo_url como ruta relativa (/uploads/mensajes/filename)
+                        // El backend ya devuelve archivo_url como URL completa (con dominio del sistema PHP)
+                        // Si por alguna razón no está completa, construirla como fallback
                         const archivoUrl = archivo.archivo_url 
-                          ? `${baseURL}${archivo.archivo_url}`
+                          ? (archivo.archivo_url.startsWith('http') 
+                              ? archivo.archivo_url 
+                              : `${process.env.REACT_APP_PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe'}${archivo.archivo_url}`)
                           : archivo.archivo
-                          ? `${baseURL}/uploads/mensajes/${archivo.archivo}`
+                          ? `${process.env.REACT_APP_PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe'}/Static/Archivos/${archivo.archivo}`
                           : null;
                         
                         if (!archivoUrl) {
@@ -866,7 +867,7 @@ function DocenteMensajes() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="archivo-enlace"
-                                  download
+                                  download={nombreArchivo}
                                 >
                                   📎 {nombreArchivo}
                                 </a>
@@ -877,7 +878,7 @@ function DocenteMensajes() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="archivo-enlace"
-                                download
+                                download={nombreArchivo}
                               >
                                 📎 {nombreArchivo}
                               </a>

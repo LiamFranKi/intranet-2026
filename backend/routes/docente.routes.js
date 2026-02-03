@@ -3726,12 +3726,20 @@ router.get('/mensajes/enviados', async (req, res) => {
       // Construir URLs completas para los archivos
         // IMPORTANTE: Los archivos se guardan en Static/Archivos/ (compartido con sistema PHP)
         // Se sirven desde Apache mediante el Alias /Static
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+      const isProduction = process.env.NODE_ENV === 'production';
+      
       mensaje.archivos = (archivos || []).map(archivo => {
-        // Construir ruta relativa: /Static/Archivos/filename (compartido con sistema PHP)
-        const rutaArchivo = `/Static/Archivos/${archivo.archivo}`;
+        // Construir URL completa usando PHP_SYSTEM_URL para que se sirva desde el sistema PHP compartido
+        let archivoUrl;
+        if (isProduction) {
+          archivoUrl = `${phpSystemUrl}/Static/Archivos/${archivo.archivo}`;
+        } else {
+          archivoUrl = `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
+        }
         return {
           ...archivo,
-          archivo_url: rutaArchivo // Ruta relativa, el frontend construirá la URL completa
+          archivo_url: archivoUrl // URL completa
         };
       });
       // Debug: verificar archivos para mensajes enviados
