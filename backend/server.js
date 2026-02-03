@@ -34,6 +34,10 @@ const limiter = rateLimit({
   }
 });
 
+// Configurar trust proxy para que Express confíe en los headers de proxy (Apache)
+// Esto es necesario cuando el backend está detrás de un proxy reverso
+app.set('trust proxy', true);
+
 // Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" } // Permitir cargar recursos desde otros orígenes
