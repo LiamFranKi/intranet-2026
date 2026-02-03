@@ -36,7 +36,8 @@ const limiter = rateLimit({
 
 // Configurar trust proxy para que Express confíe en los headers de proxy (Apache)
 // Esto es necesario cuando el backend está detrás de un proxy reverso
-app.set('trust proxy', true);
+// Usar 1 en lugar de true para evitar warnings de express-rate-limit
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet({
