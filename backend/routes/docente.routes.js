@@ -7569,13 +7569,10 @@ router.get('/aula-virtual/archivos', async (req, res) => {
       }
 
       if (archivo.enlace && archivo.enlace !== '') {
-        // Asegurar que el enlace tenga protocolo (http:// o https://)
-        // Si no tiene protocolo, el sistema PHP lo interpreta como ruta relativa
-        let enlaceTemp = archivo.enlace.trim();
-        if (!enlaceTemp.match(/^https?:\/\//i)) {
-          enlaceTemp = `https://${enlaceTemp}`;
-        }
-        enlaceUrl = enlaceTemp;
+        // IMPORTANTE: Devolver el enlace tal cual está en la BD (sin normalizar)
+        // El sistema PHP muestra el enlace directamente desde la BD
+        // Si normalizamos aquí, puede causar problemas en el sistema PHP
+        enlaceUrl = archivo.enlace.trim();
       }
 
       return {
@@ -7765,22 +7762,13 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
       });
     }
 
-    // Normalizar enlace: asegurar que tenga protocolo (http:// o https://)
-    let enlaceNormalizado = '';
-    if (enlace && enlace.trim() !== '') {
-      enlaceNormalizado = enlace.trim();
-      // Si no tiene protocolo, agregar https://
-      if (!enlaceNormalizado.match(/^https?:\/\//i)) {
-        enlaceNormalizado = `https://${enlaceNormalizado}`;
-      }
-      console.log('🔗 [AULA VIRTUAL TEMA] Enlace normalizado:', {
-        original: enlace,
-        normalizado: enlaceNormalizado
-      });
-    }
+    // IMPORTANTE: Guardar el enlace tal cual (sin normalizar) para compatibilidad con sistema PHP
+    // El sistema PHP muestra el enlace directamente desde la BD, igual que en "Enlaces"
+    // Si normalizamos aquí, puede causar problemas en el sistema PHP
+    const enlaceFinal = (enlace && enlace.trim() !== '') ? enlace.trim() : '';
 
     // Preparar datos para auditoría
-    const datosNuevos = { nombre, ciclo: ciclo || 1, archivo: archivoPath, enlace: enlaceNormalizado };
+    const datosNuevos = { nombre, ciclo: ciclo || 1, archivo: archivoPath, enlace: enlaceFinal };
 
     // Registrar auditoría ANTES de crear
     const ahora = new Date();
@@ -7829,7 +7817,7 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
         nombre,
         archivoPath,
         ciclo || 1,
-        enlaceNormalizado,
+        enlaceFinal,
         nuevoOrden
       ]
     );
@@ -7902,34 +7890,16 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
       return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
     }
 
-    // Normalizar enlace: asegurar que tenga protocolo (http:// o https://)
-    // IMPORTANTE: También normalizar el enlace existente si no tiene protocolo
-    let enlaceNormalizado = temaActual.enlace || ''; // Mantener el existente por defecto
-    
-    // Si hay un enlace existente pero no tiene protocolo, normalizarlo
-    if (enlaceNormalizado && enlaceNormalizado.trim() !== '' && !enlaceNormalizado.match(/^https?:\/\//i)) {
-      enlaceNormalizado = `https://${enlaceNormalizado.trim()}`;
-      console.log('🔗 [AULA VIRTUAL TEMA] Normalizando enlace existente:', {
-        original: temaActual.enlace,
-        normalizado: enlaceNormalizado
-      });
-    }
-    
-    // Si se proporciona un nuevo enlace, normalizarlo
+    // IMPORTANTE: Guardar el enlace tal cual (sin normalizar) para compatibilidad con sistema PHP
+    // El sistema PHP muestra el enlace directamente desde la BD, igual que en "Enlaces"
+    // Si normalizamos aquí, puede causar problemas en el sistema PHP
+    let enlaceFinal = temaActual.enlace || ''; // Mantener el existente por defecto
     if (enlace && enlace.trim() !== '') {
-      enlaceNormalizado = enlace.trim();
-      // Si no tiene protocolo, agregar https://
-      if (!enlaceNormalizado.match(/^https?:\/\//i)) {
-        enlaceNormalizado = `https://${enlaceNormalizado}`;
-      }
-      console.log('🔗 [AULA VIRTUAL TEMA] Enlace nuevo normalizado:', {
-        original: enlace,
-        normalizado: enlaceNormalizado
-      });
+      enlaceFinal = enlace.trim(); // Guardar tal cual, sin normalizar
     }
 
     // Preparar datos nuevos para auditoría
-    const datosNuevos = { nombre, ciclo: ciclo || temaActual.ciclo, archivo: archivoPath, enlace: enlaceNormalizado };
+    const datosNuevos = { nombre, ciclo: ciclo || temaActual.ciclo, archivo: archivoPath, enlace: enlaceFinal };
 
     // Registrar auditoría ANTES de actualizar
     registrarAccion({
@@ -7958,7 +7928,7 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
       [
         nombre,
         archivoPath,
-        enlaceNormalizado,
+        enlaceFinal,
         ciclo || temaActual.ciclo,
         id
       ]
