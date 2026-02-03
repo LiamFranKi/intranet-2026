@@ -6,9 +6,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // En producción: conexión directa al MySQL remoto
 // En desarrollo: conexión a través del túnel SSH (localhost)
+// IMPORTANTE: Usar 127.0.0.1 en lugar de localhost para evitar problemas con IPv6
 const mysqlHost = isProduction 
-  ? (process.env.MYSQL_HOST_PRODUCTION || process.env.MYSQL_HOST || '89.117.52.9')
-  : (process.env.MYSQL_HOST_DEVELOPMENT || process.env.MYSQL_HOST || 'localhost');
+  ? (process.env.MYSQL_HOST_PRODUCTION || process.env.MYSQL_HOST || '127.0.0.1')
+  : (process.env.MYSQL_HOST_DEVELOPMENT || process.env.MYSQL_HOST || '127.0.0.1');
 
 console.log(`🔌 MySQL: ${isProduction ? 'PRODUCCIÓN' : 'DESARROLLO'} - Host: ${mysqlHost}`);
 
