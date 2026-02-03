@@ -950,17 +950,31 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
     // Construir URL de la foto del alumno
     let fotoUrl = null;
     if (alumno[0].foto) {
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-      fotoUrl = `${baseUrl}/Static/Image/Fotos/${alumno[0].foto}`;
+      // Fotos se guardan en Static/Image/Fotos/ (compartido con sistema PHP)
+      // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${alumno[0].foto}`;
+      } else {
+        fotoUrl = `http://localhost:5000/Static/Image/Fotos/${alumno[0].foto}`;
+      }
     }
 
     // Construir URL del avatar del alumno
     let avatarUrl = null;
     if (avatarAlumno && avatarAlumno.length > 0) {
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-      avatarUrl = avatarAlumno[0].image 
-        ? `${baseUrl}/Static/Image/Avatars/${avatarAlumno[0].image}`
-        : null;
+      // Avatares se guardan en Static/Image/Avatars/ (compartido con sistema PHP)
+      // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir avatares
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (avatarAlumno[0].image) {
+        if (isProduction) {
+          avatarUrl = `${phpSystemUrl}/Static/Image/Avatars/${avatarAlumno[0].image}`;
+        } else {
+          avatarUrl = `http://localhost:5000/Static/Image/Avatars/${avatarAlumno[0].image}`;
+        }
+      }
     }
 
     // Generar hash SHA1 del matricula_id para el QR (igual que sistema anterior)
