@@ -5454,15 +5454,18 @@ router.get('/aula-virtual/tareas/:tareaId/entregas', async (req, res) => {
     );
 
     // Deserializar campo "visto" (formato PHP serialized)
-    let vistos = {};
+    // IMPORTANTE: El sistema PHP guarda un array de alumno_id, no un objeto
+    let vistos = [];
     try {
       if (tareaInfo.visto && tareaInfo.visto !== '') {
         const phpSerialize = require('php-serialize');
-        vistos = phpSerialize.unserialize(tareaInfo.visto) || {};
+        const deserialized = phpSerialize.unserialize(tareaInfo.visto);
+        // Asegurar que sea un array
+        vistos = Array.isArray(deserialized) ? deserialized : [];
       }
     } catch (error) {
       console.warn('Error deserializando campo visto:', error);
-      vistos = {};
+      vistos = [];
     }
 
     // Agrupar entregas por alumno_id
@@ -5486,10 +5489,12 @@ router.get('/aula-virtual/tareas/:tareaId/entregas', async (req, res) => {
     });
 
     // Combinar datos
+    // IMPORTANTE: El sistema PHP guarda alumno_id en el campo visto, no matricula_id
     const alumnosConDatos = alumnos.map((alumno, index) => {
       const entregasAlumno = entregasPorAlumno[alumno.alumno_id] || [];
       const nota = notasPorMatricula[alumno.matricula_id] || '';
-      const visto = vistos[alumno.matricula_id] ? 'SI' : 'NO';
+      // El campo visto contiene un array de alumno_id (no matricula_id)
+      const visto = Array.isArray(vistos) && vistos.includes(alumno.alumno_id) ? 'SI' : 'NO';
 
       return {
         numero: index + 1,
@@ -5515,6 +5520,78 @@ router.get('/aula-virtual/tareas/:tareaId/entregas', async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo entregas:', error);
     res.status(500).json({ error: 'Error al obtener entregas' });
+  }
+});
+
+/**
+ * POST /api/docente/aula-virtual/tareas/:tareaId/marcar-visto
+ * Marcar una tarea como vista por un alumno (igual que sistema PHP setView)
+ * Esta ruta puede ser llamada por alumnos cuando ven los detalles de una tarea
+ */
+router.post('/aula-virtual/tareas/:tareaId/marcar-visto', async (req, res) => {
+  try {
+    const { tareaId } = req.params;
+    const { alumno_id } = req.user; // El alumno_id viene del token JWT
+
+    if (!alumno_id) {
+      return res.status(400).json({ error: 'alumno_id es requerido' });
+    }
+
+    // Obtener la tarea actual
+    const tarea = await query(
+      `SELECT * FROM asignaturas_tareas WHERE id = ?`,
+      [tareaId]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+
+    const tareaActual = tarea[0];
+
+    // Deserializar campo "visto" (formato PHP serialized)
+    // El sistema PHP guarda un array de alumno_id
+    let vistos = [];
+    try {
+      if (tareaActual.visto && tareaActual.visto !== '') {
+        const phpSerialize = require('php-serialize');
+        const deserialized = phpSerialize.unserialize(tareaActual.visto);
+        vistos = Array.isArray(deserialized) ? deserialized : [];
+      }
+    } catch (error) {
+      console.warn('Error deserializando campo visto:', error);
+      vistos = [];
+    }
+
+    // Si el alumno_id no está en el array, agregarlo (igual que sistema PHP)
+    if (!vistos.includes(alumno_id)) {
+      vistos.push(alumno_id);
+      
+      // Serializar el array actualizado
+      const phpSerialize = require('php-serialize');
+      const vistoSerializado = phpSerialize.serialize(vistos);
+
+      // Actualizar el campo visto en la BD
+      await execute(
+        `UPDATE asignaturas_tareas SET visto = ? WHERE id = ?`,
+        [vistoSerializado, tareaId]
+      );
+
+      console.log('✅ [TAREA VISTO] Alumno marcó tarea como vista:', {
+        tarea_id: tareaId,
+        alumno_id: alumno_id,
+        vistos_actualizados: vistos
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Tarea marcada como vista',
+      visto: true
+    });
+  } catch (error) {
+    console.error('Error marcando tarea como vista:', error);
+    res.status(500).json({ error: 'Error al marcar tarea como vista' });
   }
 });
 
