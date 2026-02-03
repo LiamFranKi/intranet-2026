@@ -6077,7 +6077,45 @@ router.get('/aula-virtual/examenes', async (req, res) => {
       [asignatura_id, cicloFiltro]
     );
 
-    res.json({ examenes: examenes || [] });
+    // Construir URLs completas para los archivos PDF (usando PHP_SYSTEM_URL para compatibilidad con sistema anterior)
+    const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const examenesConUrls = examenes.map(examen => {
+      let archivoPdfUrl = null;
+      
+      if (examen.archivo_pdf && examen.archivo_pdf !== '') {
+        if (examen.archivo_pdf.startsWith('http')) {
+          // Ya es una URL completa, validar y corregir dominio si es necesario
+          archivoPdfUrl = examen.archivo_pdf
+            .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, phpSystemUrl)
+            .replace(/vanguardschools\.comstatic/gi, `${phpSystemUrl}/Static`)
+            .replace(/vanguardschools\.com\/static/gi, `${phpSystemUrl}/Static`)
+            .replace(/vanguardschools\.com\/Static/gi, `${phpSystemUrl}/Static`);
+        } else if (examen.archivo_pdf.startsWith('/uploads/')) {
+          // Ruta relativa desde /uploads/ (formato antiguo, migrar a /Static/Archivos/)
+          archivoPdfUrl = isDevelopment
+            ? `http://localhost:5000${examen.archivo_pdf}`
+            : `${phpSystemUrl}${examen.archivo_pdf}`;
+        } else if (examen.archivo_pdf.startsWith('/Static/')) {
+          // Ruta del sistema compartido (correcto)
+          archivoPdfUrl = isDevelopment
+            ? `http://localhost:5000${examen.archivo_pdf}`
+            : `${phpSystemUrl}${examen.archivo_pdf}`;
+        } else {
+          // Solo el nombre del archivo (compatibilidad con sistema antiguo)
+          archivoPdfUrl = isDevelopment
+            ? `http://localhost:5000/Static/Archivos/${examen.archivo_pdf}`
+            : `${phpSystemUrl}/Static/Archivos/${examen.archivo_pdf}`;
+        }
+      }
+      
+      return {
+        ...examen,
+        archivo_pdf_url: archivoPdfUrl
+      };
+    });
+
+    res.json({ examenes: examenesConUrls || [] });
   } catch (error) {
     console.error('Error obteniendo exámenes:', error);
     res.status(500).json({ error: 'Error al obtener exámenes' });
