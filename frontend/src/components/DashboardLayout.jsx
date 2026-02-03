@@ -6,16 +6,6 @@ import PublicacionesWidget from './PublicacionesWidget';
 import NotificacionesWidget from './NotificacionesWidget';
 import './DashboardLayout.css';
 
-// Detectar si estamos en desarrollo o producción
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const isProduction = window.location.hostname === 'intranet.vanguardschools.com';
-
-function resolveApiBaseUrl() {
-  if (isDevelopment) return 'http://localhost:5000';
-  if (isProduction) return window.location.protocol === 'https:' ? 'https://intranet.vanguardschools.com' : 'http://intranet.vanguardschools.com';
-  return process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-}
-
 function getInitials(nombre) {
   if (!nombre) return 'U';
   const parts = String(nombre).trim().split(/\s+/).slice(0, 2);
@@ -27,7 +17,19 @@ export default function DashboardLayout({ children }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
+  // Resolver URL base en tiempo de ejecución (no en compilación)
+  const apiBaseUrl = useMemo(() => {
+    const hostname = window.location.hostname || '';
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    
+    if (isLocalhost) {
+      return 'http://localhost:5000';
+    }
+    // Producción: usar el mismo dominio
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${protocol}//${hostname}`;
+  }, []); // Solo calcular una vez al montar el componente
+
   // Logo blanco para el sidebar
   const logoUrl = useMemo(() => `${apiBaseUrl}/assets/logos/logoblanco.png`, [apiBaseUrl]);
 

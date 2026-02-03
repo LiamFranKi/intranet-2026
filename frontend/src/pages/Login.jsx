@@ -5,25 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { useColegio } from '../context/ColegioContext';
 import './Login.css';
 
-// Detectar si estamos en desarrollo o producción
-// FORZAR desarrollo si no es explícitamente producción
-const hostname = window.location.hostname || '';
-const isProduction = hostname === 'intranet.vanguardschools.com';
-const isDevelopment = !isProduction; // Todo lo demás es desarrollo
-
-function resolveApiBaseUrl() {
-  // En desarrollo, SIEMPRE usar localhost
-  if (isDevelopment) {
-    return 'http://localhost:5000';
-  }
-  // Solo en producción usar la URL del servidor
-  if (isProduction) {
-    return 'http://intranet.vanguardschools.com';
-  }
-  // Fallback: desarrollo
-  return 'http://localhost:5000';
-}
-
 function Login() {
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +15,19 @@ function Login() {
   const { loading: loadingColegio } = useColegio();
   const navigate = useNavigate();
 
-  const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
+  // Resolver URL base en tiempo de ejecución (no en compilación)
+  const apiBaseUrl = useMemo(() => {
+    const hostname = window.location.hostname || '';
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    
+    if (isLocalhost) {
+      return 'http://localhost:5000';
+    }
+    // Producción: usar el mismo dominio
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${protocol}//${hostname}`;
+  }, []); // Solo calcular una vez al montar el componente
+
   // Logo siempre desde la carpeta local, sin depender de MySQL
   const logoUrl = useMemo(() => {
     const url = `${apiBaseUrl}/assets/logos/logo.png`;
