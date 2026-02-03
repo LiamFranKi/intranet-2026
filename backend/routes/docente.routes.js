@@ -7377,11 +7377,12 @@ router.get('/aula-virtual/examenes/:examenId/resultados/pdf', async (req, res) =
        .font('Helvetica-Bold')
        .text('RESULTADOS', 50, 25, { align: 'left' });
     
-    // Construir título completo: Examen - Curso - Grado - Nivel
+    // Construir título completo: Examen - Curso - Grado - Nivel - Bimestre
     const gradoTexto = examenInfo.grado ? `${examenInfo.grado}°` : '';
     const seccionTexto = examenInfo.seccion || '';
     const gradoSeccion = `${gradoTexto} ${seccionTexto}`.trim();
-    const tituloCompleto = `${examenInfo.titulo} - ${examenInfo.curso_nombre || ''} - ${gradoSeccion} - ${examenInfo.nivel_nombre || ''}`.replace(/\s+/g, ' ').trim();
+    const bimestreTexto = examenInfo.ciclo ? `Bimestre ${examenInfo.ciclo}` : '';
+    const tituloCompleto = `${examenInfo.titulo} - ${examenInfo.curso_nombre || ''} - ${gradoSeccion} - ${examenInfo.nivel_nombre || ''}${bimestreTexto ? ` - ${bimestreTexto}` : ''}`.replace(/\s+/g, ' ').trim();
     
     doc.fontSize(14)
        .fillColor('white')
