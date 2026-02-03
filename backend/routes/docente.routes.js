@@ -6293,9 +6293,17 @@ router.post('/aula-virtual/examenes', uploadAulaVirtual.single('archivo_pdf'), a
     }
 
     // Preparar archivo PDF si existe
+    // IMPORTANTE: Guardar solo el nombre del archivo (compatible con sistema PHP)
+    // El sistema PHP guarda solo el nombre: $archivo['new_name']
     let archivoPdf = '';
     if (req.file) {
-      archivoPdf = `/Static/Archivos/${req.file.filename}`;
+      archivoPdf = req.file.filename; // Solo el nombre del archivo, sin ruta
+      console.log('📄 [AULA VIRTUAL EXAMEN PDF] Archivo guardado (solo nombre):', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        path_en_bd: archivoPdf, // Esto es lo que se guarda en la BD
+        size: req.file.size
+      });
     }
 
     // Valores por defecto para campos opcionales
@@ -6504,7 +6512,14 @@ router.put('/aula-virtual/examenes/:examenId', uploadAulaVirtual.single('archivo
     // Preparar archivo PDF si existe
     let archivoPdf = examen[0].archivo_pdf; // Mantener el archivo existente por defecto
     if (req.file) {
-      archivoPdf = `/Static/Archivos/${req.file.filename}`;
+      // IMPORTANTE: Guardar solo el nombre del archivo (compatible con sistema PHP)
+      archivoPdf = req.file.filename; // Solo el nombre del archivo, sin ruta
+      console.log('📄 [AULA VIRTUAL EXAMEN PDF] Archivo actualizado (solo nombre):', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        path_en_bd: archivoPdf,
+        size: req.file.size
+      });
       // TODO: Eliminar archivo anterior si existe
     }
 
