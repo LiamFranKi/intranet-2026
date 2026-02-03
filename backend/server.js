@@ -1,4 +1,7 @@
-require('dotenv').config();
+// Cargar variables de entorno desde .env
+// Usar ruta absoluta para asegurar que se carga correctamente con PM2
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
