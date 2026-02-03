@@ -5009,6 +5009,8 @@ router.get('/aula-virtual/tareas', async (req, res) => {
       );
 
       // Construir URLs para los archivos (usando PHP_SYSTEM_URL para compatibilidad con sistema anterior)
+      // IMPORTANTE: El sistema PHP guarda solo el nombre del archivo en la BD
+      // Debemos construir la URL completa agregando /Static/Archivos/ al inicio
       const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
       const isDevelopment = process.env.NODE_ENV !== 'production';
       const archivosConUrls = archivos.map(archivo => {
@@ -5021,24 +5023,27 @@ router.get('/aula-virtual/tareas', async (req, res) => {
               .replace(/vanguardschools\.comstatic/gi, `${phpSystemUrl}/Static`)
               .replace(/vanguardschools\.com\/static/gi, `${phpSystemUrl}/Static`)
               .replace(/vanguardschools\.com\/Static/gi, `${phpSystemUrl}/Static`);
+          } else if (archivo.archivo.startsWith('/Static/')) {
+            // Ruta completa con /Static/ (formato antiguo de nuestro sistema, corregir)
+            // Extraer solo el nombre del archivo y construir URL correcta
+            const nombreArchivo = archivo.archivo.replace(/^\/Static\/Archivos\//, '');
+            archivoUrl = isDevelopment
+              ? `http://localhost:5000/Static/Archivos/${nombreArchivo}`
+              : `${phpSystemUrl}/Static/Archivos/${nombreArchivo}`;
+            console.log('📄 [AULA VIRTUAL TAREA] Corrigiendo ruta duplicada:', {
+              id: archivo.id,
+              ruta_original: archivo.archivo,
+              nombre_extraido: nombreArchivo,
+              url_final: archivoUrl
+            });
           } else if (archivo.archivo.startsWith('/uploads/')) {
             // Ruta relativa desde /uploads/ (formato antiguo, migrar a /Static/Archivos/)
             archivoUrl = isDevelopment
               ? `http://localhost:5000${archivo.archivo}`
               : `${phpSystemUrl}${archivo.archivo}`;
-            console.log('📄 [AULA VIRTUAL TAREA] URL construida para archivo (uploads):', {
-              id: archivo.id,
-              nombre: archivo.nombre,
-              ruta_original: archivo.archivo,
-              url_final: archivoUrl
-            });
-          } else if (archivo.archivo.startsWith('/Static/')) {
-            // Ruta del sistema compartido (correcto)
-            archivoUrl = isDevelopment
-              ? `http://localhost:5000${archivo.archivo}`
-              : `${phpSystemUrl}${archivo.archivo}`;
           } else {
-            // Solo el nombre del archivo (compatibilidad con sistema antiguo)
+            // Solo el nombre del archivo (formato correcto del sistema PHP)
+            // Construir URL completa agregando /Static/Archivos/
             archivoUrl = isDevelopment
               ? `http://localhost:5000/Static/Archivos/${archivo.archivo}`
               : `${phpSystemUrl}/Static/Archivos/${archivo.archivo}`;
@@ -5093,15 +5098,19 @@ router.post('/aula-virtual/tareas', uploadAulaVirtual.single('archivo'), async (
       return res.status(403).json({ error: 'No tienes acceso a esta asignatura' });
     }
 
-    // Construir la ruta del archivo (guardado en Static/Archivos/ compartido con sistema PHP)
+    // IMPORTANTE: Guardar solo el nombre del archivo (como hace el sistema PHP anterior)
+    // El sistema PHP construye la URL agregando /Static/Archivos/ al inicio
+    // Si guardamos la ruta completa, se duplicaría: /Static/Archivos//Static/Archivos/...
     let archivoPath = '';
     if (req.file) {
-      archivoPath = `/Static/Archivos/${req.file.filename}`;
+      // Guardar solo el nombre del archivo (igual que el sistema PHP)
+      archivoPath = req.file.filename;
       console.log('📄 [AULA VIRTUAL TAREA] Archivo guardado:', {
         filename: req.file.filename,
         originalname: req.file.originalname,
-        path: archivoPath,
-        size: req.file.size
+        path: archivoPath, // Solo el nombre
+        size: req.file.size,
+        nota: 'Guardado solo el nombre del archivo (compatible con sistema PHP)'
       });
     }
 
@@ -5225,14 +5234,16 @@ router.put('/aula-virtual/tareas/:id', uploadAulaVirtual.single('archivo'), asyn
     const tareaActual = tarea[0];
     let archivoPath = null;
 
-    // Si se subió un nuevo archivo, actualizar la ruta (guardado en Static/Archivos/ compartido con sistema PHP)
+    // Si se subió un nuevo archivo, actualizar (guardar solo el nombre del archivo, como el sistema PHP)
     if (req.file) {
-      archivoPath = `/Static/Archivos/${req.file.filename}`;
+      // IMPORTANTE: Guardar solo el nombre del archivo (como hace el sistema PHP anterior)
+      archivoPath = req.file.filename;
       console.log('📄 [AULA VIRTUAL TAREA] Archivo actualizado:', {
         filename: req.file.filename,
         originalname: req.file.originalname,
-        path: archivoPath,
-        size: req.file.size
+        path: archivoPath, // Solo el nombre
+        size: req.file.size,
+        nota: 'Guardado solo el nombre del archivo (compatible con sistema PHP)'
       });
     }
 
