@@ -6775,22 +6775,65 @@ router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) =>
     const resultadoInfo = resultado[0];
     const examenId = resultadoInfo.examen_id;
 
-    // Obtener todas las preguntas del examen con sus alternativas
-    const preguntas = await query(
-      `SELECT 
-        aep.*,
-        GROUP_CONCAT(
-          CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta)
-          ORDER BY aepa.id ASC
-          SEPARATOR '||'
-        ) as alternativas_raw
-       FROM asignaturas_examenes_preguntas aep
-       LEFT JOIN asignaturas_examenes_preguntas_alternativas aepa ON aepa.pregunta_id = aep.id
-       WHERE aep.examen_id = ?
-       GROUP BY aep.id
-       ORDER BY aep.orden ASC`,
-      [examenId]
-    );
+    // IMPORTANTE: Obtener solo las preguntas que realmente vio el alumno
+    // El campo 'preguntas' contiene un array serializado (base64) con los IDs de las preguntas mostradas
+    let preguntaIds = [];
+    try {
+      if (resultadoInfo.preguntas && resultadoInfo.preguntas.trim() !== '') {
+        const phpSerialize = require('php-serialize');
+        // Decodificar base64 primero (formato PHP: base64_encode(serialize(array)))
+        const decoded = Buffer.from(resultadoInfo.preguntas, 'base64').toString('utf-8');
+        // Deserializar el array PHP
+        preguntaIds = phpSerialize.unserialize(decoded) || [];
+        // Asegurar que sea un array
+        if (!Array.isArray(preguntaIds)) {
+          preguntaIds = [];
+        }
+      }
+    } catch (error) {
+      console.warn('Error deserializando preguntas del resultado:', error);
+      preguntaIds = [];
+    }
+
+    // Si no hay preguntas guardadas, obtener todas las preguntas del examen (compatibilidad con resultados antiguos)
+    let preguntas = [];
+    if (preguntaIds.length > 0) {
+      // Obtener solo las preguntas que vio el alumno, en el orden en que se guardaron
+      const placeholders = preguntaIds.map(() => '?').join(',');
+      preguntas = await query(
+        `SELECT 
+          aep.*,
+          GROUP_CONCAT(
+            CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta)
+            ORDER BY aepa.id ASC
+            SEPARATOR '||'
+          ) as alternativas_raw
+         FROM asignaturas_examenes_preguntas aep
+         LEFT JOIN asignaturas_examenes_preguntas_alternativas aepa ON aepa.pregunta_id = aep.id
+         WHERE aep.examen_id = ? AND aep.id IN (${placeholders})
+         GROUP BY aep.id
+         ORDER BY FIELD(aep.id, ${placeholders})`,
+        [examenId, ...preguntaIds, ...preguntaIds]
+      );
+    } else {
+      // Fallback: si no hay preguntas guardadas, obtener todas (para resultados antiguos)
+      console.warn('⚠️ Resultado sin preguntas guardadas, mostrando todas las preguntas del examen');
+      preguntas = await query(
+        `SELECT 
+          aep.*,
+          GROUP_CONCAT(
+            CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta)
+            ORDER BY aepa.id ASC
+            SEPARATOR '||'
+          ) as alternativas_raw
+         FROM asignaturas_examenes_preguntas aep
+         LEFT JOIN asignaturas_examenes_preguntas_alternativas aepa ON aepa.pregunta_id = aep.id
+         WHERE aep.examen_id = ?
+         GROUP BY aep.id
+         ORDER BY aep.orden ASC`,
+        [examenId]
+      );
+    }
 
     // Procesar alternativas para cada pregunta
     const preguntasConAlternativas = preguntas.map(pregunta => {
