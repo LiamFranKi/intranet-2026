@@ -623,21 +623,20 @@ function PublicacionesWidget() {
                 <div className="publicacion-archivos">
                   {pub.archivos.map((archivo, idx) => {
                     // El sistema PHP guarda solo el nombre del archivo (ej: "archivo.pdf")
-                    // Necesitamos construir la URL completa
+                    // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir archivos
+                    // Esto asegura que Apache los sirva exactamente igual que el sistema PHP
                     let archivoUrl;
                     if (archivo.startsWith('http')) {
                       // Ya es una URL completa
                       archivoUrl = archivo;
                     } else if (archivo.startsWith('/Static/')) {
                       // Es una ruta completa del sistema antiguo (compatibilidad)
-                      const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-                      const currentHost = window.location.hostname;
-                      archivoUrl = `${currentProtocol}//${currentHost}${archivo}`;
+                      // Usar el dominio del sistema PHP para servir archivos
+                      archivoUrl = `https://nuevo.vanguardschools.edu.pe${archivo}`;
                     } else {
                       // Es solo el nombre del archivo (formato del sistema PHP)
-                      const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-                      const currentHost = window.location.hostname;
-                      archivoUrl = `${currentProtocol}//${currentHost}/Static/Archivos/${archivo}`;
+                      // Usar el dominio del sistema PHP para servir archivos (igual que el sistema anterior)
+                      archivoUrl = `https://nuevo.vanguardschools.edu.pe/Static/Archivos/${archivo}`;
                     }
                     
                     // Obtener el nombre del archivo y su extensión
@@ -655,7 +654,7 @@ function PublicacionesWidget() {
                       <a 
                         key={idx}
                         href={archivoUrl}
-                        download={nombreArchivo}
+                        download
                         target="_blank"
                         rel="noopener noreferrer"
                         className="archivo-link"

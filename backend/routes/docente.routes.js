@@ -4664,6 +4664,19 @@ router.post('/publicaciones', uploadPublicacionesCompleto.fields([
         // IMPORTANTE: Guardar solo el nombre del archivo (como el sistema PHP)
         // El sistema PHP guarda solo el nombre, no la ruta completa
         archivoPath = req.files.archivo[0].filename;
+        
+        // Verificar que el archivo se guardó correctamente
+        const archivoCompleto = path.join('/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Archivos', archivoPath);
+        if (fs.existsSync(archivoCompleto)) {
+          const stats = fs.statSync(archivoCompleto);
+          console.log('✅ Archivo guardado correctamente:', {
+            nombre: archivoPath,
+            tamaño: stats.size,
+            ruta: archivoCompleto
+          });
+        } else {
+          console.error('❌ Error: Archivo no encontrado después de guardar:', archivoCompleto);
+        }
       } else {
         // Si es una imagen pero viene en el campo "archivo", tratarla como imagen
         if (!imagenPath) {
