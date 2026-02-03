@@ -7569,7 +7569,13 @@ router.get('/aula-virtual/archivos', async (req, res) => {
       }
 
       if (archivo.enlace && archivo.enlace !== '') {
-        enlaceUrl = archivo.enlace;
+        // Asegurar que el enlace tenga protocolo (http:// o https://)
+        // Si no tiene protocolo, el sistema PHP lo interpreta como ruta relativa
+        let enlaceTemp = archivo.enlace.trim();
+        if (!enlaceTemp.match(/^https?:\/\//i)) {
+          enlaceTemp = `https://${enlaceTemp}`;
+        }
+        enlaceUrl = enlaceTemp;
       }
 
       return {
