@@ -7773,6 +7773,10 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
       if (!enlaceNormalizado.match(/^https?:\/\//i)) {
         enlaceNormalizado = `https://${enlaceNormalizado}`;
       }
+      console.log('🔗 [AULA VIRTUAL TEMA] Enlace normalizado:', {
+        original: enlace,
+        normalizado: enlaceNormalizado
+      });
     }
 
     // Preparar datos para auditoría
@@ -7899,13 +7903,29 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
     }
 
     // Normalizar enlace: asegurar que tenga protocolo (http:// o https://)
+    // IMPORTANTE: También normalizar el enlace existente si no tiene protocolo
     let enlaceNormalizado = temaActual.enlace || ''; // Mantener el existente por defecto
+    
+    // Si hay un enlace existente pero no tiene protocolo, normalizarlo
+    if (enlaceNormalizado && enlaceNormalizado.trim() !== '' && !enlaceNormalizado.match(/^https?:\/\//i)) {
+      enlaceNormalizado = `https://${enlaceNormalizado.trim()}`;
+      console.log('🔗 [AULA VIRTUAL TEMA] Normalizando enlace existente:', {
+        original: temaActual.enlace,
+        normalizado: enlaceNormalizado
+      });
+    }
+    
+    // Si se proporciona un nuevo enlace, normalizarlo
     if (enlace && enlace.trim() !== '') {
       enlaceNormalizado = enlace.trim();
       // Si no tiene protocolo, agregar https://
       if (!enlaceNormalizado.match(/^https?:\/\//i)) {
         enlaceNormalizado = `https://${enlaceNormalizado}`;
       }
+      console.log('🔗 [AULA VIRTUAL TEMA] Enlace nuevo normalizado:', {
+        original: enlace,
+        normalizado: enlaceNormalizado
+      });
     }
 
     // Preparar datos nuevos para auditoría
