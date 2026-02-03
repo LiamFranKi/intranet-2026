@@ -3621,6 +3621,9 @@ router.get('/mensajes/recibidos', async (req, res) => {
     const mensajes = await query(querySQL, queryParams);
 
     // Obtener archivos adjuntos para cada mensaje
+    const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     for (const mensaje of mensajes) {
       const archivos = await query(
         `SELECT id, nombre_archivo, archivo
@@ -3632,11 +3635,16 @@ router.get('/mensajes/recibidos', async (req, res) => {
         // IMPORTANTE: Los archivos se guardan en Static/Archivos/ (compartido con sistema PHP)
         // Se sirven desde Apache mediante el Alias /Static
       mensaje.archivos = (archivos || []).map(archivo => {
-        // Construir ruta relativa: /Static/Archivos/filename (compartido con sistema PHP)
-        const rutaArchivo = `/Static/Archivos/${archivo.archivo}`;
+        // Construir URL completa usando PHP_SYSTEM_URL para que se sirva desde el sistema PHP compartido
+        let archivoUrl;
+        if (isProduction) {
+          archivoUrl = `${phpSystemUrl}/Static/Archivos/${archivo.archivo}`;
+        } else {
+          archivoUrl = `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
+        }
         return {
           ...archivo,
-          archivo_url: rutaArchivo // Ruta relativa, el frontend construirá la URL completa
+          archivo_url: archivoUrl // URL completa
         };
       });
     }
