@@ -640,15 +640,27 @@ function PublicacionesWidget() {
                       archivoUrl = `${currentProtocol}//${currentHost}/Static/Archivos/${archivo}`;
                     }
                     
+                    // Obtener el nombre del archivo y su extensión
+                    const nombreArchivo = archivo.split('/').pop() || `Archivo ${idx + 1}`;
+                    const extension = nombreArchivo.split('.').pop()?.toLowerCase() || 'pdf';
+                    
+                    // Mostrar nombre más corto y legible
+                    const nombreMostrar = extension === 'pdf' ? 'Archivo.pdf' : 
+                                         extension === 'doc' || extension === 'docx' ? 'Archivo.docx' :
+                                         extension === 'xls' || extension === 'xlsx' ? 'Archivo.xlsx' :
+                                         extension === 'ppt' || extension === 'pptx' ? 'Archivo.pptx' :
+                                         `Archivo.${extension}`;
+                    
                     return (
                       <a 
                         key={idx}
                         href={archivoUrl}
+                        download={nombreArchivo}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="archivo-link"
                       >
-                        📎 {archivo.split('/').pop() || `Archivo ${idx + 1}`}
+                        📎 {nombreMostrar}
                       </a>
                     );
                   })}
