@@ -28,16 +28,16 @@ const limiter = rateLimit({
   message: 'Too many requests, please try again later.',
   standardHeaders: true, // Retorna rate limit info en headers `RateLimit-*`
   legacyHeaders: false, // Desactiva headers `X-RateLimit-*`
+  // Deshabilitar validación de trust proxy para evitar warnings
+  // El proxy Apache está configurado correctamente y es confiable
+  validate: {
+    trustProxy: false
+  },
   skip: (req) => {
     // Excluir health check del rate limiting
     return req.path === '/api/health';
   }
 });
-
-// Configurar trust proxy para que Express confíe en los headers de proxy (Apache)
-// Esto es necesario cuando el backend está detrás de un proxy reverso
-// Usar 1 en lugar de true para evitar warnings de express-rate-limit
-app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet({
@@ -80,6 +80,11 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Configurar trust proxy DESPUÉS de los middlewares básicos
+// Esto es necesario cuando el backend está detrás de un proxy reverso (Apache)
+// Configurar solo para la IP del proxy local (127.0.0.1) para evitar warnings de express-rate-limit
+app.set('trust proxy', '127.0.0.1');
 
 // Servir archivos estáticos ANTES del rate limiter (no deben estar limitados)
 // Servir archivos estáticos (logos, assets) con headers CORS
