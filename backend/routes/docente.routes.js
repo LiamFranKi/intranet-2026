@@ -7759,8 +7759,18 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
       });
     }
 
+    // Normalizar enlace: asegurar que tenga protocolo (http:// o https://)
+    let enlaceNormalizado = '';
+    if (enlace && enlace.trim() !== '') {
+      enlaceNormalizado = enlace.trim();
+      // Si no tiene protocolo, agregar https://
+      if (!enlaceNormalizado.match(/^https?:\/\//i)) {
+        enlaceNormalizado = `https://${enlaceNormalizado}`;
+      }
+    }
+
     // Preparar datos para auditoría
-    const datosNuevos = { nombre, ciclo: ciclo || 1, archivo: archivoPath, enlace };
+    const datosNuevos = { nombre, ciclo: ciclo || 1, archivo: archivoPath, enlace: enlaceNormalizado };
 
     // Registrar auditoría ANTES de crear
     const ahora = new Date();
@@ -7809,7 +7819,7 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
         nombre,
         archivoPath,
         ciclo || 1,
-        enlace || '',
+        enlaceNormalizado,
         nuevoOrden
       ]
     );
@@ -7882,8 +7892,18 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
       return res.status(400).json({ error: 'Debe proporcionar al menos un archivo o una URL' });
     }
 
+    // Normalizar enlace: asegurar que tenga protocolo (http:// o https://)
+    let enlaceNormalizado = temaActual.enlace || ''; // Mantener el existente por defecto
+    if (enlace && enlace.trim() !== '') {
+      enlaceNormalizado = enlace.trim();
+      // Si no tiene protocolo, agregar https://
+      if (!enlaceNormalizado.match(/^https?:\/\//i)) {
+        enlaceNormalizado = `https://${enlaceNormalizado}`;
+      }
+    }
+
     // Preparar datos nuevos para auditoría
-    const datosNuevos = { nombre, ciclo: ciclo || temaActual.ciclo, archivo: archivoPath, enlace };
+    const datosNuevos = { nombre, ciclo: ciclo || temaActual.ciclo, archivo: archivoPath, enlace: enlaceNormalizado };
 
     // Registrar auditoría ANTES de actualizar
     registrarAccion({
@@ -7912,7 +7932,7 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
       [
         nombre,
         archivoPath,
-        enlace || '',
+        enlaceNormalizado,
         ciclo || temaActual.ciclo,
         id
       ]
