@@ -4681,16 +4681,14 @@ router.post('/publicaciones', uploadPublicacionesCompleto.fields([
     }
 
     // Preparar imágenes (serializar como PHP: base64_encode(serialize(array)))
-    // IMPORTANTE: El formato debe ser EXACTAMENTE igual al sistema PHP
-    // PHP serialize: a:N:{i:0;s:len:"value0";i:1;s:len:"value1";}
+    // IMPORTANTE: Usar php-serialize para garantizar formato EXACTO igual al sistema PHP
+    const phpSerialize = require('php-serialize');
     let imagesSerialized = '';
     if (imagenPath) {
       console.log('📸 Guardando imagen:', imagenPath);
       const imagesArray = [imagenPath];
-      // Formato serialize de PHP: a:N:{i:0;s:len:"value0";i:1;s:len:"value1";}
-      // Asegurar que el formato sea exactamente igual (sin espacios, con punto y coma correcto)
-      // Usar Buffer.byteLength para obtener la longitud en bytes (no caracteres) como PHP
-      const serialized = `a:${imagesArray.length}:{${imagesArray.map((img, idx) => `i:${idx};s:${Buffer.byteLength(img, 'utf8')}:"${img}"`).join(';')}}`;
+      // Usar php-serialize para serializar exactamente como PHP
+      const serialized = phpSerialize.serialize(imagesArray);
       imagesSerialized = Buffer.from(serialized).toString('base64');
       console.log('✅ Imagen serializada:', {
         ruta: imagenPath,
@@ -4702,14 +4700,12 @@ router.post('/publicaciones', uploadPublicacionesCompleto.fields([
     }
 
     // Preparar archivos (serializar como PHP: base64_encode(serialize(array)))
-    // IMPORTANTE: El formato debe ser EXACTAMENTE igual al sistema PHP
+    // IMPORTANTE: Usar php-serialize para garantizar formato EXACTO igual al sistema PHP
     let archivosSerialized = '';
     if (archivoPath) {
       const archivosArray = [archivoPath];
-      // Formato serialize de PHP: a:N:{i:0;s:len:"value0";i:1;s:len:"value1";}
-      // Asegurar que el formato sea exactamente igual (sin espacios, con punto y coma correcto)
-      // Usar Buffer.byteLength para obtener la longitud en bytes (no caracteres) como PHP
-      const serialized = `a:${archivosArray.length}:{${archivosArray.map((arch, idx) => `i:${idx};s:${Buffer.byteLength(arch, 'utf8')}:"${arch}"`).join(';')}}`;
+      // Usar php-serialize para serializar exactamente como PHP
+      const serialized = phpSerialize.serialize(archivosArray);
       archivosSerialized = Buffer.from(serialized).toString('base64');
     }
 
