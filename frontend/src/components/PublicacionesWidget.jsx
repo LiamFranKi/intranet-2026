@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
-import { normalizeStaticFileUrl } from '../config/staticFiles';
 import './PublicacionesWidget.css';
 
 // Función para normalizar URLs de imágenes

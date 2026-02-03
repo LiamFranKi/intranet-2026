@@ -68,33 +68,27 @@ cd ~/intranet206/backend
 nano .env
 ```
 
-Contenido del archivo `.env`:
+Contenido del archivo `.env` (copiar desde `backend/env.production.example` y ajustar):
 
 ```env
 NODE_ENV=production
 PORT=5000
 
-# MySQL - Ajustar según tu configuración
+# MySQL - Producción
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
-MYSQL_USER=tu_usuario_mysql
-MYSQL_PASSWORD=tu_password_mysql
-MYSQL_DATABASE=tu_base_datos
+MYSQL_USER=vanguard
+MYSQL_PASSWORD=QI_jkA]RsHF_gUDN
+MYSQL_DATABASE=vanguard_intranet
 
-# JWT
-JWT_SECRET=tu_secret_key_muy_segura_aqui_cambiar_en_produccion
+# JWT Secret
+JWT_SECRET=VgS2026_React_Intranet_Production_Key_ChangeMe
 
-# CORS - Agregar tu dominio
-ALLOWED_ORIGINS=http://tu-dominio.com,https://tu-dominio.com
+# CORS - Subdominio para el sistema React (NO interfiere con el sistema PHP)
+ALLOWED_ORIGINS=https://sistema.vanguardschools.edu.pe
 
-# FTP (si usas)
-FTP_HOST=tu_ftp_host
-FTP_USERNAME=tu_ftp_user
-FTP_PASSWORD=tu_ftp_password
-FTP_BASE_PATH=/ruta/base
-
-# Frontend URL
-FRONTEND_URL=http://tu-dominio.com
+# Frontend URL - Subdominio para el sistema React
+FRONTEND_URL=https://sistema.vanguardschools.edu.pe
 ```
 
 ### Frontend (.env)
@@ -104,10 +98,10 @@ cd ~/intranet206/frontend
 nano .env
 ```
 
-Contenido del archivo `.env`:
+Contenido del archivo `.env` (copiar desde `frontend/env.production.example`):
 
 ```env
-REACT_APP_API_URL=http://tu-dominio.com/api
+REACT_APP_API_URL=https://sistema.vanguardschools.edu.pe/api
 ```
 
 ## 🔧 Paso 7: Compilar el frontend
@@ -192,7 +186,7 @@ Contenido:
 ```nginx
 server {
     listen 80;
-    server_name tu-dominio.com;
+    server_name sistema.vanguardschools.edu.pe;
 
     # Servir el frontend React
     root /home/vanguard/intranet206/frontend/build;
@@ -320,4 +314,32 @@ sudo chown -R vanguard:vanguard ~/intranet206/frontend/build
 3. **Puertos**: El backend corre en el puerto 5000 (interno), Nginx lo expone en el puerto 80
 4. **Archivos subidos**: Los archivos se guardan en `backend/uploads/` - asegúrate de que tenga permisos de escritura
 5. **SSL/HTTPS**: Considera configurar SSL con Let's Encrypt para producción
+
+## 🔄 COEXISTENCIA DE SISTEMAS
+
+**IMPORTANTE:** Ambos sistemas funcionan en paralelo sin interferirse:
+
+- **Sistema PHP (existente)**: `https://nuevo.vanguardschools.edu.pe`
+  - Sigue funcionando normalmente
+  - No se modifica ni se sobrescribe
+  
+- **Sistema React (nuevo)**: `https://sistema.vanguardschools.edu.pe`
+  - Subdominio del mismo dominio (vanguardschools.edu.pe)
+  - Configuración Nginx separada
+  - Comparte la misma base de datos MySQL
+  - Mismo VPS, sin conexiones remotas
+
+**Configuración Nginx:**
+- El sistema PHP tiene su propia configuración en `/etc/nginx/sites-available/nuevo.vanguardschools.edu.pe`
+- El sistema React tendrá su configuración en `/etc/nginx/sites-available/sistema.vanguardschools.edu.pe`
+- Ambos pueden estar activos simultáneamente
+
+**⚠️ IMPORTANTE - Configurar DNS:**
+Antes de desplegar, necesitas crear el registro DNS para el subdominio:
+- Tipo: A
+- Nombre: `sistema`
+- Valor: IP del VPS (89.117.52.9)
+- TTL: 3600 (o el que uses)
+
+Esto apuntará `sistema.vanguardschools.edu.pe` al mismo VPS donde está el sistema PHP.
 

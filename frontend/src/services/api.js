@@ -1,28 +1,22 @@
 import axios from 'axios';
 
 // Detectar si estamos en desarrollo o producción
-// FORZAR desarrollo si no es explícitamente producción
 const hostname = window.location.hostname || '';
-const isProduction = hostname === 'intranet.vanguardschools.com';
-const isDevelopment = !isProduction; // Todo lo demás es desarrollo
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+const isDevelopment = isLocalhost; // Solo localhost es desarrollo
 
 // Determinar URL de API
 let apiUrl;
-if (process.env.REACT_APP_API_URL && !isDevelopment) {
-  // Solo usar .env si NO estamos en desarrollo
-  apiUrl = process.env.REACT_APP_API_URL;
-} else if (isDevelopment) {
-  // Desarrollo: SIEMPRE usar HTTP local
+const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+
+if (isDevelopment) {
+  // Desarrollo: solo si es localhost
   apiUrl = 'http://localhost:5000/api';
   console.log('🔧 Modo desarrollo: usando API local en', apiUrl);
-} else if (isProduction) {
-  // Producción: usar HTTP (sin SSL por ahora)
-  apiUrl = 'http://intranet.vanguardschools.com/api';
-  console.log('🌐 Modo producción: usando API en', apiUrl);
 } else {
-  // Fallback: asumir desarrollo
-  apiUrl = 'http://localhost:5000/api';
-  console.log('⚠️ Modo desconocido, usando fallback:', apiUrl);
+  // Producción: usar el mismo dominio con /api (NO es localhost)
+  apiUrl = `${currentProtocol}//${hostname}/api`;
+  console.log('🌐 Modo producción: usando API en', apiUrl);
 }
 
 const api = axios.create({
@@ -55,7 +49,7 @@ api.interceptors.response.use(
     if (error.code === 'ERR_CERT_COMMON_NAME_INVALID' || error.message?.includes('certificate')) {
       console.error('Error de certificado SSL. Verifica la configuración HTTPS.');
       // Si estamos en producción y hay error de certificado, intentar con HTTP
-      if (isProduction && apiUrl.startsWith('https://')) {
+      if (!isDevelopment && apiUrl.startsWith('https://')) {
         console.warn('Intentando con HTTP en lugar de HTTPS...');
         // No hacer nada automáticamente, dejar que el usuario lo maneje
       }

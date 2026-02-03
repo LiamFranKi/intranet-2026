@@ -2231,16 +2231,16 @@ function DocenteAulaVirtual() {
     try {
       // Obtener la URL base del backend (sin /api al final)
       const hostname = window.location.hostname || '';
-      const isProduction = hostname === 'intranet.vanguardschools.com';
-      const isDevelopment = !isProduction;
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      const isDevelopment = isLocalhost;
       
       let apiBaseUrl;
       if (isDevelopment) {
         apiBaseUrl = 'http://localhost:5000';
-      } else if (isProduction) {
-        apiBaseUrl = 'http://intranet.vanguardschools.com';
       } else {
-        apiBaseUrl = 'http://localhost:5000';
+        // Producción: usar el mismo dominio
+        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        apiBaseUrl = `${protocol}//${hostname}`;
       }
       
       const url = `${apiBaseUrl}/api/docente/aula-virtual/examenes/${examenParaResultados.id}/resultados/pdf`;
