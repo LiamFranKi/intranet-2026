@@ -120,8 +120,10 @@ function DocenteGrupos() {
               },
             });
 
-            // Obtener la URL completa de la imagen
-            const imagenUrl = `${api.defaults.baseURL.replace('/api', '')}${response.data.url}`;
+            // El backend ya devuelve la URL completa (con dominio del sistema PHP)
+            const imagenUrl = response.data.url;
+            
+            console.log('✅ Imagen subida, URL:', imagenUrl);
             
             // Insertar la imagen en el editor
             const range = quill.getSelection(true);
@@ -174,8 +176,10 @@ function DocenteGrupos() {
               },
             });
 
-            // Obtener la URL completa de la imagen
-            const imagenUrl = `${api.defaults.baseURL.replace('/api', '')}${response.data.url}`;
+            // El backend ya devuelve la URL completa (con dominio del sistema PHP)
+            const imagenUrl = response.data.url;
+            
+            console.log('✅ Imagen subida, URL:', imagenUrl);
             
             // Insertar la imagen en el editor
             const range = quill.getSelection(true);

@@ -3967,7 +3967,17 @@ router.post('/mensajes/subir-imagen', uploadMensajes.single('imagen'), async (re
       return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
     }
 
-    const imagenUrl = `/Static/Archivos/${req.file.filename}`;
+    // Construir URL completa usando PHP_SYSTEM_URL para que la imagen se sirva desde el sistema PHP compartido
+    const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    let imagenUrl;
+    if (isProduction) {
+      imagenUrl = `${phpSystemUrl}/Static/Archivos/${req.file.filename}`;
+    } else {
+      imagenUrl = `http://localhost:5000/Static/Archivos/${req.file.filename}`;
+    }
+    
     res.json({ url: imagenUrl });
   } catch (error) {
     console.error('Error subiendo imagen:', error);
