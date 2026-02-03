@@ -502,8 +502,9 @@ function DocenteCursos() {
       });
       setFormIncidencias({ description: '' });
       
-      // Recargar historial
+      // Recargar historial y actualizar lista de alumnos
       await cargarHistorialIncidencias(alumnoSeleccionado.id);
+      await cargarAlumnos(selectedCurso);
     } catch (error) {
       console.error('Error registrando incidencia:', error);
       Swal.fire({
@@ -543,8 +544,9 @@ function DocenteCursos() {
           zIndex: 100001
         });
         
-        // Recargar historial
+        // Recargar historial y actualizar lista de alumnos
         await cargarHistorialIncidencias(alumnoSeleccionado.id);
+        await cargarAlumnos(selectedCurso);
       } catch (error) {
         console.error('Error eliminando incidencia:', error);
         Swal.fire({
