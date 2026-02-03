@@ -1159,10 +1159,10 @@ router.get('/cursos/:cursoId/alumnos', async (req, res) => {
     const cursoInfo = asignatura[0];
 
     // Obtener alumnos del grupo con conteo de estrellas e incidencias
-    // IMPORTANTE: Las estrellas e incidencias se calculan solo del año activo
+    // IMPORTANTE: Las estrellas e incidencias se calculan solo del año activo y del curso específico
     // Las estrellas se calculan sumando los puntos de enrollment_incidents (type = 2)
     // Las incidencias se cuentan de enrollment_incidents (type = 1)
-    // Todo relacionado con las matrículas del alumno y del año activo
+    // Usamos subconsultas correlacionadas para evitar duplicación por productos cartesianos de JOINs
     // El promedio final se calcula como el promedio de TODOS los bimestres que tengan notas registradas
     const alumnos = await query(
       `SELECT a.id, 
@@ -1171,8 +1171,22 @@ router.get('/cursos/:cursoId/alumnos', async (req, res) => {
               a.apellido_materno,
               CONCAT(a.apellido_paterno, ' ', a.apellido_materno, ', ', a.nombres) as nombre_completo,
               m.id as matricula_id,
-              COALESCE(SUM(CASE WHEN ei_estrellas.type = 2 AND g_estrellas.anio = ? THEN ei_estrellas.points ELSE 0 END), 0) as total_estrellas,
-              COUNT(DISTINCT CASE WHEN ei_incidencias.type = 1 AND g_incidencias.anio = ? THEN ei_incidencias.id END) as total_incidencias,
+              (SELECT COALESCE(SUM(ei.points), 0)
+               FROM enrollment_incidents ei
+               INNER JOIN matriculas m_ei ON m_ei.id = ei.enrollment_id
+               INNER JOIN grupos g_ei ON g_ei.id = m_ei.grupo_id
+               WHERE ei.enrollment_id = m.id 
+                 AND ei.type = 2 
+                 AND ei.assignment_id = ?
+                 AND g_ei.anio = ?) as total_estrellas,
+              (SELECT COUNT(DISTINCT ei.id)
+               FROM enrollment_incidents ei
+               INNER JOIN matriculas m_ei ON m_ei.id = ei.enrollment_id
+               INNER JOIN grupos g_ei ON g_ei.id = m_ei.grupo_id
+               WHERE ei.enrollment_id = m.id 
+                 AND ei.type = 1 
+                 AND ei.assignment_id = ?
+                 AND g_ei.anio = ?) as total_incidencias,
               (SELECT CASE 
                  WHEN COUNT(*) > 0 THEN 
                    ROUND(AVG(CAST(p.promedio AS DECIMAL(5,2))), 0)
@@ -1188,19 +1202,12 @@ router.get('/cursos/:cursoId/alumnos', async (req, res) => {
        FROM alumnos a
        INNER JOIN matriculas m ON m.alumno_id = a.id
        INNER JOIN grupos g ON g.id = m.grupo_id
-       LEFT JOIN enrollment_incidents ei_estrellas ON ei_estrellas.enrollment_id = m.id AND ei_estrellas.type = 2
-       LEFT JOIN matriculas m_estrellas ON m_estrellas.id = ei_estrellas.enrollment_id
-       LEFT JOIN grupos g_estrellas ON g_estrellas.id = m_estrellas.grupo_id
-       LEFT JOIN enrollment_incidents ei_incidencias ON ei_incidencias.enrollment_id = m.id AND ei_incidencias.type = 1
-       LEFT JOIN matriculas m_incidencias ON m_incidencias.id = ei_incidencias.enrollment_id
-       LEFT JOIN grupos g_incidencias ON g_incidencias.id = m_incidencias.grupo_id
        WHERE m.grupo_id = ? 
          AND m.colegio_id = ? 
          AND (m.estado = 0 OR m.estado = 4)
          AND g.anio = ?
-       GROUP BY a.id, a.nombres, a.apellido_paterno, a.apellido_materno, m.id
        ORDER BY a.apellido_paterno, a.apellido_materno, a.nombres`,
-      [anio_activo, anio_activo, cursoInfo.id, cursoInfo.grupo_id, colegio_id, anio_activo]
+      [cursoInfo.id, anio_activo, cursoInfo.id, anio_activo, cursoInfo.id, cursoInfo.grupo_id, colegio_id, anio_activo]
     );
 
     res.json({ 
