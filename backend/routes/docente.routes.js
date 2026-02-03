@@ -952,12 +952,13 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
     if (alumno[0].foto) {
       // Fotos se guardan en Static/Image/Fotos/ (compartido con sistema PHP)
       // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
-      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
-      const isProduction = process.env.NODE_ENV === 'production';
-      if (isProduction) {
-        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${alumno[0].foto}`;
-      } else {
+      // Por defecto usar PHP_SYSTEM_URL (o fallback), solo usar localhost si estamos explícitamente en desarrollo
+      const isDevelopment = process.env.NODE_ENV !== 'production' && !process.env.PHP_SYSTEM_URL;
+      if (isDevelopment) {
         fotoUrl = `http://localhost:5000/Static/Image/Fotos/${alumno[0].foto}`;
+      } else {
+        const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${alumno[0].foto}`;
       }
     }
 
@@ -966,13 +967,14 @@ router.get('/alumnos/:alumnoId/info', async (req, res) => {
     if (avatarAlumno && avatarAlumno.length > 0) {
       // Avatares se guardan en Static/Image/Avatars/ (compartido con sistema PHP)
       // IMPORTANTE: Usar el mismo dominio del sistema PHP para servir avatares
-      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
-      const isProduction = process.env.NODE_ENV === 'production';
+      // Por defecto usar PHP_SYSTEM_URL (o fallback), solo usar localhost si estamos explícitamente en desarrollo
+      const isDevelopment = process.env.NODE_ENV !== 'production' && !process.env.PHP_SYSTEM_URL;
       if (avatarAlumno[0].image) {
-        if (isProduction) {
-          avatarUrl = `${phpSystemUrl}/Static/Image/Avatars/${avatarAlumno[0].image}`;
-        } else {
+        if (isDevelopment) {
           avatarUrl = `http://localhost:5000/Static/Image/Avatars/${avatarAlumno[0].image}`;
+        } else {
+          const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+          avatarUrl = `${phpSystemUrl}/Static/Image/Avatars/${avatarAlumno[0].image}`;
         }
       }
     }
