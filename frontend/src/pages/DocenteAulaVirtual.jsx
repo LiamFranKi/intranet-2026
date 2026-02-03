@@ -5854,7 +5854,7 @@ function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose
               onClick={onBorrarTodosResultados}
               style={{ backgroundColor: '#ef4444', color: 'white', borderColor: '#ef4444' }}
             >
-              🗑️ Eliminar Resultados Todos
+              🗑️ Eliminar Resultados
             </button>
           </div>
 
