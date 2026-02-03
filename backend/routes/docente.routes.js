@@ -5008,34 +5008,40 @@ router.get('/aula-virtual/tareas', async (req, res) => {
         [tarea.id]
       );
 
-      // Construir URLs para los archivos (igual que en Temas)
+      // Construir URLs para los archivos (usando PHP_SYSTEM_URL para compatibilidad con sistema anterior)
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+      const isDevelopment = process.env.NODE_ENV !== 'production';
       const archivosConUrls = archivos.map(archivo => {
         let archivoUrl = null;
         if (archivo.archivo && archivo.archivo !== '') {
           if (archivo.archivo.startsWith('http')) {
-            // Ya es una URL completa
-            archivoUrl = archivo.archivo;
+            // Ya es una URL completa, validar y corregir dominio si es necesario
+            archivoUrl = archivo.archivo
+              .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, phpSystemUrl)
+              .replace(/vanguardschools\.comstatic/gi, `${phpSystemUrl}/Static`)
+              .replace(/vanguardschools\.com\/static/gi, `${phpSystemUrl}/Static`)
+              .replace(/vanguardschools\.com\/Static/gi, `${phpSystemUrl}/Static`);
           } else if (archivo.archivo.startsWith('/uploads/')) {
-            // Ruta relativa desde /uploads/ (formato nuevo)
-            archivoUrl = isProduction 
-              ? `https://vanguardschools.edu.pe${archivo.archivo}`
-              : `http://localhost:5000${archivo.archivo}`;
-            console.log('📄 [AULA VIRTUAL TAREA] URL construida para archivo:', {
+            // Ruta relativa desde /uploads/ (formato antiguo, migrar a /Static/Archivos/)
+            archivoUrl = isDevelopment
+              ? `http://localhost:5000${archivo.archivo}`
+              : `${phpSystemUrl}${archivo.archivo}`;
+            console.log('📄 [AULA VIRTUAL TAREA] URL construida para archivo (uploads):', {
               id: archivo.id,
               nombre: archivo.nombre,
               ruta_original: archivo.archivo,
               url_final: archivoUrl
             });
           } else if (archivo.archivo.startsWith('/Static/')) {
-            // Ruta del sistema antiguo (compatibilidad)
-            archivoUrl = isProduction 
-              ? `https://vanguardschools.edu.pe${archivo.archivo}`
-              : `http://localhost:5000${archivo.archivo}`;
+            // Ruta del sistema compartido (correcto)
+            archivoUrl = isDevelopment
+              ? `http://localhost:5000${archivo.archivo}`
+              : `${phpSystemUrl}${archivo.archivo}`;
           } else {
             // Solo el nombre del archivo (compatibilidad con sistema antiguo)
-            archivoUrl = isProduction
-              ? `https://vanguardschools.edu.pe/Static/Archivos/${archivo.archivo}`
-              : `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
+            archivoUrl = isDevelopment
+              ? `http://localhost:5000/Static/Archivos/${archivo.archivo}`
+              : `${phpSystemUrl}/Static/Archivos/${archivo.archivo}`;
           }
         }
         return {
@@ -5219,9 +5225,9 @@ router.put('/aula-virtual/tareas/:id', uploadAulaVirtual.single('archivo'), asyn
     const tareaActual = tarea[0];
     let archivoPath = null;
 
-    // Si se subió un nuevo archivo, actualizar la ruta (igual que en Temas)
+    // Si se subió un nuevo archivo, actualizar la ruta (guardado en Static/Archivos/ compartido con sistema PHP)
     if (req.file) {
-      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
+      archivoPath = `/Static/Archivos/${req.file.filename}`;
       console.log('📄 [AULA VIRTUAL TAREA] Archivo actualizado:', {
         filename: req.file.filename,
         originalname: req.file.originalname,
@@ -7469,37 +7475,43 @@ router.get('/aula-virtual/archivos', async (req, res) => {
       [asignatura_id, cicloFiltro]
     );
 
-    // Construir URLs completas para los archivos (igual que en Publicaciones)
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Construir URLs completas para los archivos (usando PHP_SYSTEM_URL para compatibilidad con sistema anterior)
+    const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     const archivosConUrls = archivos.map(archivo => {
       let archivoUrl = null;
       let enlaceUrl = null;
 
       if (archivo.archivo && archivo.archivo !== '') {
         if (archivo.archivo.startsWith('http')) {
-          // Ya es una URL completa
-          archivoUrl = archivo.archivo;
+          // Ya es una URL completa, validar y corregir dominio si es necesario
+          archivoUrl = archivo.archivo
+            .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, phpSystemUrl)
+            .replace(/vanguardschools\.comstatic/gi, `${phpSystemUrl}/Static`)
+            .replace(/vanguardschools\.com\/static/gi, `${phpSystemUrl}/Static`)
+            .replace(/vanguardschools\.com\/Static/gi, `${phpSystemUrl}/Static`);
         } else if (archivo.archivo.startsWith('/uploads/')) {
-          // Ruta relativa desde /uploads/ (formato nuevo)
-          archivoUrl = isProduction 
-            ? `https://vanguardschools.edu.pe${archivo.archivo}`
-            : `http://localhost:5000${archivo.archivo}`;
-          console.log('📄 [AULA VIRTUAL] URL construida para archivo:', {
+          // Ruta relativa desde /uploads/ (formato antiguo, migrar a /Static/Archivos/)
+          // En producción, usar PHP_SYSTEM_URL; en desarrollo, localhost
+          archivoUrl = isDevelopment
+            ? `http://localhost:5000${archivo.archivo}`
+            : `${phpSystemUrl}${archivo.archivo}`;
+          console.log('📄 [AULA VIRTUAL TEMA] URL construida para archivo (uploads):', {
             id: archivo.id,
             nombre: archivo.nombre,
             ruta_original: archivo.archivo,
             url_final: archivoUrl
           });
         } else if (archivo.archivo.startsWith('/Static/')) {
-          // Ruta del sistema antiguo (compatibilidad)
-          archivoUrl = isProduction 
-            ? `https://vanguardschools.edu.pe${archivo.archivo}`
-            : `http://localhost:5000${archivo.archivo}`;
+          // Ruta del sistema compartido (correcto)
+          archivoUrl = isDevelopment
+            ? `http://localhost:5000${archivo.archivo}`
+            : `${phpSystemUrl}${archivo.archivo}`;
         } else {
           // Solo el nombre del archivo (compatibilidad con sistema antiguo)
-          archivoUrl = isProduction
-            ? `https://vanguardschools.edu.pe/Static/Archivos/${archivo.archivo}`
-            : `http://localhost:5000/Static/Archivos/${archivo.archivo}`;
+          archivoUrl = isDevelopment
+            ? `http://localhost:5000/Static/Archivos/${archivo.archivo}`
+            : `${phpSystemUrl}/Static/Archivos/${archivo.archivo}`;
         }
       }
 
@@ -7678,11 +7690,11 @@ router.post('/aula-virtual/archivos', uploadAulaVirtual.single('archivo'), async
 
     const nuevoOrden = (maxOrden[0]?.max_orden || 0) + 1;
 
-    // Construir la ruta del archivo (igual que en Publicaciones)
+    // Construir la ruta del archivo (guardado en Static/Archivos/ compartido con sistema PHP)
     let archivoPath = '';
     if (req.file) {
-      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
-      console.log('📄 [AULA VIRTUAL] Archivo guardado:', {
+      archivoPath = `/Static/Archivos/${req.file.filename}`;
+      console.log('📄 [AULA VIRTUAL TEMA] Archivo guardado:', {
         filename: req.file.filename,
         originalname: req.file.originalname,
         path: archivoPath,
@@ -7794,9 +7806,15 @@ router.put('/aula-virtual/archivos/:id', uploadAulaVirtual.single('archivo'), as
     const temaActual = tema[0];
     let archivoPath = temaActual.archivo;
 
-    // Si se subió un nuevo archivo, actualizar la ruta (igual que en Publicaciones)
+    // Si se subió un nuevo archivo, actualizar la ruta (guardado en Static/Archivos/ compartido con sistema PHP)
     if (req.file) {
-      archivoPath = `/uploads/aula-virtual/${req.file.filename}`;
+      archivoPath = `/Static/Archivos/${req.file.filename}`;
+      console.log('📄 [AULA VIRTUAL TEMA] Archivo actualizado:', {
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        path: archivoPath,
+        size: req.file.size
+      });
     }
 
     // Si no hay archivo nuevo y no hay enlace, mantener el archivo existente
