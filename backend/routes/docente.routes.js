@@ -7053,6 +7053,31 @@ router.post('/aula-virtual/examenes/:examenId/calificar', async (req, res) => {
     // Recalificar cada prueba
     for (const prueba of pruebas) {
       try {
+        // IMPORTANTE: Obtener solo las preguntas que realmente vio el alumno
+        // El campo 'preguntas' contiene un array serializado (base64) con los IDs de las preguntas mostradas
+        let preguntaIds = [];
+        try {
+          if (prueba.preguntas && prueba.preguntas.trim() !== '') {
+            // Decodificar base64 primero (formato PHP: base64_encode(serialize(array)))
+            const decoded = Buffer.from(prueba.preguntas, 'base64').toString('utf-8');
+            // Deserializar el array PHP
+            preguntaIds = phpSerialize.unserialize(decoded) || [];
+            // Asegurar que sea un array
+            if (!Array.isArray(preguntaIds)) {
+              preguntaIds = [];
+            }
+          }
+        } catch (error) {
+          console.warn(`Error deserializando preguntas de prueba ${prueba.id}:`, error);
+          preguntaIds = [];
+        }
+
+        // Filtrar preguntas: solo las que vio el alumno
+        // Si no hay preguntas guardadas (resultados antiguos), usar todas como fallback
+        const preguntasAValuar = preguntaIds.length > 0
+          ? preguntasConAlternativas.filter(p => preguntaIds.includes(p.id))
+          : preguntasConAlternativas; // Fallback para resultados antiguos
+
         // Parsear respuestas del alumno
         let respuestasAlumno = {};
         if (prueba.respuestas && prueba.respuestas.trim() !== '') {
@@ -7072,11 +7097,12 @@ router.post('/aula-virtual/examenes/:examenId/calificar', async (req, res) => {
         }
 
         // Calcular puntaje
+        // IMPORTANTE: Solo evaluar las preguntas que realmente vio el alumno
         let puntaje = 0;
         let correctas = 0;
         let incorrectas = 0;
 
-        for (const pregunta of preguntasConAlternativas) {
+        for (const pregunta of preguntasAValuar) {
           const respuestaAlumno = respuestasAlumno[pregunta.id.toString()];
           let esCorrecta = false;
 
