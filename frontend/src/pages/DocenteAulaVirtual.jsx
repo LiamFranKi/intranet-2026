@@ -2432,6 +2432,8 @@ function DocenteAulaVirtual() {
         });
 
         await cargarPreguntas(examenSeleccionado.id);
+        // Recargar la lista de exámenes para actualizar el contador de preguntas en la grilla
+        await cargarExamenes(cicloExamenes);
       } catch (error) {
         Swal.fire({
           icon: 'error',
@@ -4001,6 +4003,8 @@ function DocenteAulaVirtual() {
             setFormPregunta({ descripcion: '', tipo: 'ALTERNATIVAS', puntos: 0, datos_adicionales: null });
             setAlternativas([]);
             await cargarPreguntas(examenSeleccionado.id);
+            // Recargar la lista de exámenes para actualizar el contador de preguntas en la grilla
+            await cargarExamenes(cicloExamenes);
           }}
         />,
         document.body
