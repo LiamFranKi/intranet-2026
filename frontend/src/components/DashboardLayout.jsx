@@ -52,21 +52,35 @@ export default function DashboardLayout({ children }) {
   const userFotoUrl = useMemo(() => {
     if (!user?.foto) return null;
     
-    // Si ya es una URL completa (http/https), usarla directamente
+    const currentHost = window.location.hostname;
+    const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    
+    let fotoUrl;
+    
+    // Si ya es una URL completa (http/https), normalizarla
     if (user.foto.startsWith('http')) {
-      return user.foto;
+      fotoUrl = user.foto;
+      // Normalizar: reemplazar dominio antiguo por el actual
+      if (fotoUrl.includes('vanguardschools.edu.pe/uploads') || fotoUrl.includes('vanguardschools.edu.pe/Static')) {
+        if (fotoUrl.includes('/uploads/')) {
+          fotoUrl = fotoUrl.replace(/https?:\/\/vanguardschools\.edu\.pe\/uploads/g, `${currentProtocol}//${currentHost}/uploads`);
+        } else if (fotoUrl.includes('/Static/')) {
+          fotoUrl = fotoUrl.replace(/https?:\/\/vanguardschools\.edu\.pe\/Static/g, 'https://nuevo.vanguardschools.edu.pe/Static');
+        }
+      }
+      return fotoUrl;
     }
     
     // Si es una ruta relativa que empieza con /, construir URL completa
     if (user.foto.startsWith('/')) {
-      return `${window.location.protocol}//${window.location.hostname}:5000${user.foto}`;
+      return `${currentProtocol}//${currentHost}${user.foto}`;
     }
     
     // Si solo tenemos el nombre del archivo (caso legacy o localStorage antiguo)
     // Para alumnos usar /uploads/alumnos/, para docentes /uploads/personal/
     const fotoNombre = user.foto_nombre || user.foto;
     const uploadPath = role === 'ALUMNO' ? 'uploads/alumnos' : 'uploads/personal';
-    return `${window.location.protocol}//${window.location.hostname}:5000/${uploadPath}/${fotoNombre}`;
+    return `${currentProtocol}//${currentHost}/${uploadPath}/${fotoNombre}`;
   }, [user?.foto, user?.foto_nombre, role]);
 
   return (

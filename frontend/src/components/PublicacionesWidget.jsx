@@ -2,7 +2,36 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
+import { normalizeStaticFileUrl } from '../config/staticFiles';
 import './PublicacionesWidget.css';
+
+// Función para normalizar URLs de imágenes
+function normalizeImageUrl(url) {
+  if (!url) return url;
+  
+  const currentHost = window.location.hostname;
+  const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  
+  // Si la URL es del dominio antiguo, reemplazarla
+  let normalized = url;
+  
+  // Reemplazar vanguardschools.edu.pe/uploads por el dominio actual
+  if (normalized.includes('vanguardschools.edu.pe/uploads')) {
+    normalized = normalized.replace(/https?:\/\/vanguardschools\.edu\.pe\/uploads/g, `${currentProtocol}//${currentHost}/uploads`);
+  }
+  
+  // Reemplazar vanguardschools.edu.pe/Static por el dominio del sistema PHP (nuevo.vanguardschools.edu.pe)
+  if (normalized.includes('vanguardschools.edu.pe/Static')) {
+    normalized = normalized.replace(/https?:\/\/vanguardschools\.edu\.pe\/Static/g, 'https://nuevo.vanguardschools.edu.pe/Static');
+  }
+  
+  // Corregir URLs malformadas (sin barra después del dominio)
+  normalized = normalized.replace(/vanguardschools\.com(static|uploads)/gi, (match, path) => {
+    return `https://nuevo.vanguardschools.edu.pe/Static${path === 'static' ? '' : ''}`;
+  });
+  
+  return normalized;
+}
 
 function PublicacionesWidget() {
   const { user } = useAuth();
@@ -560,10 +589,16 @@ function PublicacionesWidget() {
               {pub.images && Array.isArray(pub.images) && pub.images.length > 0 && (
                 <div className="publicacion-imagenes">
                   {pub.images.slice(0, 3).map((imagenUrl, idx) => {
-                    // Construir URL completa si es necesario
-                    const urlCompleta = imagenUrl.startsWith('http') 
-                      ? imagenUrl 
-                      : `${window.location.protocol}//${window.location.hostname}:5000${imagenUrl}`;
+                    // Normalizar URL: convertir URLs del sistema anterior al dominio correcto
+                    let urlCompleta;
+                    if (imagenUrl.startsWith('http')) {
+                      // Si es una URL completa, normalizarla
+                      urlCompleta = normalizeImageUrl(imagenUrl);
+                    } else {
+                      // Si es relativa, construir URL completa
+                      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                      urlCompleta = `${protocol}//${window.location.hostname}${imagenUrl.startsWith('/') ? '' : '/'}${imagenUrl}`;
+                    }
                     
                     return (
                       <img 
@@ -573,7 +608,7 @@ function PublicacionesWidget() {
                         className={pub.images.length === 1 ? 'imagen-sola' : 'imagen-multiple'}
                         onClick={() => setImagenModal(urlCompleta)}
                         onError={(e) => {
-                          console.error('Error cargando imagen:', imagenUrl);
+                          console.error('Error cargando imagen:', imagenUrl, '→', urlCompleta);
                           e.target.style.display = 'none';
                         }}
                         style={{ cursor: 'pointer' }}
