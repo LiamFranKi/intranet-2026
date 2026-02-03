@@ -47,6 +47,24 @@ node --version
 npm --version
 ```
 
+## 🔧 Paso 4.5: Normalizar enlaces existentes en la base de datos (OPCIONAL)
+
+Si tienes temas con enlaces que no tienen protocolo (http:// o https://), ejecuta este script SQL para normalizarlos:
+
+```bash
+# Conectarse a MySQL
+mysql -u vanguard -p vanguard_intranet
+# Contraseña: QI_jkA]RsHF_gUDN
+
+# Ejecutar el script de normalización
+source ~/intranet2026/backend/scripts/normalizar_enlaces_temas.sql
+
+# O ejecutar directamente:
+mysql -u vanguard -p vanguard_intranet < ~/intranet2026/backend/scripts/normalizar_enlaces_temas.sql
+```
+
+Este script agregará `https://` automáticamente a todos los enlaces que no tengan protocolo, para que funcionen correctamente en ambos sistemas.
+
 ## 🔧 Paso 5: Instalar dependencias
 
 ```bash
