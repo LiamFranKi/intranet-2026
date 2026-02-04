@@ -6230,23 +6230,28 @@ router.get('/aula-virtual/examenes', async (req, res) => {
             continue;
           }
           
-          // IMPORTANTE: Solo habilitar si la fecha/hora de inicio YA PASÓ (no si es igual o futura)
+          // IMPORTANTE: Solo habilitar si la fecha/hora de inicio YA PASÓ completamente
           // Comparar en milisegundos para mayor precisión
           const diferenciaMs = ahoraDate.getTime() - fechaInicioDate.getTime();
           
           // Solo habilitar si pasaron al menos 1 minuto desde la fecha/hora de inicio
           // Esto evita habilitar exámenes que aún no han comenzado
-          if (diferenciaMs >= 60000) { // 60000 ms = 1 minuto
+          // IMPORTANTE: No habilitar si la fecha/hora es futura (diferenciaMs negativo)
+          if (diferenciaMs >= 60000) { // 60000 ms = 1 minuto (y debe ser positivo, es decir, ya pasó)
             try {
               await execute(
                 `UPDATE asignaturas_examenes SET estado = 'ACTIVO' WHERE id = ?`,
                 [examen.id]
               );
-              console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente`);
+              console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente (fecha/hora inicio: ${fechaInicio} ${horaInicio}, ahora: ${fechaActual} ${horaActual})`);
               examen.estado = 'ACTIVO'; // Actualizar en el objeto para la respuesta
             } catch (error) {
               console.error(`Error habilitando examen ${examen.id}:`, error);
             }
+          } else if (diferenciaMs < 0) {
+            // La fecha/hora de inicio es futura, asegurar que esté INACTIVO si el usuario lo configuró así
+            // No hacer nada, respetar el estado actual del examen
+            console.log(`⏳ Examen "${examen.titulo}" (ID: ${examen.id}) aún no inicia. Faltan ${Math.abs(diferenciaMs / 60000).toFixed(1)} minutos`);
           }
         }
       } catch (error) {
@@ -6591,6 +6596,13 @@ router.put('/aula-virtual/examenes/:examenId', uploadAulaVirtual.single('archivo
       fechaHasta = fecha_hasta;
       horaDesde = hora_desde;
       horaHasta = hora_hasta;
+      
+      // IMPORTANTE: Si se configuran fechas/horas, el estado debe ser INACTIVO automáticamente
+      // El examen solo se activará automáticamente cuando esté dentro del rango de fechas/horas
+      if (estado === 'ACTIVO') {
+        console.log(`⚠️ Examen con fecha/hora configurada: forzando estado a INACTIVO (se activará automáticamente cuando llegue la hora)`);
+        estado = 'INACTIVO';
+      }
     } else {
       // Si no está habilitado, usar valores por defecto específicos
       fechaDesde = '0000-00-00';
