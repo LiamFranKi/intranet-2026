@@ -16,6 +16,9 @@ import DocenteComunicados from './pages/DocenteComunicados';
 import DocenteActividades from './pages/DocenteActividades';
 import DocenteMensajes from './pages/DocenteMensajes';
 import DocenteAulaVirtual from './pages/DocenteAulaVirtual';
+import AlumnoDashboard from './pages/AlumnoDashboard';
+import AlumnoPerfil from './pages/AlumnoPerfil';
+import AlumnoAulaVirtual from './pages/AlumnoAulaVirtual';
 import './App.css';
 
 // Configurar React Router para evitar warnings
@@ -56,6 +59,8 @@ function NavigateToDashboard() {
   
   if (tipo === 'DOCENTE') {
     return <Navigate to="/docente/dashboard" />;
+  } else if (tipo === 'ALUMNO') {
+    return <Navigate to="/alumno/dashboard" />;
   }
   
   return <Navigate to="/dashboard" />;
@@ -159,6 +164,80 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <DocenteAulaVirtual />
+          </PrivateRoute>
+        }
+      />
+      {/* Rutas de Alumno */}
+      <Route
+        path="/alumno/dashboard"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/perfil"
+        element={
+          <PrivateRoute>
+            <AlumnoPerfil />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/aula-virtual"
+        element={
+          <PrivateRoute>
+            <AlumnoAulaVirtual />
+          </PrivateRoute>
+        }
+      />
+      {/* Rutas de Alumno - Placeholders (se implementarán después) */}
+      <Route
+        path="/alumno/cursos"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/calificaciones"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/horario"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/comunicados"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/actividades"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/mensajes"
+        element={
+          <PrivateRoute>
+            <AlumnoDashboard />
           </PrivateRoute>
         }
       />
