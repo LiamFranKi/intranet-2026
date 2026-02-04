@@ -237,8 +237,15 @@
   font-style: italic;
 }
 
-/* Responsive para móviles - Reducir ANCHO y centrar */
-@media (max-width: 768px) {
+/* Responsive para móviles - OCULTAR completamente solo en móviles pequeños */
+@media (max-width: 640px) {
+  .calendario-widget {
+    display: none !important;
+  }
+}
+
+/* Responsive para tablets - Mantener visible pero ajustado */
+@media (min-width: 641px) and (max-width: 768px) {
   .calendario-widget {
     width: 72% !important; /* Reducido de 90% a 72% (20% menos) */
     max-width: 256px !important; /* Reducido de 320px a 256px (20% menos) */
@@ -338,13 +345,8 @@
   }
 }
 
-@media (max-width: 480px) {
-  .calendario-widget {
-    width: 68% !important; /* Reducido de 85% a 68% (20% menos) */
-    max-width: 224px !important; /* Reducido de 280px a 224px (20% menos) */
-    padding: 0.6rem !important;
-    margin-bottom: 0.75rem !important;
-  }
+/* Los estilos para 480px ya no son necesarios porque el calendario está oculto */
+/* Se mantiene solo para referencia, pero no se aplicará porque display: none tiene prioridad */
 
   .calendario-widget .widget-title {
     font-size: 0.8rem !important;
