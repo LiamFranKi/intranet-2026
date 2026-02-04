@@ -6220,8 +6220,9 @@ router.get('/aula-virtual/examenes', async (req, res) => {
           }
           
           // Comparar fecha y hora
-          const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00`);
-          const ahoraDate = new Date(`${fechaActual}T${horaActual}:00`);
+          // IMPORTANTE: Usar zona horaria de Lima para la comparación
+          const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00-05:00`); // UTC-5 (Lima)
+          const ahoraDate = new Date(`${fechaActual}T${horaActual}:00-05:00`); // UTC-5 (Lima)
           
           // Validar que las fechas sean válidas
           if (isNaN(fechaInicioDate.getTime()) || isNaN(ahoraDate.getTime())) {
@@ -6229,8 +6230,13 @@ router.get('/aula-virtual/examenes', async (req, res) => {
             continue;
           }
           
-          // Si la fecha/hora de inicio ya pasó, habilitar el examen
-          if (fechaInicioDate <= ahoraDate) {
+          // IMPORTANTE: Solo habilitar si la fecha/hora de inicio YA PASÓ (no si es igual o futura)
+          // Comparar en milisegundos para mayor precisión
+          const diferenciaMs = ahoraDate.getTime() - fechaInicioDate.getTime();
+          
+          // Solo habilitar si pasaron al menos 1 minuto desde la fecha/hora de inicio
+          // Esto evita habilitar exámenes que aún no han comenzado
+          if (diferenciaMs >= 60000) { // 60000 ms = 1 minuto
             try {
               await execute(
                 `UPDATE asignaturas_examenes SET estado = 'ACTIVO' WHERE id = ?`,

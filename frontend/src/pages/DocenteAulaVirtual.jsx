@@ -2004,33 +2004,29 @@ function DocenteAulaVirtual() {
   // Funciones para manejar exámenes
   const handleEditarExamen = (examen) => {
     // Formatear fechas para inputs de tipo date (YYYY-MM-DD)
+    // Usar el mismo patrón que fecha_nacimiento en Mi Perfil
     const formatearFechaParaInput = (fecha) => {
       if (!fecha) return '';
       try {
-        // Si es una fecha en formato string (YYYY-MM-DD o YYYY-MM-DD HH:MM:SS)
+        // Si es una fecha en formato string
         if (typeof fecha === 'string') {
-          // Extraer solo la parte de la fecha (antes del espacio si existe)
-          const fechaParte = fecha.split(' ')[0].trim();
-          
           // Verificar si es una fecha inválida de MySQL (0000-00-00)
-          if (fechaParte === '0000-00-00' || fechaParte === '0000-00-00 00:00:00' || fechaParte === '') {
+          if (fecha === '0000-00-00' || fecha === '0000-00-00 00:00:00' || fecha.trim() === '') {
             return '';
           }
           
-          // Verificar que tenga el formato correcto YYYY-MM-DD
-          if (fechaParte.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            // Validar que la fecha sea válida (no 0000-00-00)
-            const [año, mes, dia] = fechaParte.split('-').map(Number);
+          // Manejar formato ISO con 'T' o formato con espacio (igual que fecha_nacimiento)
+          if (fecha.includes('T')) {
+            return fecha.split('T')[0];
+          } else if (fecha.includes(' ')) {
+            return fecha.split(' ')[0];
+          } else if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Ya está en formato YYYY-MM-DD, validar que sea válida
+            const [año, mes, dia] = fecha.split('-').map(Number);
             if (año > 0 && mes > 0 && dia > 0 && mes <= 12 && dia <= 31) {
-              return fechaParte;
+              return fecha;
             }
             return '';
-          }
-          
-          // Si viene en otro formato, intentar parsear
-          const fechaObj = new Date(fecha);
-          if (!isNaN(fechaObj.getTime()) && fechaObj.getFullYear() > 1900) {
-            return fechaObj.toISOString().split('T')[0];
           }
         }
         // Si es un objeto Date
@@ -2044,12 +2040,15 @@ function DocenteAulaVirtual() {
       }
     };
 
-    // Determinar si tiene fecha y hora habilitada (si tiene valores distintos a los por defecto)
-    const fechaActual = new Date().toISOString().split('T')[0];
-    const tieneFechaHora = examen.fecha_desde && examen.fecha_desde !== fechaActual && 
-                           examen.fecha_hasta && examen.fecha_hasta !== fechaActual &&
-                           examen.hora_desde && examen.hora_desde !== '00:00:00' &&
-                           examen.hora_hasta && examen.hora_hasta !== '23:59:59';
+    // Determinar si tiene fecha y hora habilitada
+    // Verificar que tenga fechas válidas (no 0000-00-00) y horas válidas (no 00:00:00)
+    const fechaDesdeFormateada = formatearFechaParaInput(examen.fecha_desde);
+    const fechaHastaFormateada = formatearFechaParaInput(examen.fecha_hasta);
+    const tieneFechaHora = fechaDesdeFormateada && fechaDesdeFormateada !== '' &&
+                           fechaHastaFormateada && fechaHastaFormateada !== '' &&
+                           examen.hora_desde && examen.hora_desde !== '00:00:00' && examen.hora_desde.trim() !== '' &&
+                           examen.hora_hasta && examen.hora_hasta !== '00:00:00' && examen.hora_hasta.trim() !== '' &&
+                           examen.hora_desde !== '23:59:59' && examen.hora_hasta !== '23:59:59';
 
     setExamenEditando(examen);
     setFormExamen({
