@@ -594,9 +594,8 @@ router.get('/perfil', async (req, res) => {
       apellido_paterno: alumnoData.apellido_paterno,
       apellido_materno: alumnoData.apellido_materno,
       dni: alumnoData.dni,
-      email: alumnoData.email,
-      telefono_celular: alumnoData.telefono_celular,
-      direccion: alumnoData.direccion,
+      email: alumnoData.email || null,
+      sexo: alumnoData.sexo !== undefined ? alumnoData.sexo : null,
       foto: fotoUrl,
       fecha_nacimiento: alumnoData.fecha_nacimiento
     });
@@ -649,7 +648,7 @@ const uploadAlumno = multer({
 router.put('/perfil', uploadAlumno.single('foto'), async (req, res) => {
   try {
     const { usuario_id, colegio_id } = req.user;
-    const { nombres, apellido_paterno, apellido_materno, email, telefono_celular, direccion, fecha_nacimiento } = req.body;
+    const { nombres, apellido_paterno, apellido_materno, email, sexo, fecha_nacimiento } = req.body;
 
     // Obtener alumno actual
     const alumno = await query(
@@ -681,15 +680,14 @@ router.put('/perfil', uploadAlumno.single('foto'), async (req, res) => {
       fotoPath = req.file.filename;
     }
 
-    // Actualizar datos
+    // Actualizar datos (solo campos que existen en la tabla alumnos)
     await execute(
       `UPDATE alumnos SET
         nombres = ?,
         apellido_paterno = ?,
         apellido_materno = ?,
         email = ?,
-        telefono_celular = ?,
-        direccion = ?,
+        sexo = ?,
         foto = ?,
         fecha_nacimiento = ?
       WHERE id = ?`,
@@ -697,11 +695,10 @@ router.put('/perfil', uploadAlumno.single('foto'), async (req, res) => {
         nombres || alumnoData.nombres,
         apellido_paterno || alumnoData.apellido_paterno,
         apellido_materno || alumnoData.apellido_materno,
-        email || alumnoData.email,
-        telefono_celular || alumnoData.telefono_celular,
-        direccion || alumnoData.direccion,
+        email || alumnoData.email || null,
+        sexo !== undefined ? sexo : (alumnoData.sexo !== undefined ? alumnoData.sexo : null),
         fotoPath,
-        fecha_nacimiento || alumnoData.fecha_nacimiento,
+        fecha_nacimiento || alumnoData.fecha_nacimiento || null,
         alumnoData.id
       ]
     );
