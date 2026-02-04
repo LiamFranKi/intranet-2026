@@ -6169,11 +6169,12 @@ router.get('/aula-virtual/examenes', async (req, res) => {
 
     // Habilitar automáticamente exámenes que llegaron a su fecha/hora de inicio
     // Solo si tienen fecha_desde y hora_desde válidas (no 0000-00-00)
-    const ahora = new Date();
-    const ahoraLima = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Lima' }));
-    const fechaHoraActual = ahoraLima.toISOString().slice(0, 19).replace('T', ' ');
-    const fechaActual = ahoraLima.toISOString().split('T')[0];
-    const horaActual = ahoraLima.toTimeString().slice(0, 5); // HH:MM
+    // Usar moment-timezone para obtener la hora actual en Lima de forma precisa
+    const moment = require('moment-timezone');
+    const ahoraLima = moment.tz('America/Lima');
+    const fechaActual = ahoraLima.format('YYYY-MM-DD');
+    const horaActual = ahoraLima.format('HH:mm');
+    const fechaHoraActual = ahoraLima.format('YYYY-MM-DD HH:mm:ss');
 
     for (const examen of examenes) {
       try {
@@ -6242,14 +6243,13 @@ router.get('/aula-virtual/examenes', async (req, res) => {
             continue; // Saltar este examen
           }
           
-          // Comparar fecha y hora
+          // Comparar fecha y hora usando moment-timezone para precisión
           // IMPORTANTE: Usar zona horaria de Lima para la comparación
-          const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00-05:00`); // UTC-5 (Lima)
-          const fechaFinDate = new Date(`${fechaFin}T${horaFin}:00-05:00`); // UTC-5 (Lima)
-          const ahoraDate = new Date(`${fechaActual}T${horaActual}:00-05:00`); // UTC-5 (Lima)
+          const fechaInicioMoment = moment.tz(`${fechaInicio} ${horaInicio}:00`, 'YYYY-MM-DD HH:mm:ss', 'America/Lima');
+          const fechaFinMoment = moment.tz(`${fechaFin} ${horaFin}:00`, 'YYYY-MM-DD HH:mm:ss', 'America/Lima');
           
           // Validar que las fechas sean válidas
-          if (isNaN(fechaInicioDate.getTime()) || isNaN(fechaFinDate.getTime()) || isNaN(ahoraDate.getTime())) {
+          if (!fechaInicioMoment.isValid() || !fechaFinMoment.isValid()) {
             console.warn(`⚠️ Fecha inválida para examen ${examen.id}: fecha_desde=${fechaDesdeStr}, hora_desde=${horaDesdeStr}, fecha_hasta=${fechaHastaStr}, hora_hasta=${horaHastaStr}`);
             continue;
           }
@@ -6257,8 +6257,19 @@ router.get('/aula-virtual/examenes', async (req, res) => {
           // IMPORTANTE: Solo habilitar si estamos DENTRO del rango de fechas/horas
           // - La fecha/hora de inicio ya pasó (al menos 1 minuto)
           // - La fecha/hora de fin aún no ha llegado
-          const diferenciaInicioMs = ahoraDate.getTime() - fechaInicioDate.getTime();
-          const diferenciaFinMs = fechaFinDate.getTime() - ahoraDate.getTime();
+          const diferenciaInicioMs = ahoraLima.diff(fechaInicioMoment, 'milliseconds');
+          const diferenciaFinMs = fechaFinMoment.diff(ahoraLima, 'milliseconds');
+          
+          // Log para debugging
+          console.log(`🔍 [DEBUG] Examen ${examen.id} "${examen.titulo}":`, {
+            fechaInicio: fechaInicioMoment.format('YYYY-MM-DD HH:mm:ss'),
+            fechaFin: fechaFinMoment.format('YYYY-MM-DD HH:mm:ss'),
+            ahora: ahoraLima.format('YYYY-MM-DD HH:mm:ss'),
+            diferenciaInicioMs: diferenciaInicioMs,
+            diferenciaFinMs: diferenciaFinMs,
+            diferenciaInicioMin: (diferenciaInicioMs / 60000).toFixed(2),
+            diferenciaFinMin: (diferenciaFinMs / 60000).toFixed(2)
+          });
           
           // Solo habilitar si:
           // 1. Pasó al menos 1 minuto desde la fecha/hora de inicio (diferenciaInicioMs >= 60000)
