@@ -240,8 +240,8 @@
 /* Responsive para móviles - Reducir ANCHO y centrar */
 @media (max-width: 768px) {
   .calendario-widget {
-    width: 90% !important;
-    max-width: 320px !important;
+    width: 72% !important; /* Reducido de 90% a 72% (20% menos) */
+    max-width: 256px !important; /* Reducido de 320px a 256px (20% menos) */
     margin: 0 auto 1rem auto !important;
     padding: 0.75rem !important;
     box-sizing: border-box !important;
@@ -340,8 +340,8 @@
 
 @media (max-width: 480px) {
   .calendario-widget {
-    width: 85% !important;
-    max-width: 280px !important;
+    width: 68% !important; /* Reducido de 85% a 68% (20% menos) */
+    max-width: 224px !important; /* Reducido de 280px a 224px (20% menos) */
     padding: 0.6rem !important;
     margin-bottom: 0.75rem !important;
   }
