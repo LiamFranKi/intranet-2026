@@ -6176,35 +6176,76 @@ router.get('/aula-virtual/examenes', async (req, res) => {
     const horaActual = ahoraLima.toTimeString().slice(0, 5); // HH:MM
 
     for (const examen of examenes) {
-      // Solo procesar si el examen está INACTIVO y tiene fecha/hora válidas
-      if (examen.estado === 'INACTIVO' && 
-          examen.fecha_desde && 
-          examen.fecha_desde !== '0000-00-00' && 
-          examen.fecha_desde !== '0000-00-00 00:00:00' &&
-          examen.hora_desde && 
-          examen.hora_desde !== '00:00:00') {
-        
-        // Construir fecha/hora de inicio del examen
-        const fechaInicio = examen.fecha_desde.split(' ')[0]; // Solo la fecha
-        const horaInicio = examen.hora_desde.substring(0, 5); // HH:MM
-        
-        // Comparar fecha y hora
-        const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00`);
-        const ahoraDate = new Date(`${fechaActual}T${horaActual}:00`);
-        
-        // Si la fecha/hora de inicio ya pasó, habilitar el examen
-        if (fechaInicioDate <= ahoraDate) {
-          try {
-            await execute(
-              `UPDATE asignaturas_examenes SET estado = 'ACTIVO' WHERE id = ?`,
-              [examen.id]
-            );
-            console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente`);
-            examen.estado = 'ACTIVO'; // Actualizar en el objeto para la respuesta
-          } catch (error) {
-            console.error(`Error habilitando examen ${examen.id}:`, error);
+      try {
+        // Convertir fecha_desde a string si es necesario (puede venir como Date object desde MySQL)
+        let fechaDesdeStr = '';
+        if (examen.fecha_desde) {
+          if (typeof examen.fecha_desde === 'string') {
+            fechaDesdeStr = examen.fecha_desde;
+          } else if (examen.fecha_desde instanceof Date) {
+            fechaDesdeStr = examen.fecha_desde.toISOString().split('T')[0];
+          } else {
+            // Intentar convertir a string
+            fechaDesdeStr = String(examen.fecha_desde);
           }
         }
+
+        // Convertir hora_desde a string si es necesario
+        let horaDesdeStr = '';
+        if (examen.hora_desde) {
+          if (typeof examen.hora_desde === 'string') {
+            horaDesdeStr = examen.hora_desde;
+          } else {
+            horaDesdeStr = String(examen.hora_desde);
+          }
+        }
+
+        // Solo procesar si el examen está INACTIVO y tiene fecha/hora válidas (no 0000-00-00)
+        if (examen.estado === 'INACTIVO' && 
+            fechaDesdeStr && 
+            fechaDesdeStr !== '0000-00-00' && 
+            fechaDesdeStr !== '0000-00-00 00:00:00' &&
+            fechaDesdeStr.trim() !== '' &&
+            horaDesdeStr && 
+            horaDesdeStr !== '00:00:00' &&
+            horaDesdeStr.trim() !== '') {
+          
+          // Construir fecha/hora de inicio del examen
+          const fechaInicio = fechaDesdeStr.split(' ')[0].trim(); // Solo la fecha
+          const horaInicio = horaDesdeStr.substring(0, 5); // HH:MM
+          
+          // Validar que la fecha sea válida (no 0000-00-00)
+          if (fechaInicio === '0000-00-00' || fechaInicio === '') {
+            continue; // Saltar este examen
+          }
+          
+          // Comparar fecha y hora
+          const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00`);
+          const ahoraDate = new Date(`${fechaActual}T${horaActual}:00`);
+          
+          // Validar que las fechas sean válidas
+          if (isNaN(fechaInicioDate.getTime()) || isNaN(ahoraDate.getTime())) {
+            console.warn(`⚠️ Fecha inválida para examen ${examen.id}: fecha_desde=${fechaDesdeStr}, hora_desde=${horaDesdeStr}`);
+            continue;
+          }
+          
+          // Si la fecha/hora de inicio ya pasó, habilitar el examen
+          if (fechaInicioDate <= ahoraDate) {
+            try {
+              await execute(
+                `UPDATE asignaturas_examenes SET estado = 'ACTIVO' WHERE id = ?`,
+                [examen.id]
+              );
+              console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente`);
+              examen.estado = 'ACTIVO'; // Actualizar en el objeto para la respuesta
+            } catch (error) {
+              console.error(`Error habilitando examen ${examen.id}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error procesando examen ${examen.id} para habilitación automática:`, error);
+        // Continuar con el siguiente examen en lugar de fallar todo
       }
     }
 
