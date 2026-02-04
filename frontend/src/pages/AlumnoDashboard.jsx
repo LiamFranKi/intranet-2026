@@ -296,10 +296,18 @@ function AlumnoDashboard() {
           </div>
 
           <div className="stat-card mundo-card">
-            <div className="stat-icon">❌</div>
+            <div className="stat-icon">🚫</div>
             <div className="stat-content">
               <div className="stat-number">{estadisticas?.totalFaltas || 0}</div>
               <div className="stat-label">Total Faltas</div>
+            </div>
+          </div>
+
+          <div className="stat-card mundo-card">
+            <div className="stat-icon">✉️</div>
+            <div className="stat-content">
+              <div className="stat-number">{estadisticas?.mensajesNoLeidos || 0}</div>
+              <div className="stat-label">Mensajes No Leídos</div>
             </div>
           </div>
         </div>

@@ -102,6 +102,14 @@ router.get('/dashboard', async (req, res) => {
     // Total Faltas (por ahora 0)
     const totalFaltas = [{ total: 0 }];
 
+    // Contar mensajes no leídos
+    const mensajesNoLeidos = await query(
+      `SELECT COUNT(*) as total
+       FROM mensajes m
+       WHERE m.destinatario_id = ? AND m.estado = 'NO_LEIDO' AND m.borrado = 'NO'`,
+      [usuario_id]
+    );
+
     // Obtener asignaturas (cursos) del alumno
     // NOTA: No usar LEFT JOIN areas_curso porque esa tabla no existe en la BD
     const asignaturas = grupoId ? await query(
@@ -211,7 +219,8 @@ router.get('/dashboard', async (req, res) => {
         totalDocentes: totalDocentes[0]?.total || 0,
         totalMatriculas: totalMatriculas[0]?.total || 0,
         totalTardanzas: totalTardanzas[0]?.total || 0,
-        totalFaltas: totalFaltas[0]?.total || 0
+        totalFaltas: totalFaltas[0]?.total || 0,
+        mensajesNoLeidos: mensajesNoLeidos[0]?.total || 0
       },
       asignaturas: asignaturas || [],
       proximosExamenes: proximosExamenes || [],
