@@ -616,181 +616,30 @@
 }
 
 @media (max-width: 768px) {
-  .docente-actividades {
-    /* Deshabilitar animación de fondo en móvil para evitar lag */
-    animation: none !important;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f5f3ff 100%) !important;
-  }
-
   .actividades-header {
-    padding: 1rem;
-    margin-bottom: 1rem;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(10px);
+    padding: 1.5rem;
   }
 
   .actividades-title {
-    font-size: 1.5rem;
-  }
-
-  .actividades-subtitle {
-    font-size: 0.9rem;
-  }
-
-  .actividades-main-container {
-    display: flex !important;
-    flex-direction: column !important; /* Cambiar de column-reverse a column normal */
-    padding: 0 0.75rem 0.75rem;
-    gap: 1rem;
-    /* Evitar problemas de renderizado */
-    will-change: auto;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-  }
-
-  .meses-sidebar {
-    padding: 1rem;
-    border-radius: 12px;
-    position: relative !important; /* Cambiar de sticky a relative en móvil */
-    top: auto !important;
-    order: 1; /* Aparece primero */
-    /* Optimizar renderizado */
-    will-change: auto;
-    transform: translateZ(0);
-  }
-
-  .sidebar-header h3 {
-    font-size: 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .meses-list {
-    display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
-    gap: 0.4rem;
-    /* Evitar recálculos constantes */
-    will-change: auto;
-  }
-
-  .mes-item {
-    padding: 0.5rem 0.4rem;
-    font-size: 0.85rem;
-    /* Deshabilitar transformaciones que causan lag */
-    transform: none !important;
-    transition: background-color 0.2s ease, border-color 0.2s ease !important;
-  }
-
-  .mes-item:hover:not(:disabled) {
-    transform: none !important; /* Deshabilitar transform en hover en móvil */
-  }
-
-  .mes-item.active {
-    transform: none !important; /* Deshabilitar transform en active en móvil */
-  }
-
-  .mes-icon {
-    font-size: 1.2rem;
-  }
-
-  .mes-nombre {
-    font-size: 0.8rem;
-  }
-
-  .mes-count {
-    font-size: 0.75rem;
-    padding: 0.2rem 0.5rem;
-  }
-
-  .actividades-content {
-    padding: 1rem;
-    order: 2; /* Aparece después de los meses */
-    border-radius: 12px;
-    min-height: auto;
-    /* Optimizar scroll */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    will-change: scroll-position;
+    font-size: 2rem;
   }
 
   .day-header {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
   }
 
   .day-info {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.75rem;
-  }
-
-  .day-date {
-    padding: 0.5rem 1rem;
-  }
-
-  .day-number {
-    font-size: 2rem;
-  }
-
-  .day-month {
-    font-size: 0.85rem;
-  }
-
-  .day-year {
-    font-size: 0.75rem;
-  }
-
-  .day-weekday {
-    font-size: 0.95rem;
-  }
-
-  .actividades-del-dia {
-    margin-left: 0;
+    gap: 1rem;
   }
 
   .actividad-card {
-    padding: 1rem;
-    /* Deshabilitar animaciones problemáticas en móvil */
-    animation: none !important;
-    transform: none !important;
-    transition: box-shadow 0.2s ease !important;
-  }
-
-  .actividad-card:hover {
-    transform: none !important; /* Deshabilitar transform en hover en móvil */
+    padding: 1.25rem;
   }
 
   .actividad-titulo {
-    font-size: 1.1rem;
-  }
-
-  .actividad-time,
-  .actividad-lugar,
-  .actividad-detalles,
-  .actividad-rango {
-    font-size: 0.85rem;
-  }
-
-  .timeline-container {
-    gap: 1.5rem;
-    /* Optimizar renderizado */
-    will-change: auto;
-  }
-
-  .marker-dot {
-    /* Deshabilitar animación pulse en móvil */
-    animation: none !important;
-  }
-
-  .day-date.hoy {
-    /* Deshabilitar animación glow en móvil */
-    animation: none !important;
-  }
-
-  .hoy-badge {
-    /* Deshabilitar animación bounce en móvil */
-    animation: none !important;
+    font-size: 1.2rem;
   }
 }
