@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import EventoDetalleModal from '../components/EventoDetalleModal';
 import './DocenteDashboard.css';
 
 function DocenteDashboard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [paginaActual, setPaginaActual] = useState(1);
@@ -289,7 +291,18 @@ function DocenteDashboard() {
       <div className="docente-dashboard">
         {/* Tarjetas de estadísticas */}
         <div className="stats-grid">
-          <div className="stat-card mundo-card">
+          <div 
+            className="stat-card mundo-card stat-card-clickable" 
+            onClick={() => navigate('/docente/grupos')}
+            style={{ cursor: 'pointer' }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigate('/docente/grupos');
+              }
+            }}
+          >
             <div className="stat-icon">🎓</div>
             <div className="stat-content">
               <div className="stat-number">{estadisticas?.gruposAsignados || 0}</div>
@@ -297,7 +310,18 @@ function DocenteDashboard() {
             </div>
           </div>
 
-          <div className="stat-card mundo-card">
+          <div 
+            className="stat-card mundo-card stat-card-clickable" 
+            onClick={() => navigate('/docente/cursos')}
+            style={{ cursor: 'pointer' }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigate('/docente/cursos');
+              }
+            }}
+          >
             <div className="stat-icon">📚</div>
             <div className="stat-content">
               <div className="stat-number">{estadisticas?.cursosAsignados || 0}</div>
@@ -329,7 +353,18 @@ function DocenteDashboard() {
             </div>
           </div>
 
-          <div className="stat-card mundo-card">
+          <div 
+            className="stat-card mundo-card stat-card-clickable" 
+            onClick={() => navigate('/docente/mensajes')}
+            style={{ cursor: 'pointer' }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigate('/docente/mensajes');
+              }
+            }}
+          >
             <div className="stat-icon">✉️</div>
             <div className="stat-content">
               <div className="stat-number">{estadisticas?.mensajesNoLeidos || 0}</div>
