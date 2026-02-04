@@ -1390,219 +1390,6 @@ function DocenteAulaVirtual() {
 
   const renderTareasContent = () => (
     <div className="card-content-expanded">
-      {/* Modal de Formulario de Tarea */}
-      {mostrarFormTarea && createPortal(
-        <div 
-          className="modal-tema-overlay"
-          onClick={() => {
-            setMostrarFormTarea(false);
-            setTareaEditando(null);
-            setFormTarea({ 
-              titulo: '', 
-              descripcion: '', 
-              fecha_entrega: '', 
-              ciclo: bimestreGlobal,
-              archivo: null,
-              archivoNombre: '',
-              enlace: '' 
-            });
-          }}
-        >
-          <div 
-            className="modal-tema-container"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modal-tarea-title"
-          >
-            <div className="modal-tema-header">
-              <h2 id="modal-tarea-title">
-                {tareaEditando ? '✏️ Editar Tarea' : '📝 Registrar Tarea'}
-              </h2>
-              <button
-                className="modal-tema-close"
-                onClick={() => {
-                  setMostrarFormTarea(false);
-                  setTareaEditando(null);
-                  setFormTarea({ 
-                    titulo: '', 
-                    descripcion: '', 
-                    fecha_entrega: '', 
-                    ciclo: bimestreGlobal,
-                    archivo: null,
-                    archivoNombre: '',
-                    enlace: '' 
-                  });
-                }}
-                aria-label="Cerrar"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modal-tema-body">
-              <form onSubmit={handleCrearTarea}>
-                {/* Campo Título */}
-                <div className="form-group">
-                  <label htmlFor="tarea-titulo">
-                    Título *
-                  </label>
-                  <input
-                    type="text"
-                    id="tarea-titulo"
-                    className="form-input"
-                    value={formTarea.titulo}
-                    onChange={(e) => setFormTarea({ ...formTarea, titulo: e.target.value })}
-                    placeholder="Ej: Tarea 1: Investigación sobre..."
-                    required
-                  />
-                </div>
-
-                {/* Campo Descripción */}
-                <div className="form-group">
-                  <label htmlFor="tarea-descripcion">
-                    Descripción
-                  </label>
-                  <textarea
-                    id="tarea-descripcion"
-                    className="form-input"
-                    value={formTarea.descripcion}
-                    onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
-                    rows="5"
-                    placeholder="Descripción detallada de la tarea..."
-                  />
-                </div>
-
-                {/* Campo Fecha de Entrega */}
-                <div className="form-group">
-                  <label htmlFor="tarea-fecha-entrega">
-                    Fecha de Entrega *
-                  </label>
-                  <input
-                    type="date"
-                    id="tarea-fecha-entrega"
-                    className="form-input"
-                    value={formTarea.fecha_entrega}
-                    onChange={(e) => setFormTarea({ ...formTarea, fecha_entrega: e.target.value })}
-                    required
-                  />
-                </div>
-
-                {/* Campo Bimestre */}
-                <div className="form-group">
-                  <label htmlFor="tarea-ciclo">
-                    Bimestre *
-                  </label>
-                  <select
-                    id="tarea-ciclo"
-                    className="form-input"
-                    value={formTarea.ciclo}
-                    onChange={(e) => setFormTarea({ ...formTarea, ciclo: parseInt(e.target.value) })}
-                    required
-                  >
-                    {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
-                      <option key={bim} value={bim}>
-                        Bimestre {bim}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Campo Archivo */}
-                <div className="form-group">
-                  <label htmlFor="tarea-archivo">
-                    Archivos Adjuntos (Opcional)
-                  </label>
-                  <div className="file-input-wrapper">
-                    <input
-                      type="file"
-                      id="tarea-archivo"
-                      className="form-input-file"
-                      accept=".pdf"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setFormTarea({
-                            ...formTarea,
-                            archivo: file,
-                            archivoNombre: file.name
-                          });
-                        }
-                      }}
-                    />
-                    <label htmlFor="tarea-archivo" className="file-input-label">
-                      {formTarea.archivoNombre || (tareaEditando && tareaEditando.archivos && tareaEditando.archivos.length > 0 ? 'Archivo existente' : 'Elegir archivos')}
-                    </label>
-                    {formTarea.archivoNombre && (
-                      <button
-                        type="button"
-                        className="file-clear-btn"
-                        onClick={() => setFormTarea({ ...formTarea, archivo: null, archivoNombre: '' })}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  <small className="form-help-text">
-                    Puedes subir un archivo PDF o proporcionar una URL, o ambos
-                  </small>
-                </div>
-
-                {/* Campo URL */}
-                <div className="form-group">
-                  <label htmlFor="tarea-enlace">
-                    URL (Opcional)
-                  </label>
-                  <textarea
-                    id="tarea-enlace"
-                    className="form-input"
-                    value={formTarea.enlace}
-                    onChange={(e) => setFormTarea({ ...formTarea, enlace: e.target.value })}
-                    rows="2"
-                    placeholder="https://ejemplo.com/tarea"
-                  />
-                  <small className="form-help-text">
-                    Enlace externo a la tarea
-                  </small>
-                </div>
-
-                {/* Botones de Acción */}
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn-cancelar"
-                    onClick={() => {
-                      setMostrarFormTarea(false);
-                      setTareaEditando(null);
-                      setFormTarea({ 
-                        titulo: '', 
-                        descripcion: '', 
-                        fecha_entrega: '', 
-                        ciclo: bimestreGlobal,
-                        archivo: null,
-                        archivoNombre: '',
-                        enlace: '' 
-                      });
-                    }}
-                    disabled={guardandoTarea}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-guardar"
-                    disabled={guardandoTarea}
-                  >
-                    {guardandoTarea ? '⏳ Guardando...' : (tareaEditando ? '💾 Actualizar' : '💾 Guardar Datos')}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* Modal de Detalles de Tarea */}
       {mostrarDetallesTarea && tareaDetalle && createPortal(
         <div 
@@ -3256,6 +3043,219 @@ function DocenteAulaVirtual() {
             {expandedCard === 'enlaces' && renderCardContent('enlaces')}
           </div>
         </div>
+
+        {/* Modal de Formulario de Tarea - Fuera del renderTareasContent para que funcione siempre */}
+        {mostrarFormTarea && createPortal(
+          <div 
+            className="modal-tema-overlay"
+            onClick={() => {
+              setMostrarFormTarea(false);
+              setTareaEditando(null);
+              setFormTarea({ 
+                titulo: '', 
+                descripcion: '', 
+                fecha_entrega: '', 
+                ciclo: bimestreGlobal,
+                archivo: null,
+                archivoNombre: '',
+                enlace: '' 
+              });
+            }}
+          >
+            <div 
+              className="modal-tema-container"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-tarea-title"
+            >
+              <div className="modal-tema-header">
+                <h2 id="modal-tarea-title">
+                  {tareaEditando ? '✏️ Editar Tarea' : '📝 Registrar Tarea'}
+                </h2>
+                <button
+                  className="modal-tema-close"
+                  onClick={() => {
+                    setMostrarFormTarea(false);
+                    setTareaEditando(null);
+                    setFormTarea({ 
+                      titulo: '', 
+                      descripcion: '', 
+                      fecha_entrega: '', 
+                      ciclo: bimestreGlobal,
+                      archivo: null,
+                      archivoNombre: '',
+                      enlace: '' 
+                    });
+                  }}
+                  aria-label="Cerrar"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-tema-body">
+                <form onSubmit={handleCrearTarea}>
+                  {/* Campo Título */}
+                  <div className="form-group">
+                    <label htmlFor="tarea-titulo">
+                      Título *
+                    </label>
+                    <input
+                      type="text"
+                      id="tarea-titulo"
+                      className="form-input"
+                      value={formTarea.titulo}
+                      onChange={(e) => setFormTarea({ ...formTarea, titulo: e.target.value })}
+                      placeholder="Ej: Tarea 1: Investigación sobre..."
+                      required
+                    />
+                  </div>
+
+                  {/* Campo Descripción */}
+                  <div className="form-group">
+                    <label htmlFor="tarea-descripcion">
+                      Descripción
+                    </label>
+                    <textarea
+                      id="tarea-descripcion"
+                      className="form-input"
+                      value={formTarea.descripcion}
+                      onChange={(e) => setFormTarea({ ...formTarea, descripcion: e.target.value })}
+                      rows="5"
+                      placeholder="Descripción detallada de la tarea..."
+                    />
+                  </div>
+
+                  {/* Campo Fecha de Entrega */}
+                  <div className="form-group">
+                    <label htmlFor="tarea-fecha-entrega">
+                      Fecha de Entrega *
+                    </label>
+                    <input
+                      type="date"
+                      id="tarea-fecha-entrega"
+                      className="form-input"
+                      value={formTarea.fecha_entrega}
+                      onChange={(e) => setFormTarea({ ...formTarea, fecha_entrega: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  {/* Campo Bimestre */}
+                  <div className="form-group">
+                    <label htmlFor="tarea-ciclo">
+                      Bimestre *
+                    </label>
+                    <select
+                      id="tarea-ciclo"
+                      className="form-input"
+                      value={formTarea.ciclo}
+                      onChange={(e) => setFormTarea({ ...formTarea, ciclo: parseInt(e.target.value) })}
+                      required
+                    >
+                      {Array.from({ length: totalNotas }, (_, i) => i + 1).map((bim) => (
+                        <option key={bim} value={bim}>
+                          Bimestre {bim}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Campo Archivo */}
+                  <div className="form-group">
+                    <label htmlFor="tarea-archivo">
+                      Archivos Adjuntos (Opcional)
+                    </label>
+                    <div className="file-input-wrapper">
+                      <input
+                        type="file"
+                        id="tarea-archivo"
+                        className="form-input-file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setFormTarea({
+                              ...formTarea,
+                              archivo: file,
+                              archivoNombre: file.name
+                            });
+                          }
+                        }}
+                      />
+                      <label htmlFor="tarea-archivo" className="file-input-label">
+                        {formTarea.archivoNombre || (tareaEditando && tareaEditando.archivos && tareaEditando.archivos.length > 0 ? 'Archivo existente' : 'Elegir archivos')}
+                      </label>
+                      {formTarea.archivoNombre && (
+                        <button
+                          type="button"
+                          className="file-clear-btn"
+                          onClick={() => setFormTarea({ ...formTarea, archivo: null, archivoNombre: '' })}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <small className="form-help-text">
+                      Puedes subir un archivo PDF o proporcionar una URL, o ambos
+                    </small>
+                  </div>
+
+                  {/* Campo URL */}
+                  <div className="form-group">
+                    <label htmlFor="tarea-enlace">
+                      URL (Opcional)
+                    </label>
+                    <textarea
+                      id="tarea-enlace"
+                      className="form-input"
+                      value={formTarea.enlace}
+                      onChange={(e) => setFormTarea({ ...formTarea, enlace: e.target.value })}
+                      rows="2"
+                      placeholder="https://ejemplo.com/tarea"
+                    />
+                    <small className="form-help-text">
+                      Enlace externo a la tarea
+                    </small>
+                  </div>
+
+                  {/* Botones de Acción */}
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn-cancelar"
+                      onClick={() => {
+                        setMostrarFormTarea(false);
+                        setTareaEditando(null);
+                        setFormTarea({ 
+                          titulo: '', 
+                          descripcion: '', 
+                          fecha_entrega: '', 
+                          ciclo: bimestreGlobal,
+                          archivo: null,
+                          archivoNombre: '',
+                          enlace: '' 
+                        });
+                      }}
+                      disabled={guardandoTarea}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-guardar"
+                      disabled={guardandoTarea}
+                    >
+                      {guardandoTarea ? '⏳ Guardando...' : (tareaEditando ? '💾 Actualizar' : '💾 Guardar Datos')}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
         {/* Modal de Formulario de Tema */}
         {mostrarFormTema && createPortal(
