@@ -893,13 +893,57 @@
     padding: 1rem;
   }
 
+  .mensajes-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mensajes-content {
+    min-width: 0;
+    overflow-x: visible;
+    padding: 1rem !important;
+  }
+
   .mensaje-row {
     grid-template-columns: 30px 30px 1fr 80px;
     gap: 0.5rem;
     padding: 0.75rem;
+    min-width: 600px; /* Ancho mínimo para evitar compresión excesiva */
+  }
+
+  .mensaje-row-header {
+    grid-template-columns: 30px 1fr auto !important;
+    min-width: 600px;
+  }
+
+  .mensajes-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .mensaje-fecha {
     font-size: 0.75rem;
+  }
+
+  .lista-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .lista-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filtro-anio {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .select-anio {
+    flex: 1;
+    min-width: 150px;
   }
 }
