@@ -129,6 +129,9 @@ router.get('/dashboard', async (req, res) => {
     ) : [];
 
     // Próximos exámenes (del grupo del alumno)
+    // IMPORTANTE: Incluir exámenes ACTIVOS e INACTIVOS con fecha >= hoy
+    // Los exámenes INACTIVOS con fecha/hora se activarán automáticamente cuando llegue la hora
+    // Similar a cómo funciona en el dashboard del docente (no filtra solo por ACTIVO)
     const proximosExamenes = grupoId ? await query(
       `SELECT ae.*,
               c.nombre as curso_nombre,
@@ -143,8 +146,7 @@ router.get('/dashboard', async (req, res) => {
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
        WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND ae.estado = 'ACTIVO'
-       AND (ae.fecha_desde IS NULL OR DATE(ae.fecha_desde) >= CURDATE())
+       AND DATE(ae.fecha_desde) >= CURDATE()
        ORDER BY COALESCE(ae.fecha_desde, '9999-12-31') ASC
        LIMIT 10`,
       [grupoId, colegio_id, anio_activo]
