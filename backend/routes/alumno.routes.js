@@ -732,9 +732,8 @@ router.put('/perfil', uploadAlumno.single('foto'), async (req, res) => {
       apellido_paterno: alumnoDataActualizado.apellido_paterno,
       apellido_materno: alumnoDataActualizado.apellido_materno,
       dni: alumnoDataActualizado.dni,
-      email: alumnoDataActualizado.email,
-      telefono_celular: alumnoDataActualizado.telefono_celular,
-      direccion: alumnoDataActualizado.direccion,
+      email: alumnoDataActualizado.email || null,
+      sexo: alumnoDataActualizado.sexo !== undefined ? alumnoDataActualizado.sexo : null,
       foto: fotoUrl,
       fecha_nacimiento: alumnoDataActualizado.fecha_nacimiento
     });
