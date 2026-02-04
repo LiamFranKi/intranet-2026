@@ -15,41 +15,59 @@ router.use(requireUserType('ALUMNO'));
 router.get('/dashboard', async (req, res) => {
   try {
     const { usuario_id, colegio_id, anio_activo } = req.user;
+    
+    console.log('📊 [ALUMNO DASHBOARD] Iniciando carga para usuario:', usuario_id, 'colegio:', colegio_id, 'año:', anio_activo);
 
     // Obtener datos del alumno
-    const alumno = await query(
-      `SELECT a.*, u.tipo as tipo_usuario
-       FROM alumnos a
-       INNER JOIN usuarios u ON u.alumno_id = a.id
-       WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
-      [usuario_id, colegio_id]
-    );
+    let alumno = [];
+    try {
+      alumno = await query(
+        `SELECT a.*, u.tipo as tipo_usuario
+         FROM alumnos a
+         INNER JOIN usuarios u ON u.alumno_id = a.id
+         WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
+        [usuario_id, colegio_id]
+      );
+    } catch (error) {
+      console.error('❌ [ALUMNO DASHBOARD] Error obteniendo datos del alumno:', error);
+      return res.status(500).json({ error: 'Error al obtener datos del alumno', details: error.message });
+    }
 
     if (alumno.length === 0) {
+      console.warn('⚠️ [ALUMNO DASHBOARD] Alumno no encontrado para usuario:', usuario_id);
       return res.status(404).json({ error: 'Alumno no encontrado' });
     }
 
     const alumnoData = alumno[0];
+    console.log('✅ [ALUMNO DASHBOARD] Alumno encontrado:', alumnoData.id);
 
     // Obtener matrícula actual del alumno
-    const matricula = await query(
-      `SELECT m.*, 
-              g.grado, 
-              g.seccion,
-              n.nombre as nivel_nombre,
-              t.nombre as turno_nombre
-       FROM matriculas m
-       INNER JOIN grupos g ON g.id = m.grupo_id
-       INNER JOIN niveles n ON n.id = g.nivel_id
-       INNER JOIN turnos t ON t.id = g.turno_id
-       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ? 
-       AND (m.estado = 0 OR m.estado = 4)
-       LIMIT 1`,
-      [alumnoData.id, colegio_id, anio_activo]
-    );
+    let matricula = [];
+    try {
+      matricula = await query(
+        `SELECT m.*, 
+                g.grado, 
+                g.seccion,
+                n.nombre as nivel_nombre,
+                t.nombre as turno_nombre
+         FROM matriculas m
+         INNER JOIN grupos g ON g.id = m.grupo_id
+         INNER JOIN niveles n ON n.id = g.nivel_id
+         INNER JOIN turnos t ON t.id = g.turno_id
+         WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ? 
+         AND (m.estado = 0 OR m.estado = 4)
+         LIMIT 1`,
+        [alumnoData.id, colegio_id, anio_activo]
+      );
+    } catch (error) {
+      console.error('❌ [ALUMNO DASHBOARD] Error obteniendo matrícula:', error);
+      // Continuar sin matrícula si hay error
+      matricula = [];
+    }
 
     const matriculaData = matricula.length > 0 ? matricula[0] : null;
     const grupoId = matriculaData ? matriculaData.grupo_id : null;
+    console.log('✅ [ALUMNO DASHBOARD] Matrícula:', matriculaData ? `Grupo ${grupoId}` : 'Sin matrícula');
 
     // Contar cursos asignados (asignaturas del grupo del alumno)
     const cursosAsignados = grupoId ? await query(
@@ -179,7 +197,7 @@ router.get('/dashboard', async (req, res) => {
       }
     }
 
-    res.json({
+    const responseData = {
       alumno: {
         id: alumnoData.id,
         nombres: alumnoData.nombres || 'Alumno',
@@ -205,10 +223,24 @@ router.get('/dashboard', async (req, res) => {
       proximosExamenes: proximosExamenes || [],
       proximasTareas: proximasTareas || [],
       proximasActividades: actividades || []
+    };
+    
+    console.log('✅ [ALUMNO DASHBOARD] Datos cargados exitosamente:', {
+      estadisticas: responseData.estadisticas,
+      asignaturas: responseData.asignaturas.length,
+      examenes: responseData.proximosExamenes.length,
+      tareas: responseData.proximasTareas.length,
+      actividades: responseData.proximasActividades.length
     });
+    
+    res.json(responseData);
   } catch (error) {
-    console.error('Error en dashboard alumno:', error);
-    res.status(500).json({ error: 'Error al obtener datos del dashboard' });
+    console.error('❌ [ALUMNO DASHBOARD] Error general:', error);
+    console.error('❌ [ALUMNO DASHBOARD] Stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Error al obtener datos del dashboard',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
