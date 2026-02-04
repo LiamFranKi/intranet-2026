@@ -6210,48 +6210,87 @@ router.get('/aula-virtual/examenes', async (req, res) => {
             horaDesdeStr !== '00:00:00' &&
             horaDesdeStr.trim() !== '') {
           
-          // Construir fecha/hora de inicio del examen
+          // Construir fecha/hora de inicio y fin del examen
           const fechaInicio = fechaDesdeStr.split(' ')[0].trim(); // Solo la fecha
           const horaInicio = horaDesdeStr.substring(0, 5); // HH:MM
           
-          // Validar que la fecha sea válida (no 0000-00-00)
-          if (fechaInicio === '0000-00-00' || fechaInicio === '') {
+          // Obtener fecha/hora de fin
+          let fechaHastaStr = '';
+          let horaHastaStr = '';
+          if (examen.fecha_hasta) {
+            if (typeof examen.fecha_hasta === 'string') {
+              fechaHastaStr = examen.fecha_hasta;
+            } else if (examen.fecha_hasta instanceof Date) {
+              fechaHastaStr = examen.fecha_hasta.toISOString().split('T')[0];
+            } else {
+              fechaHastaStr = String(examen.fecha_hasta);
+            }
+          }
+          if (examen.hora_hasta) {
+            if (typeof examen.hora_hasta === 'string') {
+              horaHastaStr = examen.hora_hasta;
+            } else {
+              horaHastaStr = String(examen.hora_hasta);
+            }
+          }
+          
+          const fechaFin = fechaHastaStr.split(' ')[0].trim();
+          const horaFin = horaHastaStr.substring(0, 5);
+          
+          // Validar que las fechas sean válidas (no 0000-00-00)
+          if (fechaInicio === '0000-00-00' || fechaInicio === '' || fechaFin === '0000-00-00' || fechaFin === '') {
             continue; // Saltar este examen
           }
           
           // Comparar fecha y hora
           // IMPORTANTE: Usar zona horaria de Lima para la comparación
           const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00-05:00`); // UTC-5 (Lima)
+          const fechaFinDate = new Date(`${fechaFin}T${horaFin}:00-05:00`); // UTC-5 (Lima)
           const ahoraDate = new Date(`${fechaActual}T${horaActual}:00-05:00`); // UTC-5 (Lima)
           
           // Validar que las fechas sean válidas
-          if (isNaN(fechaInicioDate.getTime()) || isNaN(ahoraDate.getTime())) {
-            console.warn(`⚠️ Fecha inválida para examen ${examen.id}: fecha_desde=${fechaDesdeStr}, hora_desde=${horaDesdeStr}`);
+          if (isNaN(fechaInicioDate.getTime()) || isNaN(fechaFinDate.getTime()) || isNaN(ahoraDate.getTime())) {
+            console.warn(`⚠️ Fecha inválida para examen ${examen.id}: fecha_desde=${fechaDesdeStr}, hora_desde=${horaDesdeStr}, fecha_hasta=${fechaHastaStr}, hora_hasta=${horaHastaStr}`);
             continue;
           }
           
-          // IMPORTANTE: Solo habilitar si la fecha/hora de inicio YA PASÓ completamente
-          // Comparar en milisegundos para mayor precisión
-          const diferenciaMs = ahoraDate.getTime() - fechaInicioDate.getTime();
+          // IMPORTANTE: Solo habilitar si estamos DENTRO del rango de fechas/horas
+          // - La fecha/hora de inicio ya pasó (al menos 1 minuto)
+          // - La fecha/hora de fin aún no ha llegado
+          const diferenciaInicioMs = ahoraDate.getTime() - fechaInicioDate.getTime();
+          const diferenciaFinMs = fechaFinDate.getTime() - ahoraDate.getTime();
           
-          // Solo habilitar si pasaron al menos 1 minuto desde la fecha/hora de inicio
-          // Esto evita habilitar exámenes que aún no han comenzado
-          // IMPORTANTE: No habilitar si la fecha/hora es futura (diferenciaMs negativo)
-          if (diferenciaMs >= 60000) { // 60000 ms = 1 minuto (y debe ser positivo, es decir, ya pasó)
+          // Solo habilitar si:
+          // 1. Pasó al menos 1 minuto desde la fecha/hora de inicio (diferenciaInicioMs >= 60000)
+          // 2. Aún no ha llegado la fecha/hora de fin (diferenciaFinMs > 0)
+          if (diferenciaInicioMs >= 60000 && diferenciaFinMs > 0) {
             try {
               await execute(
                 `UPDATE asignaturas_examenes SET estado = 'ACTIVO' WHERE id = ?`,
                 [examen.id]
               );
-              console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente (fecha/hora inicio: ${fechaInicio} ${horaInicio}, ahora: ${fechaActual} ${horaActual})`);
+              console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente (dentro del rango: ${fechaInicio} ${horaInicio} - ${fechaFin} ${horaFin}, ahora: ${fechaActual} ${horaActual})`);
               examen.estado = 'ACTIVO'; // Actualizar en el objeto para la respuesta
             } catch (error) {
               console.error(`Error habilitando examen ${examen.id}:`, error);
             }
-          } else if (diferenciaMs < 0) {
-            // La fecha/hora de inicio es futura, asegurar que esté INACTIVO si el usuario lo configuró así
-            // No hacer nada, respetar el estado actual del examen
-            console.log(`⏳ Examen "${examen.titulo}" (ID: ${examen.id}) aún no inicia. Faltan ${Math.abs(diferenciaMs / 60000).toFixed(1)} minutos`);
+          } else if (diferenciaInicioMs < 0) {
+            // La fecha/hora de inicio es futura
+            console.log(`⏳ Examen "${examen.titulo}" (ID: ${examen.id}) aún no inicia. Faltan ${Math.abs(diferenciaInicioMs / 60000).toFixed(1)} minutos`);
+          } else if (diferenciaFinMs <= 0) {
+            // La fecha/hora de fin ya pasó, desactivar el examen
+            if (examen.estado === 'ACTIVO') {
+              try {
+                await execute(
+                  `UPDATE asignaturas_examenes SET estado = 'INACTIVO' WHERE id = ?`,
+                  [examen.id]
+                );
+                console.log(`⏰ Examen "${examen.titulo}" (ID: ${examen.id}) desactivado automáticamente (fecha/hora fin ya pasó: ${fechaFin} ${horaFin})`);
+                examen.estado = 'INACTIVO'; // Actualizar en el objeto para la respuesta
+              } catch (error) {
+                console.error(`Error desactivando examen ${examen.id}:`, error);
+              }
+            }
           }
         }
       } catch (error) {
