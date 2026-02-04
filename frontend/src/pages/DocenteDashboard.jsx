@@ -330,10 +330,10 @@ function DocenteDashboard() {
           </div>
 
           <div className="stat-card mundo-card">
-            <div className="stat-icon">📅</div>
+            <div className="stat-icon">✉️</div>
             <div className="stat-content">
-              <div className="stat-number">{estadisticas?.eventosMesActual || 0}</div>
-              <div className="stat-label">Eventos de {mesActual}</div>
+              <div className="stat-number">{estadisticas?.mensajesNoLeidos || 0}</div>
+              <div className="stat-label">Mensajes No Leídos</div>
             </div>
           </div>
         </div>
