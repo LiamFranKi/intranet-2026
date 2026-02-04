@@ -90,8 +90,26 @@ function AlumnoPerfil() {
         fecha_nacimiento: formatearFechaParaInput(data.fecha_nacimiento)
       });
       
-      if (data.foto) {
-        setFotoPreview(data.foto);
+      // Cargar foto si existe (igual que docente)
+      if (data.foto && data.foto !== '') {
+        let fotoUrl;
+        if (data.foto.startsWith('http')) {
+          // Ya es una URL completa
+          fotoUrl = data.foto;
+        } else if (data.foto.startsWith('/Static/')) {
+          // Es una ruta completa del sistema anterior
+          fotoUrl = `https://nuevo.vanguardschools.edu.pe${data.foto}`;
+        } else if (data.foto.startsWith('/uploads/')) {
+          // Es una ruta de uploads (compatibilidad con archivos antiguos)
+          const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+          const currentHost = window.location.hostname;
+          fotoUrl = `${currentProtocol}//${currentHost}${data.foto}`;
+        } else {
+          // Es solo el nombre del archivo (formato del sistema PHP, igual que publicaciones)
+          fotoUrl = `https://nuevo.vanguardschools.edu.pe/Static/Image/Fotos/${data.foto}`;
+        }
+        setFotoPreview(fotoUrl);
+        console.log('📸 Foto de perfil cargada:', fotoUrl);
       }
     } catch (error) {
       console.error('Error cargando perfil:', error);
@@ -109,6 +127,14 @@ function AlumnoPerfil() {
     }
   };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -124,17 +150,61 @@ function AlumnoPerfil() {
         });
         return;
       }
+      
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Tipo de archivo inválido',
+          text: 'Por favor selecciona una imagen',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+      
       setFotoFile(file);
-      setFotoPreview(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onerror = () => {
+        console.error('Error leyendo archivo');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo leer el archivo',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      };
+      reader.onloadend = () => {
+        if (reader.result) {
+          setFotoPreview(reader.result);
+          console.log('✅ Previsualización de foto actualizada');
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Si no se seleccionó archivo, limpiar
+      setFotoFile(null);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
-
+    
     try {
+      setSaving(true);
+      
+      // Si hay una foto nueva, mostrar indicador de subida
+      if (fotoFile) {
+        setUploadingPhoto(true);
+      }
+      
       const formDataToSend = new FormData();
+      
       formDataToSend.append('nombres', formData.nombres);
       formDataToSend.append('apellido_paterno', formData.apellido_paterno);
       formDataToSend.append('apellido_materno', formData.apellido_materno);
@@ -153,29 +223,71 @@ function AlumnoPerfil() {
         }
       });
 
-      // Actualizar usuario en contexto
-      if (response.data && user) {
-        setUser({
-          ...user,
-          nombres: response.data.nombres || formData.nombres,
-          apellidos: `${formData.apellido_paterno} ${formData.apellido_materno}`.trim(),
-          foto: response.data.foto || fotoPreview
-        });
+      // Ocultar indicador de subida después de un breve delay
+      if (fotoFile) {
+        setTimeout(() => {
+          setUploadingPhoto(false);
+        }, 2000);
       }
 
       Swal.fire({
         icon: 'success',
-        title: 'Perfil actualizado',
-        text: 'Tus datos se han guardado correctamente',
+        title: '¡Perfil actualizado!',
+        text: fotoFile ? 'Tu perfil se ha actualizado. La foto se está subiendo en segundo plano...' : 'Tu perfil se ha actualizado correctamente',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
-        timer: 2000
+        timer: 3000,
+        timerProgressBar: true
       });
 
+      // Recargar perfil completo desde el servidor
       await cargarPerfil();
+      
+      // Actualizar usuario en AuthContext para que se refleje en el navbar
+      if (response.data) {
+        const perfilActualizado = response.data;
+        
+        if (user && perfilActualizado) {
+          // Construir URL completa de la foto para el contexto
+          let fotoUrlForContext = null;
+          if (perfilActualizado.foto) {
+            if (perfilActualizado.foto.startsWith('http')) {
+              fotoUrlForContext = perfilActualizado.foto;
+            } else if (perfilActualizado.foto.startsWith('/Static/')) {
+              fotoUrlForContext = `https://nuevo.vanguardschools.edu.pe${perfilActualizado.foto}`;
+            } else if (perfilActualizado.foto.startsWith('/uploads/')) {
+              const currentProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+              const currentHost = window.location.hostname;
+              fotoUrlForContext = `${currentProtocol}//${currentHost}${perfilActualizado.foto}`;
+            } else {
+              fotoUrlForContext = `https://nuevo.vanguardschools.edu.pe/Static/Image/Fotos/${perfilActualizado.foto}`;
+            }
+          }
+          
+          const nombreCompleto = `${perfilActualizado.nombres || ''} ${perfilActualizado.apellido_paterno || ''} ${perfilActualizado.apellido_materno || ''}`.trim();
+          
+          const updatedUser = {
+            ...user,
+            foto: fotoUrlForContext || user.foto,
+            nombres: perfilActualizado.nombres || user.nombres,
+            apellido_paterno: perfilActualizado.apellido_paterno || user.apellido_paterno,
+            apellido_materno: perfilActualizado.apellido_materno || user.apellido_materno,
+            email: perfilActualizado.email || user.email,
+            telefono_celular: perfilActualizado.telefono_celular || user.telefono_celular,
+            direccion: perfilActualizado.direccion || user.direccion
+          };
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          console.log('✅ Usuario actualizado en contexto y localStorage');
+        }
+      }
+      
+      // Limpiar fotoFile después de guardar
+      setFotoFile(null);
     } catch (error) {
       console.error('Error actualizando perfil:', error);
+      setUploadingPhoto(false);
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -190,7 +302,15 @@ function AlumnoPerfil() {
     }
   };
 
-  const handlePasswordChange = async (e) => {
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     
     if (passwordData.password_nueva !== passwordData.password_confirmar) {
@@ -208,8 +328,8 @@ function AlumnoPerfil() {
 
     if (passwordData.password_nueva.length < 6) {
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
+        icon: 'warning',
+        title: 'Contraseña muy corta',
         text: 'La contraseña debe tener al menos 6 caracteres',
         toast: true,
         position: 'top-end',
@@ -219,9 +339,8 @@ function AlumnoPerfil() {
       return;
     }
 
-    setChangingPassword(true);
-
     try {
+      setChangingPassword(true);
       await api.put('/alumno/perfil/password', {
         password_actual: passwordData.password_actual,
         password_nueva: passwordData.password_nueva
@@ -229,20 +348,22 @@ function AlumnoPerfil() {
 
       Swal.fire({
         icon: 'success',
-        title: 'Contraseña actualizada',
+        title: '¡Contraseña actualizada!',
         text: 'Tu contraseña se ha cambiado correctamente',
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
-        timer: 2000
+        timer: 3000,
+        timerProgressBar: true
       });
 
-      setShowPasswordChange(false);
+      // Limpiar formulario
       setPasswordData({
         password_actual: '',
         password_nueva: '',
         password_confirmar: ''
       });
+      setShowPasswordChange(false);
     } catch (error) {
       console.error('Error cambiando contraseña:', error);
       Swal.fire({
@@ -269,84 +390,87 @@ function AlumnoPerfil() {
     );
   }
 
-  if (!perfil) {
-    return (
-      <DashboardLayout>
-        <div className="alumno-perfil-error">
-          <p>Error al cargar el perfil</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   const nombreCompleto = `${formData.nombres} ${formData.apellido_paterno} ${formData.apellido_materno}`.trim();
 
   return (
     <DashboardLayout>
       <div className="alumno-perfil">
-        <div className="perfil-header">
+        <div className="page-header">
           <h1>Mi Perfil</h1>
-          <p>Gestiona tu información personal</p>
+          <p>Gestiona tu información personal y foto de perfil</p>
         </div>
 
-        <div className="perfil-content">
-          {/* Foto de perfil */}
-          <div className="perfil-foto-section">
-            <div className="foto-container">
-              {fotoPreview ? (
-                <img 
-                  src={fotoPreview} 
-                  alt={nombreCompleto}
-                  className="foto-preview"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    const placeholder = e.target.nextElementSibling;
-                    if (placeholder) placeholder.style.display = 'flex';
-                  }}
-                />
-              ) : null}
-              <div 
-                className="foto-placeholder"
-                style={{ display: fotoPreview ? 'none' : 'flex' }}
-              >
-                {getInitials(nombreCompleto)}
+        <form className="perfil-form" onSubmit={handleSubmit}>
+          {/* Sección de Foto */}
+          <div className="perfil-section mundo-card">
+            <h2 className="section-title">Foto de Perfil</h2>
+            <div className="foto-upload-container">
+              <div className="foto-preview-wrapper">
+                <div className="foto-preview">
+                  {fotoPreview ? (
+                    <img 
+                      src={fotoPreview} 
+                      alt="Foto de perfil"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        const placeholder = e.target.parentElement.querySelector('.foto-placeholder');
+                        if (placeholder) placeholder.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="foto-placeholder" style={{ display: fotoPreview ? 'none' : 'flex' }}>
+                    {getInitials(nombreCompleto || 'Alumno')}
+                  </div>
+                </div>
+                {uploadingPhoto && (
+                  <div className="photo-upload-overlay">
+                    <div className="upload-spinner">
+                      <div className="spinner-ring"></div>
+                      <div className="spinner-ring"></div>
+                      <div className="spinner-ring"></div>
+                    </div>
+                    <p className="upload-text">Subiendo foto...</p>
+                  </div>
+                )}
               </div>
+              <label className="foto-upload-btn" style={{ opacity: uploadingPhoto ? 0.6 : 1, pointerEvents: uploadingPhoto ? 'none' : 'auto' }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFotoChange}
+                  style={{ display: 'none' }}
+                  disabled={uploadingPhoto}
+                />
+                📷 Cambiar Foto
+              </label>
+              <p className="foto-hint">Formatos: JPG, PNG, GIF, WEBP (máx. 5MB)</p>
             </div>
-            <label htmlFor="foto-input" className="btn-cambiar-foto">
-              <input
-                type="file"
-                id="foto-input"
-                accept="image/*"
-                onChange={handleFotoChange}
-                style={{ display: 'none' }}
-              />
-              📷 Cambiar Foto
-            </label>
           </div>
 
-          {/* Formulario de datos */}
-          <form className="perfil-form" onSubmit={handleSubmit}>
-            <div className="form-row">
+          {/* Información Personal */}
+          <div className="perfil-section mundo-card">
+            <h2 className="section-title">Información Personal</h2>
+            <div className="form-grid">
               <div className="form-group">
-                <label htmlFor="nombres">Nombres</label>
+                <label htmlFor="nombres">Nombres *</label>
                 <input
                   type="text"
                   id="nombres"
+                  name="nombres"
                   value={formData.nombres}
-                  onChange={(e) => setFormData({ ...formData, nombres: e.target.value })}
+                  onChange={handleInputChange}
                   required
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="apellido_paterno">Apellido Paterno</label>
+                <label htmlFor="apellido_paterno">Apellido Paterno *</label>
                 <input
                   type="text"
                   id="apellido_paterno"
+                  name="apellido_paterno"
                   value={formData.apellido_paterno}
-                  onChange={(e) => setFormData({ ...formData, apellido_paterno: e.target.value })}
+                  onChange={handleInputChange}
                   required
                 />
               </div>
@@ -356,20 +480,21 @@ function AlumnoPerfil() {
                 <input
                   type="text"
                   id="apellido_materno"
+                  name="apellido_materno"
                   value={formData.apellido_materno}
-                  onChange={(e) => setFormData({ ...formData, apellido_materno: e.target.value })}
+                  onChange={handleInputChange}
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="email">Email</label>
+                <label htmlFor="email">Email *</label>
                 <input
                   type="email"
                   id="email"
+                  name="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={handleInputChange}
+                  required
                 />
               </div>
 
@@ -378,20 +503,9 @@ function AlumnoPerfil() {
                 <input
                   type="tel"
                   id="telefono_celular"
+                  name="telefono_celular"
                   value={formData.telefono_celular}
-                  onChange={(e) => setFormData({ ...formData, telefono_celular: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="direccion">Dirección</label>
-                <input
-                  type="text"
-                  id="direccion"
-                  value={formData.direccion}
-                  onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                  onChange={handleInputChange}
                 />
               </div>
 
@@ -400,77 +514,126 @@ function AlumnoPerfil() {
                 <input
                   type="date"
                   id="fecha_nacimiento"
+                  name="fecha_nacimiento"
                   value={formData.fecha_nacimiento}
-                  onChange={(e) => setFormData({ ...formData, fecha_nacimiento: e.target.value })}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              <div className="form-group full-width">
+                <label htmlFor="direccion">Dirección</label>
+                <input
+                  type="text"
+                  id="direccion"
+                  name="direccion"
+                  value={formData.direccion}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn-primary" disabled={saving}>
-                {saving ? 'Guardando...' : 'Guardar Cambios'}
-              </button>
-            </div>
-          </form>
-
-          {/* Cambiar contraseña */}
-          <div className="password-section">
-            <div className="password-header">
-              <h2>Cambiar Contraseña</h2>
-              <button
-                type="button"
-                className="btn-toggle"
-                onClick={() => setShowPasswordChange(!showPasswordChange)}
-              >
-                {showPasswordChange ? 'Ocultar' : 'Mostrar'}
-              </button>
-            </div>
-
-            {showPasswordChange && (
-              <form className="password-form" onSubmit={handlePasswordChange}>
-                <div className="form-group">
-                  <label htmlFor="password_actual">Contraseña Actual</label>
-                  <input
-                    type="password"
-                    id="password_actual"
-                    value={passwordData.password_actual}
-                    onChange={(e) => setPasswordData({ ...passwordData, password_actual: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="password_nueva">Nueva Contraseña</label>
-                  <input
-                    type="password"
-                    id="password_nueva"
-                    value={passwordData.password_nueva}
-                    onChange={(e) => setPasswordData({ ...passwordData, password_nueva: e.target.value })}
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="password_confirmar">Confirmar Nueva Contraseña</label>
-                  <input
-                    type="password"
-                    id="password_confirmar"
-                    value={passwordData.password_confirmar}
-                    onChange={(e) => setPasswordData({ ...passwordData, password_confirmar: e.target.value })}
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <div className="form-actions">
-                  <button type="submit" className="btn-primary" disabled={changingPassword}>
-                    {changingPassword ? 'Cambiando...' : 'Cambiar Contraseña'}
-                  </button>
-                </div>
-              </form>
-            )}
           </div>
+
+          {/* Información de Solo Lectura */}
+          {perfil && (
+            <div className="perfil-section mundo-card">
+              <h2 className="section-title">Información del Sistema</h2>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">DNI:</span>
+                  <span className="info-value">{perfil.dni || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Botones */}
+          <div className="form-actions">
+            <button type="button" className="btn-cancel" onClick={() => navigate('/alumno/dashboard')}>
+              <span className="btn-icon">❌</span>
+              Cancelar
+            </button>
+            <button type="submit" className="btn-save" disabled={saving}>
+              <span className="btn-icon">💾</span>
+              {saving ? 'Guardando...' : 'Guardar Cambios'}
+            </button>
+          </div>
+        </form>
+
+        {/* Cambio de Contraseña - Fuera del formulario principal */}
+        <div className="perfil-section mundo-card">
+          <h2 className="section-title">Cambiar Contraseña</h2>
+          {!showPasswordChange ? (
+            <button 
+              type="button" 
+              className="btn-change-password"
+              onClick={() => setShowPasswordChange(true)}
+            >
+              🔒 Cambiar Contraseña
+            </button>
+          ) : (
+            <form onSubmit={handlePasswordSubmit} className="password-form">
+              <div className="form-group">
+                <label htmlFor="password_actual">Contraseña Actual *</label>
+                <input
+                  type="password"
+                  id="password_actual"
+                  name="password_actual"
+                  value={passwordData.password_actual}
+                  onChange={handlePasswordChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="password_nueva">Nueva Contraseña *</label>
+                <input
+                  type="password"
+                  id="password_nueva"
+                  name="password_nueva"
+                  value={passwordData.password_nueva}
+                  onChange={handlePasswordChange}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="password_confirmar">Confirmar Nueva Contraseña *</label>
+                <input
+                  type="password"
+                  id="password_confirmar"
+                  name="password_confirmar"
+                  value={passwordData.password_confirmar}
+                  onChange={handlePasswordChange}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="password-form-actions">
+                <button 
+                  type="button" 
+                  className="btn-cancel"
+                  onClick={() => {
+                    setShowPasswordChange(false);
+                    setPasswordData({
+                      password_actual: '',
+                      password_nueva: '',
+                      password_confirmar: ''
+                    });
+                  }}
+                >
+                  <span className="btn-icon">❌</span>
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-save"
+                  disabled={changingPassword}
+                >
+                  <span className="btn-icon">💾</span>
+                  {changingPassword ? 'Cambiando...' : 'Cambiar Contraseña'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </DashboardLayout>

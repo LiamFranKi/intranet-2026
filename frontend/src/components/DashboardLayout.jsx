@@ -79,10 +79,19 @@ export default function DashboardLayout({ children }) {
     }
     
     // Si solo tenemos el nombre del archivo (caso legacy o localStorage antiguo)
-    // Para alumnos usar /uploads/alumnos/, para docentes /uploads/personal/
+    // IMPORTANTE: Las fotos se guardan en Static/Image/Fotos/ (compartido con sistema PHP)
+    // Usar el mismo dominio del sistema PHP para servir fotos (igual que publicaciones)
     const fotoNombre = user.foto_nombre || user.foto;
-    const uploadPath = role === 'ALUMNO' ? 'uploads/alumnos' : 'uploads/personal';
-    return `${currentProtocol}//${currentHost}/${uploadPath}/${fotoNombre}`;
+    const phpSystemUrl = 'https://nuevo.vanguardschools.edu.pe';
+    const isProduction = currentHost !== 'localhost' && currentHost !== '127.0.0.1';
+    
+    if (isProduction) {
+      // Producción: usar el dominio del sistema PHP
+      return `${phpSystemUrl}/Static/Image/Fotos/${fotoNombre}`;
+    } else {
+      // Desarrollo: usar localhost
+      return `http://localhost:5000/Static/Image/Fotos/${fotoNombre}`;
+    }
   }, [user?.foto, user?.foto_nombre, role]);
 
   return (

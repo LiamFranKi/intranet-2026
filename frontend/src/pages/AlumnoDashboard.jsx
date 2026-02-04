@@ -253,38 +253,6 @@ function AlumnoDashboard() {
   return (
     <DashboardLayout>
       <div className="alumno-dashboard">
-        {/* Header con bienvenida */}
-        <div className="dashboard-header-section">
-          <div className="welcome-card">
-            <div className="welcome-avatar">
-              {alumno?.foto && alumno.foto !== '' ? (
-                <img 
-                  src={alumno.foto.startsWith('http') 
-                    ? alumno.foto 
-                    : alumno.foto.startsWith('/')
-                    ? `${window.location.protocol}//${window.location.hostname}${alumno.foto}`
-                    : `${window.location.protocol}//${window.location.hostname}/Static/Image/Fotos/${alumno.foto}`} 
-                  alt={nombreCompleto}
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    const placeholder = e.target.parentElement.querySelector('.avatar-placeholder');
-                    if (placeholder) placeholder.style.display = 'flex';
-                  }}
-                />
-              ) : null}
-              <div className="avatar-placeholder" style={{ display: alumno?.foto && alumno.foto !== '' ? 'none' : 'flex' }}>
-                {nombreCompleto.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'A'}
-              </div>
-            </div>
-            <div className="welcome-text">
-              <h1>¡Hola, {nombreCompleto}!</h1>
-              <p>
-                {matricula ? `${matricula.grado}° ${matricula.seccion} - ${matricula.nivel_nombre} (${matricula.turno_nombre})` : 'Bienvenido a tu aula virtual'}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Tarjetas de estadísticas */}
         <div className="stats-grid">
           <div className="stat-card mundo-card">

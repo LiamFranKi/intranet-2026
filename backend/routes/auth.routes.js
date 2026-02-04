@@ -106,16 +106,34 @@ router.post('/login', async (req, res) => {
       apellidos = usuarioDB.personal_apellidos || '';
     }
     
-    // Construir URL de la foto según el entorno (igual que en /docente/perfil)
+    // Construir URL de la foto según el entorno (igual que en /docente/perfil y /alumno/perfil)
     let fotoUrl = null;
-    if (usuarioDB.personal_foto && usuarioDB.personal_foto !== '') {
+    let fotoNombre = null;
+    
+    // Obtener foto según el tipo de usuario
+    if (usuarioDB.alumno_id) {
+      // Es alumno: obtener foto de la tabla alumnos
+      const alumnos = await query(
+        `SELECT foto FROM alumnos WHERE id = ?`,
+        [usuarioDB.alumno_id]
+      );
+      if (alumnos.length > 0 && alumnos[0].foto) {
+        fotoNombre = alumnos[0].foto;
+      }
+    } else if (usuarioDB.personal_id && usuarioDB.personal_foto) {
+      // Es personal/docente
+      fotoNombre = usuarioDB.personal_foto;
+    }
+    
+    if (fotoNombre && fotoNombre !== '') {
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
       const isProduction = process.env.NODE_ENV === 'production';
       if (isProduction) {
         // En producción: usar la URL completa del servidor PHP
-        fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${usuarioDB.personal_foto}`;
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${fotoNombre}`;
       } else {
         // En desarrollo: usar la ruta local de Node.js
-        fotoUrl = `/uploads/personal/${usuarioDB.personal_foto}`;
+        fotoUrl = `http://localhost:5000/Static/Image/Fotos/${fotoNombre}`;
       }
     }
     
@@ -128,7 +146,7 @@ router.post('/login', async (req, res) => {
       nombres: nombres.trim() || usuarioDB.usuario,
       apellidos: apellidos.trim(),
       foto: fotoUrl, // URL completa en lugar de solo el nombre
-      foto_nombre: usuarioDB.personal_foto || null, // Nombre del archivo para referencia
+      foto_nombre: fotoNombre || null, // Nombre del archivo para referencia
       colegio: colegioData
     };
 
@@ -210,16 +228,34 @@ router.get('/me', authenticateToken, async (req, res) => {
       apellidos = usuarioDB.personal_apellidos || '';
     }
 
-    // Construir URL de la foto según el entorno (igual que en /docente/perfil)
+    // Construir URL de la foto según el entorno (igual que en /docente/perfil y /alumno/perfil)
     let fotoUrl = null;
-    if (usuarioDB.personal_foto && usuarioDB.personal_foto !== '') {
+    let fotoNombre = null;
+    
+    // Obtener foto según el tipo de usuario
+    if (usuarioDB.alumno_id) {
+      // Es alumno: obtener foto de la tabla alumnos
+      const alumnos = await query(
+        `SELECT foto FROM alumnos WHERE id = ?`,
+        [usuarioDB.alumno_id]
+      );
+      if (alumnos.length > 0 && alumnos[0].foto) {
+        fotoNombre = alumnos[0].foto;
+      }
+    } else if (usuarioDB.personal_id && usuarioDB.personal_foto) {
+      // Es personal/docente
+      fotoNombre = usuarioDB.personal_foto;
+    }
+    
+    if (fotoNombre && fotoNombre !== '') {
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
       const isProduction = process.env.NODE_ENV === 'production';
       if (isProduction) {
         // En producción: usar la URL completa del servidor PHP
-        fotoUrl = `https://vanguardschools.edu.pe/Static/Image/Fotos/${usuarioDB.personal_foto}`;
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${fotoNombre}`;
       } else {
         // En desarrollo: usar la ruta local de Node.js
-        fotoUrl = `/uploads/personal/${usuarioDB.personal_foto}`;
+        fotoUrl = `http://localhost:5000/Static/Image/Fotos/${fotoNombre}`;
       }
     }
 
@@ -232,7 +268,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       nombres: nombres.trim() || usuarioDB.usuario,
       apellidos: apellidos.trim(),
       foto: fotoUrl, // URL completa en lugar de solo el nombre
-      foto_nombre: usuarioDB.personal_foto || null, // Nombre del archivo para referencia
+      foto_nombre: fotoNombre || null, // Nombre del archivo para referencia
       colegio: colegioData
     };
 
