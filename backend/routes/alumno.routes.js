@@ -783,7 +783,7 @@ router.put('/perfil/password', async (req, res) => {
 
     // Actualizar contraseña
     const newPasswordHash = crypto.createHash('sha1').update(password_nueva).digest('hex');
-    await query(
+    await execute(
       `UPDATE usuarios SET password = ? WHERE id = ?`,
       [newPasswordHash, usuario_id]
     );
