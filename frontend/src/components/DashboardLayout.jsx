@@ -5,6 +5,7 @@ import CalendarioWidget from './CalendarioWidget';
 import PublicacionesWidget from './PublicacionesWidget';
 import NotificacionesWidget from './NotificacionesWidget';
 import PWAInstallPrompt from './PWAInstallPrompt';
+import PWAUpdateNotification from './PWAUpdateNotification';
 import './DashboardLayout.css';
 
 function getInitials(nombre) {
@@ -352,6 +353,9 @@ export default function DashboardLayout({ children }) {
 
         {/* Prompt de instalación PWA */}
         <PWAInstallPrompt />
+        
+        {/* Notificación de actualización PWA */}
+        <PWAUpdateNotification />
       </div>
     </div>
   );
