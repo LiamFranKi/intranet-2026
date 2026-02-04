@@ -34,6 +34,7 @@ function normalizeImageUrl(url) {
 
 function PublicacionesWidget() {
   const { user } = useAuth();
+  const esAlumno = user?.tipo === 'ALUMNO';
   const [publicaciones, setPublicaciones] = useState([]);
   const [publicacionesMostradas, setPublicacionesMostradas] = useState(5);
   const [grupos, setGrupos] = useState([]);
