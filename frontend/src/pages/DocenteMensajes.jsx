@@ -6,6 +6,132 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import './DocenteMensajes.css';
 
+// Componente para el contenido del modal (para poder usar useEffect para marcar como leído)
+function MensajeModalContent({ mensaje, vista, onClose, onMensajeLeido }) {
+  // Marcar mensaje como leído cuando se abre el modal (solo para mensajes recibidos)
+  useEffect(() => {
+    if (vista === 'recibidos' && mensaje.estado === 'NO_LEIDO') {
+      const marcarComoLeido = async () => {
+        try {
+          await api.put(`/docente/mensajes/${mensaje.id}/marcar-leido`);
+          // Actualizar el estado local
+          onMensajeLeido(mensaje.id);
+        } catch (error) {
+          console.error('Error marcando mensaje como leído:', error);
+          // No mostrar error al usuario, solo loguear
+        }
+      };
+      marcarComoLeido();
+    }
+  }, [mensaje.id, mensaje.estado, vista, onMensajeLeido]);
+
+  // Función para procesar HTML del mensaje
+  const procesarHTMLMensaje = (html) => {
+    if (!html) return '';
+    
+    const baseURL = api.defaults.baseURL.replace('/api', '');
+    
+    // Convertir URLs relativas de imágenes a absolutas
+    const htmlProcesado = html.replace(
+      /<img([^>]*)\ssrc=["'](\/uploads\/[^"']+)["']([^>]*)>/gi,
+      (match, before, src, after) => {
+        if (src.startsWith('http')) {
+          return match;
+        }
+        return `<img${before} src="${baseURL}${src}"${after}>`;
+      }
+    );
+    
+    return htmlProcesado;
+  };
+
+  return (
+    <div className="mensaje-modal-body">
+      <div className="mensaje-modal-info">
+        <div>
+          <strong>{vista === 'recibidos' ? 'De:' : 'Para:'}</strong>{' '}
+          {vista === 'recibidos' 
+            ? mensaje.remitente_nombre_completo 
+            : mensaje.destinatario_nombre_completo}
+        </div>
+        <div>
+          <strong>Fecha:</strong> {new Date(mensaje.fecha_hora).toLocaleString('es-PE')}
+        </div>
+      </div>
+      <div 
+        className="mensaje-modal-contenido" 
+        dangerouslySetInnerHTML={{ __html: procesarHTMLMensaje(mensaje.mensaje) }}
+        style={{
+          wordBreak: 'break-word'
+        }}
+      />
+      
+      {/* Archivos Adjuntos */}
+      {mensaje.archivos && Array.isArray(mensaje.archivos) && mensaje.archivos.length > 0 && (
+        <div className="mensaje-archivos">
+          <h4>Archivos Adjuntos ({mensaje.archivos.length}):</h4>
+          <div className="archivos-lista-modal">
+            {mensaje.archivos.map((archivo, index) => {
+              // El backend ya devuelve archivo_url como URL completa (con dominio del sistema PHP)
+              const archivoUrl = archivo.archivo_url 
+                ? (archivo.archivo_url.startsWith('http') 
+                    ? archivo.archivo_url 
+                    : `${process.env.REACT_APP_PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe'}${archivo.archivo_url}`)
+                : archivo.archivo
+                ? `${process.env.REACT_APP_PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe'}/Static/Archivos/${archivo.archivo}`
+                : null;
+              
+              if (!archivoUrl) {
+                return null;
+              }
+              
+              // Determinar si es imagen
+              const nombreArchivo = archivo.nombre_archivo || archivo.archivo || '';
+              const esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(nombreArchivo);
+              
+              return (
+                <div key={archivo.id || `archivo-${index}`} className="archivo-item-modal">
+                  {esImagen ? (
+                    <div className="archivo-imagen">
+                      <img 
+                        src={archivoUrl} 
+                        alt={nombreArchivo || 'Imagen adjunta'}
+                        style={{ maxWidth: '300px', maxHeight: '300px', borderRadius: '8px' }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      <a
+                        href={archivoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="archivo-enlace"
+                        download={nombreArchivo}
+                      >
+                        📎 {nombreArchivo}
+                      </a>
+                    </div>
+                  ) : (
+                    <a
+                      href={archivoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="archivo-enlace"
+                      download={nombreArchivo}
+                    >
+                      📎 {nombreArchivo}
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DocenteMensajes() {
   const [vista, setVista] = useState('recibidos'); // 'recibidos', 'enviados', 'nuevo'
   const [mensajesRecibidos, setMensajesRecibidos] = useState([]);
@@ -799,102 +925,19 @@ function DocenteMensajes() {
                   ×
                 </button>
               </div>
-              <div className="mensaje-modal-body">
-                <div className="mensaje-modal-info">
-                  <div>
-                    <strong>{vista === 'recibidos' ? 'De:' : 'Para:'}</strong>{' '}
-                    {vista === 'recibidos' 
-                      ? mensajeSeleccionado.remitente_nombre_completo 
-                      : mensajeSeleccionado.destinatario_nombre_completo}
-                  </div>
-                  <div>
-                    <strong>Fecha:</strong> {new Date(mensajeSeleccionado.fecha_hora).toLocaleString('es-PE')}
-                  </div>
-                </div>
-                <div 
-                  className="mensaje-modal-contenido" 
-                  dangerouslySetInnerHTML={{ __html: procesarHTMLMensaje(mensajeSeleccionado.mensaje) }}
-                  style={{
-                    wordBreak: 'break-word'
-                  }}
-                />
-                
-                {/* Archivos Adjuntos */}
-                {(() => {
-                  console.log('🔍 [DEBUG MODAL] mensajeSeleccionado:', mensajeSeleccionado);
-                  console.log('🔍 [DEBUG MODAL] mensajeSeleccionado.archivos:', mensajeSeleccionado.archivos);
-                  console.log('🔍 [DEBUG MODAL] Es array?', Array.isArray(mensajeSeleccionado.archivos));
-                  console.log('🔍 [DEBUG MODAL] Longitud:', mensajeSeleccionado.archivos?.length);
-                  
-                  if (mensajeSeleccionado.archivos && Array.isArray(mensajeSeleccionado.archivos) && mensajeSeleccionado.archivos.length > 0) {
-                    return (
-                      <div className="mensaje-archivos">
-                        <h4>Archivos Adjuntos ({mensajeSeleccionado.archivos.length}):</h4>
-                        <div className="archivos-lista-modal">
-                          {mensajeSeleccionado.archivos.map((archivo, index) => {
-                        // El backend ya devuelve archivo_url como URL completa (con dominio del sistema PHP)
-                        // Si por alguna razón no está completa, construirla como fallback
-                        const archivoUrl = archivo.archivo_url 
-                          ? (archivo.archivo_url.startsWith('http') 
-                              ? archivo.archivo_url 
-                              : `${process.env.REACT_APP_PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe'}${archivo.archivo_url}`)
-                          : archivo.archivo
-                          ? `${process.env.REACT_APP_PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe'}/Static/Archivos/${archivo.archivo}`
-                          : null;
-                        
-                        if (!archivoUrl) {
-                          console.warn('⚠️ [DEBUG] Archivo sin URL válida:', archivo);
-                          return null;
-                        }
-                        
-                        // Determinar si es imagen
-                        const nombreArchivo = archivo.nombre_archivo || archivo.archivo || '';
-                        const esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(nombreArchivo);
-                        
-                        return (
-                          <div key={archivo.id || `archivo-${index}`} className="archivo-item-modal">
-                            {esImagen ? (
-                              <div className="archivo-imagen">
-                                <img 
-                                  src={archivoUrl} 
-                                  alt={nombreArchivo || 'Imagen adjunta'}
-                                  style={{ maxWidth: '300px', maxHeight: '300px', borderRadius: '8px' }}
-                                  onError={(e) => {
-                                    console.error('❌ Error cargando imagen:', archivoUrl, archivo);
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                                <a
-                                  href={archivoUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="archivo-enlace"
-                                  download={nombreArchivo}
-                                >
-                                  📎 {nombreArchivo}
-                                </a>
-                              </div>
-                            ) : (
-                              <a
-                                href={archivoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="archivo-enlace"
-                                download={nombreArchivo}
-                              >
-                                📎 {nombreArchivo}
-                              </a>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+              <MensajeModalContent 
+                mensaje={mensajeSeleccionado}
+                vista={vista}
+                onClose={() => setMensajeSeleccionado(null)}
+                onMensajeLeido={(mensajeId) => {
+                  // Actualizar el estado del mensaje en la lista
+                  if (vista === 'recibidos') {
+                    setMensajesRecibidos(prev => 
+                      prev.map(m => m.id === mensajeId ? { ...m, estado: 'LEIDO' } : m)
                     );
                   }
-                  return null;
-                })()}
-              </div>
+                }}
+              />
             </div>
           </div>
         )}

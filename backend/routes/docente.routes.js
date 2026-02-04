@@ -4281,6 +4281,44 @@ router.delete('/mensajes/:mensajeId', async (req, res) => {
 });
 
 /**
+ * PUT /api/docente/mensajes/:mensajeId/marcar-leido
+ * Marcar un mensaje como leído
+ */
+router.put('/mensajes/:mensajeId/marcar-leido', async (req, res) => {
+  try {
+    const { mensajeId } = req.params;
+    const { usuario_id } = req.user;
+
+    // Verificar que el mensaje existe y pertenece al usuario
+    const mensaje = await query(
+      `SELECT * FROM mensajes 
+       WHERE id = ? AND destinatario_id = ? AND tipo = 'RECIBIDO' AND borrado = 'NO'`,
+      [mensajeId, usuario_id]
+    );
+
+    if (mensaje.length === 0) {
+      return res.status(404).json({ error: 'Mensaje no encontrado' });
+    }
+
+    // Si ya está leído, no hacer nada
+    if (mensaje[0].estado === 'LEIDO') {
+      return res.json({ success: true, message: 'Mensaje ya estaba marcado como leído' });
+    }
+
+    // Marcar como leído
+    await execute(
+      `UPDATE mensajes SET estado = 'LEIDO' WHERE id = ?`,
+      [mensajeId]
+    );
+
+    res.json({ success: true, message: 'Mensaje marcado como leído' });
+  } catch (error) {
+    console.error('Error marcando mensaje como leído:', error);
+    res.status(500).json({ error: 'Error al marcar mensaje como leído' });
+  }
+});
+
+/**
  * DELETE /api/docente/mensajes
  * Eliminar múltiples mensajes
  */
