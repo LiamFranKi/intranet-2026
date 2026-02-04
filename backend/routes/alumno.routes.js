@@ -110,17 +110,17 @@ router.get('/dashboard', async (req, res) => {
     );
 
     // Obtener asignaturas (cursos) del alumno
+    // NOTA: No usar LEFT JOIN areas_curso porque esa tabla no existe en la BD
     const asignaturas = grupoId ? await query(
       `SELECT a.id,
               c.nombre as curso_nombre,
               c.imagen as curso_imagen,
-              ar.nombre as area_nombre,
+              NULL as area_nombre,
               CONCAT(p.nombres, ' ', p.apellidos) as docente_nombres,
               p.apellidos as docente_apellidos
        FROM asignaturas a
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN cursos c ON c.id = a.curso_id
-       LEFT JOIN areas_curso ar ON ar.id = c.area_curso_id
        INNER JOIN personal p ON p.id = a.personal_id
        WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
        ORDER BY c.nombre ASC`,
@@ -437,26 +437,60 @@ router.get('/publicaciones', async (req, res) => {
         }
       }
 
-      // Decodificar archivos (formato PHP: serialize(array))
+      // Decodificar archivos (igual que docente: usar regex en lugar de unserialize directo)
       let archivos = [];
       if (pub.archivos && pub.archivos.trim() !== '') {
         try {
-          const deserialized = phpSerialize.unserialize(pub.archivos);
-          if (Array.isArray(deserialized)) {
-            archivos = deserialized;
+          let decoded = pub.archivos;
+          // Intentar decodificar base64 si es necesario
+          try {
+            const base64Decoded = Buffer.from(pub.archivos, 'base64').toString('utf-8');
+            if (base64Decoded.startsWith('a:')) {
+              decoded = base64Decoded;
+            }
+          } catch (e) {
+            // Si no es base64, usar directamente
+            decoded = pub.archivos;
+          }
+          
+          if (decoded.startsWith('a:')) {
+            // Usar regex para extraer nombres de archivos (mismo método que docente)
+            const regex = /s:\d+:"([^"]+)"/g;
+            let match;
+            while ((match = regex.exec(decoded)) !== null) {
+              archivos.push(match[1]);
+            }
           }
         } catch (error) {
           console.warn('Error decodificando archivos de publicación:', error);
         }
       }
 
-      // Construir URL de foto del autor
+      // Construir URL completa de la foto del autor (igual que docente)
       let autorFotoUrl = null;
       if (pub.autor_foto && pub.autor_foto !== '') {
-        if (isProduction) {
-          autorFotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${pub.autor_foto}`;
+        // Si ya es una URL completa, usarla directamente
+        if (pub.autor_foto.startsWith('http')) {
+          autorFotoUrl = pub.autor_foto;
+        } else if (pub.autor_foto.startsWith('/uploads/')) {
+          // Si ya tiene la ruta /uploads/, construir URL completa
+          if (isProduction) {
+            autorFotoUrl = `${frontendUrl}${pub.autor_foto}`;
+          } else {
+            autorFotoUrl = `http://localhost:5000${pub.autor_foto}`;
+          }
         } else {
-          autorFotoUrl = `http://localhost:5000/Static/Image/Fotos/${pub.autor_foto}`;
+          // Es solo el nombre del archivo, determinar si es personal o alumno según el tipo de usuario
+          const esPersonal = pub.autor_tipo === 'DOCENTE' || pub.autor_tipo === 'DIRECTOR' || pub.autor_tipo === 'ADMINISTRADOR';
+          
+          if (isProduction) {
+            // Usar el dominio del sistema PHP (nuevo.vanguardschools.edu.pe)
+            autorFotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${pub.autor_foto}`;
+          } else {
+            // En desarrollo, usar la ruta de uploads según el tipo
+            const uploadPath = esPersonal ? 'uploads/personal' : 'uploads/alumnos';
+            autorFotoUrl = `http://localhost:5000/${uploadPath}/${pub.autor_foto}`;
+          }
         }
       }
 
@@ -475,6 +509,7 @@ router.get('/publicaciones', async (req, res) => {
         compartirCon = 'GRUPO';
       }
 
+      // Devolver en el mismo formato que docente (para compatibilidad con PublicacionesWidget)
       return {
         id: pub.id,
         contenido: pub.contenido || '',
@@ -483,6 +518,13 @@ router.get('/publicaciones', async (req, res) => {
         compartir_con: compartirCon,
         grupos: gruposNombres,
         fecha_hora: pub.fecha_hora,
+        para_texto: compartirCon === 'TODOS' ? 'Todos' : (gruposNombres.length > 0 ? gruposNombres.join(', ') : 'Grupos específicos'),
+        autor_id: pub.autor_id,
+        autor_usuario: pub.autor_usuario,
+        autor_nombre_completo: pub.autor_nombre_completo || pub.autor_usuario || 'Usuario',
+        autor_foto_url: autorFotoUrl, // Campo que usa el frontend
+        autor_tipo: pub.autor_tipo,
+        // Mantener también el objeto autor para compatibilidad
         autor: {
           id: pub.autor_id,
           usuario: pub.autor_usuario,
@@ -497,6 +539,247 @@ router.get('/publicaciones', async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo publicaciones:', error);
     res.status(500).json({ error: 'Error al obtener publicaciones' });
+  }
+});
+
+/**
+ * GET /api/alumno/perfil
+ * Obtener perfil del alumno
+ */
+router.get('/perfil', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+
+    const alumno = await query(
+      `SELECT a.*, u.tipo as tipo_usuario, u.usuario as dni
+       FROM alumnos a
+       INNER JOIN usuarios u ON u.alumno_id = a.id
+       WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
+      [usuario_id, colegio_id]
+    );
+
+    if (alumno.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    const alumnoData = alumno[0];
+
+    // Construir URL de foto
+    let fotoUrl = null;
+    if (alumnoData.foto && alumnoData.foto !== '') {
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${alumnoData.foto}`;
+      } else {
+        fotoUrl = `http://localhost:5000/Static/Image/Fotos/${alumnoData.foto}`;
+      }
+    }
+
+    res.json({
+      id: alumnoData.id,
+      nombres: alumnoData.nombres,
+      apellido_paterno: alumnoData.apellido_paterno,
+      apellido_materno: alumnoData.apellido_materno,
+      dni: alumnoData.dni,
+      email: alumnoData.email,
+      telefono_celular: alumnoData.telefono_celular,
+      direccion: alumnoData.direccion,
+      foto: fotoUrl,
+      fecha_nacimiento: alumnoData.fecha_nacimiento
+    });
+  } catch (error) {
+    console.error('Error obteniendo perfil:', error);
+    res.status(500).json({ error: 'Error al obtener perfil' });
+  }
+});
+
+/**
+ * PUT /api/alumno/perfil
+ * Actualizar perfil del alumno (incluyendo foto)
+ */
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const alumnoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = '/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Image/Fotos';
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `alumno-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+  
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Solo se permiten imágenes (JPEG, JPG, PNG, GIF, WEBP)'));
+  }
+};
+
+const uploadAlumno = multer({
+  storage: alumnoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: fileFilter
+});
+
+router.put('/perfil', uploadAlumno.single('foto'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    const { nombres, apellido_paterno, apellido_materno, email, telefono_celular, direccion, fecha_nacimiento } = req.body;
+
+    // Obtener alumno actual
+    const alumno = await query(
+      `SELECT a.* FROM alumnos a
+       INNER JOIN usuarios u ON u.alumno_id = a.id
+       WHERE u.id = ? AND u.colegio_id = ?`,
+      [usuario_id, colegio_id]
+    );
+
+    if (alumno.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    const alumnoData = alumno[0];
+    
+    let fotoPath = alumnoData.foto;
+
+    // Si se subió una nueva foto
+    if (req.file) {
+      // Eliminar foto anterior si existe
+      if (alumnoData.foto && alumnoData.foto !== '') {
+        const oldFotoPath = `/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Image/Fotos/${path.basename(alumnoData.foto)}`;
+        if (fs.existsSync(oldFotoPath)) {
+          fs.unlinkSync(oldFotoPath);
+        }
+      }
+      
+      // Guardar nueva foto - solo el nombre del archivo
+      fotoPath = req.file.filename;
+    }
+
+    // Actualizar datos
+    await query(
+      `UPDATE alumnos SET
+        nombres = ?,
+        apellido_paterno = ?,
+        apellido_materno = ?,
+        email = ?,
+        telefono_celular = ?,
+        direccion = ?,
+        foto = ?,
+        fecha_nacimiento = ?
+      WHERE id = ?`,
+      [
+        nombres || alumnoData.nombres,
+        apellido_paterno || alumnoData.apellido_paterno,
+        apellido_materno || alumnoData.apellido_materno,
+        email || alumnoData.email,
+        telefono_celular || alumnoData.telefono_celular,
+        direccion || alumnoData.direccion,
+        fotoPath,
+        fecha_nacimiento || alumnoData.fecha_nacimiento,
+        alumnoData.id
+      ]
+    );
+
+    // Obtener perfil actualizado
+    const alumnoActualizado = await query(
+      `SELECT a.*, u.tipo as tipo_usuario, u.usuario as dni
+       FROM alumnos a
+       INNER JOIN usuarios u ON u.alumno_id = a.id
+       WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
+      [usuario_id, colegio_id]
+    );
+
+    const alumnoDataActualizado = alumnoActualizado[0];
+
+    // Construir URL de foto
+    let fotoUrl = null;
+    if (alumnoDataActualizado.foto && alumnoDataActualizado.foto !== '') {
+      const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        fotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${alumnoDataActualizado.foto}`;
+      } else {
+        fotoUrl = `http://localhost:5000/Static/Image/Fotos/${alumnoDataActualizado.foto}`;
+      }
+    }
+
+    res.json({
+      id: alumnoDataActualizado.id,
+      nombres: alumnoDataActualizado.nombres,
+      apellido_paterno: alumnoDataActualizado.apellido_paterno,
+      apellido_materno: alumnoDataActualizado.apellido_materno,
+      dni: alumnoDataActualizado.dni,
+      email: alumnoDataActualizado.email,
+      telefono_celular: alumnoDataActualizado.telefono_celular,
+      direccion: alumnoDataActualizado.direccion,
+      foto: fotoUrl,
+      fecha_nacimiento: alumnoDataActualizado.fecha_nacimiento
+    });
+  } catch (error) {
+    console.error('Error actualizando perfil:', error);
+    res.status(500).json({ error: 'Error al actualizar perfil' });
+  }
+});
+
+/**
+ * PUT /api/alumno/perfil/password
+ * Cambiar contraseña del alumno
+ */
+router.put('/perfil/password', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    const { password_actual, password_nueva } = req.body;
+
+    if (!password_actual || !password_nueva) {
+      return res.status(400).json({ error: 'Contraseña actual y nueva son requeridas' });
+    }
+
+    // Obtener usuario
+    const usuarios = await query(
+      `SELECT u.* FROM usuarios u
+       WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
+      [usuario_id, colegio_id]
+    );
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const usuario = usuarios[0];
+
+    // Validar contraseña actual
+    const crypto = require('crypto');
+    const passwordHash = crypto.createHash('sha1').update(password_actual).digest('hex');
+    
+    if (usuario.password !== passwordHash) {
+      return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    }
+
+    // Actualizar contraseña
+    const newPasswordHash = crypto.createHash('sha1').update(password_nueva).digest('hex');
+    await query(
+      `UPDATE usuarios SET password = ? WHERE id = ?`,
+      [newPasswordHash, usuario_id]
+    );
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error('Error cambiando contraseña:', error);
+    res.status(500).json({ error: 'Error al cambiar contraseña' });
   }
 });
 
