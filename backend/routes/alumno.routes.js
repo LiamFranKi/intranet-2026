@@ -305,6 +305,7 @@ router.get('/publicaciones', async (req, res) => {
     const grupoId = matricula.length > 0 ? matricula[0].grupo_id : null;
 
     // Obtener publicaciones: solo las de TODOS y las de su grupo
+    // El campo en la BD es 'privacidad': '-1' = TODOS, '-2' = Personal Administrativo, o IDs de grupos separados por comas
     let publicaciones = [];
     try {
       if (grupoId) {
@@ -324,10 +325,11 @@ router.get('/publicaciones', async (req, res) => {
            LEFT JOIN personal pers ON pers.id = u.personal_id
            LEFT JOIN alumnos al ON al.id = u.alumno_id
            WHERE p.colegio_id = ?
-           AND (p.compartir_con = 'TODOS' OR (p.compartir_con = 'GRUPO' AND (p.grupos LIKE ? OR p.grupos LIKE ? OR p.grupos LIKE ?)))
+           AND (p.privacidad = '-1' OR p.privacidad = '' OR p.privacidad IS NULL 
+                OR (p.privacidad LIKE ? OR p.privacidad LIKE ? OR p.privacidad = ?))
            ORDER BY p.fecha_hora DESC
            LIMIT 50`,
-          [colegio_id, `%,${grupoId},%`, `${grupoId},%`, `%,${grupoId}`]
+          [colegio_id, `%,${grupoId},%`, `${grupoId},%`, String(grupoId)]
         );
       } else {
         // Si no tiene grupo, solo mostrar publicaciones de TODOS
@@ -347,7 +349,7 @@ router.get('/publicaciones', async (req, res) => {
            LEFT JOIN personal pers ON pers.id = u.personal_id
            LEFT JOIN alumnos al ON al.id = u.alumno_id
            WHERE p.colegio_id = ?
-           AND p.compartir_con = 'TODOS'
+           AND (p.privacidad = '-1' OR p.privacidad = '' OR p.privacidad IS NULL)
            ORDER BY p.fecha_hora DESC
            LIMIT 50`,
           [colegio_id]
@@ -426,11 +428,19 @@ router.get('/publicaciones', async (req, res) => {
         }
       }
 
-      // Procesar grupos (si compartir_con es GRUPO)
+      // Procesar grupos (si privacidad contiene IDs de grupos)
       let gruposNombres = [];
-      if (pub.compartir_con === 'GRUPO' && pub.grupos) {
-        const grupoIds = pub.grupos.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+      if (pub.privacidad && pub.privacidad !== '' && pub.privacidad !== '-1' && pub.privacidad !== '-2') {
+        const grupoIds = pub.privacidad.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id) && id > 0);
         gruposNombres = grupoIds.map(id => gruposMap[id] || `Grupo ${id}`).filter(Boolean);
+      }
+      
+      // Determinar compartir_con basado en privacidad
+      let compartirCon = 'TODOS';
+      if (pub.privacidad === '-2') {
+        compartirCon = 'PERSONAL';
+      } else if (pub.privacidad && pub.privacidad !== '' && pub.privacidad !== '-1' && pub.privacidad !== '-2') {
+        compartirCon = 'GRUPO';
       }
 
       return {
@@ -438,7 +448,7 @@ router.get('/publicaciones', async (req, res) => {
         contenido: pub.contenido || '',
         images: images,
         archivos: archivos,
-        compartir_con: pub.compartir_con || 'TODOS',
+        compartir_con: compartirCon,
         grupos: gruposNombres,
         fecha_hora: pub.fecha_hora,
         autor: {
