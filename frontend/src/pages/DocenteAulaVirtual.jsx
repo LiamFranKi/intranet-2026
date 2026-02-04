@@ -6133,6 +6133,339 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                   const respuestaAlumno = respuestas[pregunta.id] || respuestas[pregunta.id.toString()];
                   const respuestaAlumnoNum = respuestaAlumno ? (typeof respuestaAlumno === 'number' ? respuestaAlumno : parseInt(respuestaAlumno)) : null;
                   
+                  // Función para renderizar según el tipo de pregunta
+                  const renderizarPregunta = () => {
+                    switch (pregunta.tipo) {
+                      case 'ALTERNATIVAS':
+                      case 'VERDADERO_FALSO':
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {pregunta.alternativas && pregunta.alternativas.map((alternativa) => {
+                              const estado = getEstadoAlternativa(pregunta.id, alternativa.id, alternativa.correcta);
+                              const alternativaIdNum = typeof alternativa.id === 'number' ? alternativa.id : parseInt(alternativa.id);
+                              const alumnoMarcó = respuestaAlumnoNum === alternativaIdNum;
+                              
+                              let estiloCirculo = {
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                border: '2px solid',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                marginRight: '0.75rem',
+                                fontWeight: 'bold',
+                                fontSize: '14px'
+                              };
+
+                              if (estado === 'correcta_marcada') {
+                                estiloCirculo.background = '#10b981';
+                                estiloCirculo.borderColor = '#059669';
+                                estiloCirculo.color = 'white';
+                              } else if (estado === 'incorrecta_marcada') {
+                                estiloCirculo.background = '#ef4444';
+                                estiloCirculo.borderColor = '#dc2626';
+                                estiloCirculo.color = 'white';
+                              } else if (estado === 'correcta_no_marcada') {
+                                estiloCirculo.background = '#3b82f6';
+                                estiloCirculo.borderColor = '#2563eb';
+                                estiloCirculo.color = 'white';
+                              } else {
+                                estiloCirculo.background = 'white';
+                                estiloCirculo.borderColor = '#d1d5db';
+                                estiloCirculo.color = '#9ca3af';
+                              }
+
+                              return (
+                                <div 
+                                  key={alternativa.id}
+                                  style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'flex-start',
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    background: estado !== 'sin_marcar' ? '#f9fafb' : 'white',
+                                    border: alumnoMarcó ? '2px solid' : '1px solid #e5e7eb',
+                                    borderColor: estado === 'correcta_marcada' ? '#10b981' : 
+                                               estado === 'incorrecta_marcada' ? '#ef4444' : '#e5e7eb'
+                                  }}
+                                >
+                                  <div style={estiloCirculo}>
+                                    {alumnoMarcó && '✓'}
+                                  </div>
+                                  <div 
+                                    style={{ 
+                                      flex: 1,
+                                      fontSize: '0.95rem',
+                                      color: '#1f2937',
+                                      lineHeight: '1.5'
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: alternativa.descripcion }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+
+                      case 'COMPLETAR':
+                        // Para COMPLETAR, la respuesta es un string que se compara con la descripción de la alternativa correcta
+                        const respuestaCompletarAlumno = typeof respuestaAlumno === 'string' ? respuestaAlumno : String(respuestaAlumno || '');
+                        const alternativaCorrectaCompletar = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                        const respuestaCorrectaCompletar = alternativaCorrectaCompletar ? alternativaCorrectaCompletar.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                        const esCorrectaCompletar = respuestaCompletarAlumno.toLowerCase().trim() === respuestaCorrectaCompletar.toLowerCase().trim();
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: esCorrectaCompletar ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${esCorrectaCompletar ? '#10b981' : '#ef4444'}`
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Respuesta del alumno:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>
+                                {respuestaCompletarAlumno || '(sin respuesta)'}
+                              </div>
+                            </div>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6'
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Respuesta correcta:
+                              </div>
+                              <div 
+                                style={{ 
+                                  fontSize: '0.95rem',
+                                  color: '#1f2937'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: alternativaCorrectaCompletar ? alternativaCorrectaCompletar.descripcion : 'No definida' }}
+                              />
+                            </div>
+                          </div>
+                        );
+
+                      case 'RESPUESTA_CORTA':
+                        // Para RESPUESTA_CORTA, la respuesta es un string
+                        const respuestaCortaAlumno = typeof respuestaAlumno === 'string' ? respuestaAlumno : String(respuestaAlumno || '');
+                        const alternativaCorrecta = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                        const respuestaCorrecta = alternativaCorrecta ? alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                        const esCorrecta = respuestaCortaAlumno.toLowerCase().trim() === respuestaCorrecta.toLowerCase().trim();
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: esCorrecta ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${esCorrecta ? '#10b981' : '#ef4444'}`
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Respuesta del alumno:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>
+                                {respuestaCortaAlumno || '(sin respuesta)'}
+                              </div>
+                            </div>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6'
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Respuesta correcta:
+                              </div>
+                              <div 
+                                style={{ 
+                                  fontSize: '0.95rem',
+                                  color: '#1f2937'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: alternativaCorrecta ? alternativaCorrecta.descripcion : 'No definida' }}
+                              />
+                            </div>
+                          </div>
+                        );
+
+                      case 'ORDENAR':
+                        // Para ORDENAR, la respuesta es el orden_posicion de la alternativa seleccionada
+                        const alternativaOrdenAlumno = pregunta.alternativas && pregunta.alternativas.find(alt => alt.orden_posicion === respuestaAlumnoNum);
+                        const alternativaCorrectaOrden = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                        const ordenCorrecto = alternativaCorrectaOrden ? alternativaCorrectaOrden.orden_posicion : null;
+                        const ordenAlumno = alternativaOrdenAlumno ? alternativaOrdenAlumno.orden_posicion : null;
+                        const ordenEsCorrecto = ordenAlumno === ordenCorrecto;
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: ordenEsCorrecto ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${ordenEsCorrecto ? '#10b981' : '#ef4444'}`
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Orden seleccionado por el alumno:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
+                                Posición: {ordenAlumno !== null ? ordenAlumno : '(sin respuesta)'}
+                              </div>
+                              {alternativaOrdenAlumno && (
+                                <div 
+                                  style={{ 
+                                    fontSize: '0.9rem',
+                                    color: '#6b7280',
+                                    marginTop: '0.5rem'
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: alternativaOrdenAlumno.descripcion }}
+                                />
+                              )}
+                            </div>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6'
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Orden correcto:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
+                                Posición: {ordenCorrecto !== null ? ordenCorrecto : 'No definida'}
+                              </div>
+                              {alternativaCorrectaOrden && (
+                                <div 
+                                  style={{ 
+                                    fontSize: '0.9rem',
+                                    color: '#6b7280',
+                                    marginTop: '0.5rem'
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: alternativaCorrectaOrden.descripcion }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+
+                      case 'EMPAREJAR':
+                        // Para EMPAREJAR, la respuesta es el ID de la alternativa seleccionada
+                        const alternativaEmparejarAlumno = pregunta.alternativas && pregunta.alternativas.find(alt => alt.id === respuestaAlumnoNum);
+                        const alternativaCorrectaEmparejar = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                        // Verificar si el emparejamiento es correcto (par_id debe coincidir)
+                        const emparejarEsCorrecto = alternativaEmparejarAlumno && alternativaCorrectaEmparejar && 
+                          (alternativaEmparejarAlumno.par_id === alternativaCorrectaEmparejar.id || 
+                           alternativaCorrectaEmparejar.par_id === alternativaEmparejarAlumno.id);
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: emparejarEsCorrecto ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${emparejarEsCorrecto ? '#10b981' : '#ef4444'}`
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Emparejamiento seleccionado por el alumno:
+                              </div>
+                              {alternativaEmparejarAlumno ? (
+                                <div 
+                                  style={{ 
+                                    fontSize: '0.95rem',
+                                    color: '#1f2937'
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: alternativaEmparejarAlumno.descripcion }}
+                                />
+                              ) : (
+                                <div style={{ fontSize: '0.95rem', color: '#6b7280' }}>(sin respuesta)</div>
+                              )}
+                            </div>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6'
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Emparejamiento correcto:
+                              </div>
+                              {alternativaCorrectaEmparejar ? (
+                                <div 
+                                  style={{ 
+                                    fontSize: '0.95rem',
+                                    color: '#1f2937'
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: alternativaCorrectaEmparejar.descripcion }}
+                                />
+                              ) : (
+                                <div style={{ fontSize: '0.95rem', color: '#6b7280' }}>No definida</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+
+                      case 'ARRASTRAR_Y_SOLTAR':
+                        // Para ARRASTRAR_Y_SOLTAR, la respuesta es un string (zona_drop) que se compara directamente
+                        const zonaDragAlumno = typeof respuestaAlumno === 'string' ? respuestaAlumno.trim() : String(respuestaAlumno || '').trim();
+                        const alternativaCorrectaDrag = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                        const zonaCorrectaDrag = alternativaCorrectaDrag && alternativaCorrectaDrag.zona_drop ? alternativaCorrectaDrag.zona_drop.trim() : '';
+                        // Verificar si la zona_drop es correcta
+                        const dragEsCorrecto = zonaDragAlumno.toLowerCase() === zonaCorrectaDrag.toLowerCase();
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: dragEsCorrecto ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${dragEsCorrecto ? '#10b981' : '#ef4444'}`
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Zona donde soltó el alumno:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
+                                {zonaDragAlumno || '(sin respuesta)'}
+                              </div>
+                            </div>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6'
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Zona correcta:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
+                                {zonaCorrectaDrag || 'No definida'}
+                              </div>
+                              {alternativaCorrectaDrag && (
+                                <div 
+                                  style={{ 
+                                    fontSize: '0.85rem',
+                                    color: '#6b7280',
+                                    marginTop: '0.5rem'
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: `Elemento: ${alternativaCorrectaDrag.descripcion}` }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        );
+
+                      default:
+                        return (
+                          <div style={{ padding: '1rem', background: '#fef3c7', borderRadius: '8px', color: '#92400e' }}>
+                            Tipo de pregunta no soportado: {pregunta.tipo}
+                          </div>
+                        );
+                    }
+                  };
+                  
                   return (
                     <div 
                       key={pregunta.id} 
@@ -6164,75 +6497,7 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                         />
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        {pregunta.alternativas && pregunta.alternativas.map((alternativa) => {
-                          const estado = getEstadoAlternativa(pregunta.id, alternativa.id, alternativa.correcta);
-                          // Verificar si el alumno marcó esta alternativa específica
-                          const alternativaIdNum = typeof alternativa.id === 'number' ? alternativa.id : parseInt(alternativa.id);
-                          const alumnoMarcó = respuestaAlumnoNum === alternativaIdNum;
-                          
-                          let estiloCirculo = {
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            border: '2px solid',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            marginRight: '0.75rem',
-                            fontWeight: 'bold',
-                            fontSize: '14px'
-                          };
-
-                          if (estado === 'correcta_marcada') {
-                            estiloCirculo.background = '#10b981';
-                            estiloCirculo.borderColor = '#059669';
-                            estiloCirculo.color = 'white';
-                          } else if (estado === 'incorrecta_marcada') {
-                            estiloCirculo.background = '#ef4444';
-                            estiloCirculo.borderColor = '#dc2626';
-                            estiloCirculo.color = 'white';
-                          } else if (estado === 'correcta_no_marcada') {
-                            estiloCirculo.background = '#3b82f6';
-                            estiloCirculo.borderColor = '#2563eb';
-                            estiloCirculo.color = 'white';
-                          } else {
-                            estiloCirculo.background = 'white';
-                            estiloCirculo.borderColor = '#d1d5db';
-                            estiloCirculo.color = '#9ca3af';
-                          }
-
-                          return (
-                            <div 
-                              key={alternativa.id}
-                              style={{ 
-                                display: 'flex', 
-                                alignItems: 'flex-start',
-                                padding: '0.75rem',
-                                borderRadius: '8px',
-                                background: estado !== 'sin_marcar' ? '#f9fafb' : 'white',
-                                border: alumnoMarcó ? '2px solid' : '1px solid #e5e7eb',
-                                borderColor: estado === 'correcta_marcada' ? '#10b981' : 
-                                           estado === 'incorrecta_marcada' ? '#ef4444' : '#e5e7eb'
-                              }}
-                            >
-                              <div style={estiloCirculo}>
-                                {alumnoMarcó && '✓'}
-                              </div>
-                              <div 
-                                style={{ 
-                                  flex: 1,
-                                  fontSize: '0.95rem',
-                                  color: '#1f2937',
-                                  lineHeight: '1.5'
-                                }}
-                                dangerouslySetInnerHTML={{ __html: alternativa.descripcion }}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
+                      {renderizarPregunta()}
                     </div>
                   );
                 })}

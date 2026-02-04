@@ -6978,7 +6978,7 @@ router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) =>
         `SELECT 
           aep.*,
           GROUP_CONCAT(
-            CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta)
+            CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta, ':', COALESCE(aepa.orden_posicion, ''), ':', COALESCE(aepa.par_id, ''), ':', COALESCE(aepa.zona_drop, ''))
             ORDER BY aepa.id ASC
             SEPARATOR '||'
           ) as alternativas_raw
@@ -6996,7 +6996,7 @@ router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) =>
         `SELECT 
           aep.*,
           GROUP_CONCAT(
-            CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta)
+            CONCAT(aepa.id, ':', aepa.descripcion, ':', aepa.correcta, ':', COALESCE(aepa.orden_posicion, ''), ':', COALESCE(aepa.par_id, ''), ':', COALESCE(aepa.zona_drop, ''))
             ORDER BY aepa.id ASC
             SEPARATOR '||'
           ) as alternativas_raw
@@ -7015,11 +7015,15 @@ router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) =>
       if (pregunta.alternativas_raw) {
         const altArray = pregunta.alternativas_raw.split('||');
         altArray.forEach(altStr => {
-          const [id, descripcion, correcta] = altStr.split(':');
+          // Formato: id:descripcion:correcta:orden_posicion:par_id:zona_drop
+          const parts = altStr.split(':');
           alternativas.push({
-            id: parseInt(id),
-            descripcion: descripcion || '',
-            correcta: correcta || 'NO'
+            id: parseInt(parts[0]) || 0,
+            descripcion: parts[1] || '',
+            correcta: parts[2] || 'NO',
+            orden_posicion: parts[3] ? parseInt(parts[3]) : null,
+            par_id: parts[4] ? parseInt(parts[4]) : null,
+            zona_drop: parts[5] || null
           });
         });
       }
