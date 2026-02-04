@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import CalendarioWidget from './CalendarioWidget';
 import PublicacionesWidget from './PublicacionesWidget';
 import NotificacionesWidget from './NotificacionesWidget';
+import PWAInstallPrompt from './PWAInstallPrompt';
 import './DashboardLayout.css';
 
 function getInitials(nombre) {
@@ -348,6 +349,9 @@ export default function DashboardLayout({ children }) {
             </aside>
           )}
         </div>
+
+        {/* Prompt de instalación PWA */}
+        <PWAInstallPrompt />
       </div>
     </div>
   );

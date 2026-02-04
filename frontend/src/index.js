@@ -32,6 +32,24 @@ console.error = (...args) => {
   originalError.apply(console, args);
 };
 
+// Registrar Service Worker para PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then((registration) => {
+        console.log('✅ Service Worker registrado exitosamente:', registration.scope);
+        
+        // Verificar actualizaciones cada hora
+        setInterval(() => {
+          registration.update();
+        }, 3600000); // 1 hora
+      })
+      .catch((error) => {
+        console.warn('⚠️ Service Worker no se pudo registrar:', error);
+      });
+  });
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
