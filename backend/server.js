@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Configurar zona horaria a Lima, Perú (UTC-5)
+process.env.TZ = 'America/Lima';
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

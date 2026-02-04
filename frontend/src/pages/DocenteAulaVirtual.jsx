@@ -2003,6 +2003,35 @@ function DocenteAulaVirtual() {
 
   // Funciones para manejar exámenes
   const handleEditarExamen = (examen) => {
+    // Formatear fechas para inputs de tipo date (YYYY-MM-DD)
+    const formatearFechaParaInput = (fecha) => {
+      if (!fecha) return '';
+      try {
+        // Si es una fecha en formato string (YYYY-MM-DD o YYYY-MM-DD HH:MM:SS)
+        if (typeof fecha === 'string') {
+          // Extraer solo la parte de la fecha (antes del espacio si existe)
+          const fechaParte = fecha.split(' ')[0];
+          // Verificar que tenga el formato correcto
+          if (fechaParte.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return fechaParte;
+          }
+          // Si viene en otro formato, intentar parsear
+          const fechaObj = new Date(fecha);
+          if (!isNaN(fechaObj.getTime())) {
+            return fechaObj.toISOString().split('T')[0];
+          }
+        }
+        // Si es un objeto Date
+        if (fecha instanceof Date) {
+          return fecha.toISOString().split('T')[0];
+        }
+        return '';
+      } catch (error) {
+        console.error('Error formateando fecha:', error);
+        return '';
+      }
+    };
+
     // Determinar si tiene fecha y hora habilitada (si tiene valores distintos a los por defecto)
     const fechaActual = new Date().toISOString().split('T')[0];
     const tieneFechaHora = examen.fecha_desde && examen.fecha_desde !== fechaActual && 
@@ -2025,8 +2054,8 @@ function DocenteAulaVirtual() {
       ciclo: examen.ciclo || bimestreGlobal,
       estado: examen.estado || 'INACTIVO',
       habilitar_fecha_hora: tieneFechaHora,
-      fecha_desde: examen.fecha_desde || '',
-      fecha_hasta: examen.fecha_hasta || '',
+      fecha_desde: formatearFechaParaInput(examen.fecha_desde),
+      fecha_hasta: formatearFechaParaInput(examen.fecha_hasta),
       hora_desde: examen.hora_desde ? examen.hora_desde.substring(0, 5) : '08:00', // Convertir HH:MM:SS a HH:MM
       hora_hasta: examen.hora_hasta ? examen.hora_hasta.substring(0, 5) : '20:00',
       archivo_pdf: null // No cargamos el archivo existente, solo permitimos reemplazarlo
