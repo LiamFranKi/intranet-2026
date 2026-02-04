@@ -7,7 +7,10 @@
   background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fce7f3 100%);
   min-height: 100vh;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Decoración de fondo sutil */
@@ -340,10 +343,18 @@
 }
 
 /* Tablas dentro de cards expandidos */
+.card-content-expanded {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
 .card-content-expanded table {
   width: 100%;
   border-collapse: collapse;
   background: white;
+  min-width: 600px; /* Ancho mínimo para tablas en móviles */
 }
 
 .card-content-expanded thead {
@@ -995,29 +1006,100 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .docente-aula-virtual {
+    padding: 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .docente-aula-virtual .page-header h1 {
-    font-size: 2rem;
+    font-size: 1.5rem;
+  }
+
+  .docente-aula-virtual .page-header p {
+    font-size: 0.85rem;
+  }
+
+  .bimestre-selector-global {
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .bimestre-tab-global {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    min-width: 90px;
   }
 
   .aula-dashboard-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .aula-section-card {
+    padding: 1.25rem;
+    border-radius: 16px;
   }
 
   .card-icon {
-    font-size: 3rem;
+    font-size: 2.5rem;
   }
 
   .card-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .card-count {
-    font-size: 2.5rem;
+    font-size: 2rem;
+  }
+
+  .card-action-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    min-width: auto;
+    width: 100%;
+    margin-top: 0.75rem;
+  }
+
+  /* Tablas responsive */
+  .card-content-expanded {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .card-content-expanded table {
+    min-width: 600px;
+    font-size: 0.85rem;
+  }
+
+  .card-content-expanded th {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .card-content-expanded td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .btn-opciones {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
   }
 
   .modal-tema-container {
     width: 95%;
+    max-width: 95vw;
     max-height: 95vh;
+    margin: 1rem auto;
   }
 
   .modal-tema-header {
@@ -1025,11 +1107,24 @@
   }
 
   .modal-tema-header h2 {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
 
   .modal-tema-body {
-    padding: 1.5rem;
+    padding: 1rem;
+    overflow-y: auto;
+    max-height: calc(95vh - 120px);
+  }
+
+  /* Asegurar que los botones de acción sean accesibles */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .card-action-btn {
+    align-self: stretch;
   }
 }
 
@@ -1234,6 +1329,133 @@
   .tarea-detalle-value {
     padding: 0.75rem 1rem;
     font-size: 0.9rem;
+  }
+}
+
+/* Estilos adicionales para móviles muy pequeños */
+@media (max-width: 480px) {
+  .docente-aula-virtual {
+    padding: 0.75rem;
+  }
+
+  .docente-aula-virtual .page-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .bimestre-tab-global {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
+    min-width: 70px;
+  }
+
+  .aula-section-card {
+    padding: 1rem;
+  }
+
+  .card-icon {
+    font-size: 2rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+  }
+
+  .card-count {
+    font-size: 1.75rem;
+  }
+
+  .card-content-expanded table {
+    min-width: 500px;
+    font-size: 0.75rem;
+  }
+
+  .card-content-expanded th {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .card-content-expanded td {
+    padding: 0.5rem 0.4rem;
+    font-size: 0.75rem;
+  }
+
+  .btn-opciones {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .card-action-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Asegurar que el contenedor principal permita scroll en móviles */
+@media (max-width: 768px) {
+  .docente-aula-virtual {
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* Asegurar que las tablas tengan scroll horizontal */
+  .card-content-expanded {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Scrollbar personalizado para móviles */
+  .card-content-expanded::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .card-content-expanded::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .card-content-expanded::-webkit-scrollbar-thumb {
+    background: #a78bfa;
+    border-radius: 3px;
+  }
+
+  .card-content-expanded::-webkit-scrollbar-thumb:hover {
+    background: #8b5cf6;
+  }
+
+  /* Asegurar que los botones de acción sean visibles y accesibles */
+  .section-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .card-action-btn {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 0.5rem;
+  }
+
+  /* Ajustar el grid de cards para móviles */
+  .aula-dashboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .aula-section-card.expanded {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
   }
 }
 
