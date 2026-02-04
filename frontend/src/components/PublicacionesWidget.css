@@ -687,79 +687,10 @@
     margin-left: 0 !important;
     margin-right: 0 !important;
     margin-bottom: 1rem !important;
-    padding: 0.5rem !important;
+    padding: 0.4rem !important;
     min-height: auto !important;
     box-sizing: border-box !important;
     overflow-x: hidden;
-  }
-
-  .widget-title {
-    font-size: 0.8rem !important;
-    margin-bottom: 0.5rem !important;
-    padding-bottom: 0.35rem !important;
-  }
-
-  .publicacion-item {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0.5rem !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    margin-bottom: 0.4rem !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden;
-  }
-
-  .publicacion-contenido {
-    max-width: 100% !important;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    font-size: 0.75rem !important;
-    line-height: 1.4 !important;
-  }
-
-  .publicacion-contenido p {
-    font-size: 0.75rem !important;
-    margin-bottom: 0.5rem !important;
-  }
-
-  .publicacion-imagenes .imagen-sola,
-  .publicacion-imagenes .imagen-multiple {
-    max-width: 100% !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    max-height: 200px !important;
-  }
-
-  .publicacion-autor {
-    font-size: 0.7rem !important;
-  }
-
-  .publicacion-fecha {
-    font-size: 0.65rem !important;
-  }
-
-  .publicacion-autor-foto,
-  .publicacion-autor-placeholder {
-    width: 28px !important;
-    height: 28px !important;
-  }
-
-  .publicacion-fecha-container {
-    margin-bottom: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
-  }
-
-  .publicacion-para-container {
-    margin-top: 0.5rem !important;
-    padding-top: 0.5rem !important;
-  }
-}
-
-@media (max-width: 640px) {
-  .publicaciones-widget {
-    padding: 0.4rem !important;
-    margin-bottom: 0.75rem !important;
   }
 
   .widget-title {
@@ -768,38 +699,77 @@
     padding-bottom: 0.3rem !important;
   }
 
-  .publicacion-item {
-    padding: 0.4rem !important;
-    margin-bottom: 0.3rem !important;
+  .publicacion-form {
+    gap: 0.5rem !important;
+  }
+
+  .publicacion-form textarea {
+    padding: 0.5rem !important;
+    font-size: 0.75rem !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    resize: vertical;
+  }
+
+  .btn-nueva-publicacion {
+    font-size: 0.75rem !important;
+    padding: 0.4rem 0.6rem !important;
+  }
+
+  .btn-nueva-publicacion .btn-icon {
+    font-size: 1rem !important;
   }
 
   .form-icons {
-    flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.4rem !important;
+    padding: 0.4rem 0 !important;
   }
 
   .icon-btn {
-    width: 100%;
-    padding: 0.35rem 0.6rem;
-    min-width: auto !important;
+    padding: 0.4rem 0.6rem !important;
+    min-width: 60px !important;
   }
 
-  .publicacion-header {
-    flex-direction: column;
+  .icon-text {
+    font-size: 1.2rem !important;
   }
 
-  .publicacion-header-right {
-    width: 100%;
-    justify-content: space-between;
+  .icon-label {
+    font-size: 0.65rem !important;
+  }
+
+  .publicacion-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.4rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 0.35rem !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden;
   }
 
   .publicacion-contenido {
+    max-width: 100% !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
     font-size: 0.7rem !important;
-    line-height: 1.3 !important;
+    line-height: 1.4 !important;
   }
 
   .publicacion-contenido p {
     font-size: 0.7rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+
+  .publicacion-imagenes .imagen-sola,
+  .publicacion-imagenes .imagen-multiple {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-height: 180px !important;
   }
 
   .publicacion-autor {
@@ -812,15 +782,36 @@
 
   .publicacion-autor-foto,
   .publicacion-autor-placeholder {
-    width: 24px !important;
-    height: 24px !important;
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .publicacion-fecha-container {
+    margin-bottom: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+  }
+
+  .publicacion-para-container {
+    margin-top: 0.4rem !important;
+    padding-top: 0.4rem !important;
+  }
+
+  .form-actions {
+    gap: 0.4rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  .form-actions button {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.7rem !important;
+    min-width: auto !important;
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .publicaciones-widget {
     padding: 0.35rem !important;
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
   }
 
   .widget-title {
@@ -829,9 +820,40 @@
     padding-bottom: 0.25rem !important;
   }
 
+  .publicacion-form textarea {
+    padding: 0.4rem !important;
+    font-size: 0.7rem !important;
+    rows: 3 !important;
+  }
+
+  .btn-nueva-publicacion {
+    font-size: 0.7rem !important;
+    padding: 0.35rem 0.5rem !important;
+  }
+
   .publicacion-item {
     padding: 0.35rem !important;
-    margin-bottom: 0.25rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+
+  .form-icons {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .icon-btn {
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    min-width: auto !important;
+  }
+
+  .publicacion-header {
+    flex-direction: column;
+  }
+
+  .publicacion-header-right {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .publicacion-contenido {
@@ -853,7 +875,73 @@
 
   .publicacion-autor-foto,
   .publicacion-autor-placeholder {
-    width: 22px !important;
-    height: 22px !important;
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .form-actions button {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 0.65rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .publicaciones-widget {
+    padding: 0.3rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .widget-title {
+    font-size: 0.65rem !important;
+    margin-bottom: 0.3rem !important;
+    padding-bottom: 0.2rem !important;
+  }
+
+  .publicacion-form textarea {
+    padding: 0.35rem !important;
+    font-size: 0.65rem !important;
+    rows: 3 !important;
+  }
+
+  .btn-nueva-publicacion {
+    font-size: 0.65rem !important;
+    padding: 0.3rem 0.4rem !important;
+  }
+
+  .btn-nueva-publicacion .btn-icon {
+    font-size: 0.9rem !important;
+  }
+
+  .publicacion-item {
+    padding: 0.3rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .publicacion-contenido {
+    font-size: 0.6rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .publicacion-contenido p {
+    font-size: 0.6rem !important;
+  }
+
+  .publicacion-autor {
+    font-size: 0.55rem !important;
+  }
+
+  .publicacion-fecha {
+    font-size: 0.5rem !important;
+  }
+
+  .publicacion-autor-foto,
+  .publicacion-autor-placeholder {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .form-actions button {
+    padding: 0.3rem 0.4rem !important;
+    font-size: 0.6rem !important;
   }
 }
