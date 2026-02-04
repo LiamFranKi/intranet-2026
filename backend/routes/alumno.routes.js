@@ -132,19 +132,23 @@ router.get('/dashboard', async (req, res) => {
     // IMPORTANTE: Incluir exámenes ACTIVOS e INACTIVOS con fecha >= hoy
     // Los exámenes INACTIVOS con fecha/hora se activarán automáticamente cuando llegue la hora
     // Similar a cómo funciona en el dashboard del docente (no filtra solo por ACTIVO)
+    // IMPORTANTE: Devolver los mismos campos que el dashboard del docente para que el modal funcione igual
     const proximosExamenes = grupoId ? await query(
       `SELECT ae.*,
-              c.nombre as curso_nombre,
+              COALESCE(ae.titulo, 'Examen') as titulo,
+              c.nombre as asignatura_nombre,
               a.id as asignatura_id,
               g.grado,
               g.seccion,
               n.nombre as nivel_nombre,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
               DATE(ae.fecha_desde) as fecha_evento
        FROM asignaturas_examenes ae
        INNER JOIN asignaturas a ON a.id = ae.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN personal p ON p.id = a.personal_id
        WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
        AND DATE(ae.fecha_desde) >= CURDATE()
        ORDER BY COALESCE(ae.fecha_desde, '9999-12-31') ASC
@@ -153,20 +157,23 @@ router.get('/dashboard', async (req, res) => {
     ) : [];
 
     // Próximas tareas (del grupo del alumno)
+    // IMPORTANTE: Devolver los mismos campos que el dashboard del docente para que el modal funcione igual
     const proximasTareas = grupoId ? await query(
       `SELECT t.*,
               t.titulo,
-              c.nombre as curso_nombre,
+              c.nombre as asignatura_nombre,
               a.id as asignatura_id,
               g.grado,
               g.seccion,
               n.nombre as nivel_nombre,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
               DATE(t.fecha_entrega) as fecha_evento
        FROM asignaturas_tareas t
        INNER JOIN asignaturas a ON a.id = t.asignatura_id
        INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN niveles n ON n.id = g.nivel_id
        INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN personal p ON p.id = a.personal_id
        WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
        AND DATE(t.fecha_entrega) >= DATE(NOW())
        ORDER BY t.fecha_entrega ASC

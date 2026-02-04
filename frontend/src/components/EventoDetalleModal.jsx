@@ -74,23 +74,78 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
             </div>
           )}
 
-          {/* Hora (si aplica) */}
-          {tipo === 'actividad' && evento.fecha_inicio && (
+          {/* Hora (para exámenes y actividades) */}
+          {((tipo === 'examen' && evento.hora_desde) || (tipo === 'actividad' && evento.fecha_inicio)) && (
             <div className="evento-detalle-item">
               <span className="evento-detalle-icon">🕐</span>
               <div className="evento-detalle-content">
                 <strong>Hora:</strong>
                 <span>
-                  {new Date(evento.fecha_inicio).toLocaleTimeString('es-PE', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                  {fechaFin && (
-                    <> - {fechaFin.toLocaleTimeString('es-PE', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}</>
+                  {tipo === 'examen' && evento.hora_desde && (
+                    <>
+                      {evento.hora_desde.substring(0, 5)}
+                      {evento.hora_hasta && evento.hora_hasta !== '00:00:00' && evento.hora_hasta !== '23:59:59' && (
+                        <> - {evento.hora_hasta.substring(0, 5)}</>
+                      )}
+                    </>
                   )}
+                  {tipo === 'actividad' && evento.fecha_inicio && (
+                    <>
+                      {new Date(evento.fecha_inicio).toLocaleTimeString('es-PE', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                      {fechaFin && (
+                        <> - {fechaFin.toLocaleTimeString('es-PE', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}</>
+                      )}
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Tiempo de duración (para exámenes) */}
+          {tipo === 'examen' && evento.tiempo && evento.tiempo > 0 && (
+            <div className="evento-detalle-item">
+              <span className="evento-detalle-icon">⏱️</span>
+              <div className="evento-detalle-content">
+                <strong>Duración:</strong>
+                <span>{evento.tiempo} minutos</span>
+              </div>
+            </div>
+          )}
+
+          {/* Tipo de examen (para exámenes) */}
+          {tipo === 'examen' && evento.tipo && (
+            <div className="evento-detalle-item">
+              <span className="evento-detalle-icon">📝</span>
+              <div className="evento-detalle-content">
+                <strong>Tipo:</strong>
+                <span>{evento.tipo === 'VIRTUAL' ? 'Virtual' : evento.tipo === 'PDF' ? 'PDF' : evento.tipo}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Estado (para exámenes) */}
+          {tipo === 'examen' && evento.estado && (
+            <div className="evento-detalle-item">
+              <span className="evento-detalle-icon">📊</span>
+              <div className="evento-detalle-content">
+                <strong>Estado:</strong>
+                <span style={{
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '12px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  backgroundColor: evento.estado === 'ACTIVO' ? '#10b981' : '#f59e0b',
+                  color: 'white',
+                  display: 'inline-block'
+                }}>
+                  {evento.estado}
                 </span>
               </div>
             </div>
