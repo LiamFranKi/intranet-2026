@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query, getAnioActivo } = require('../utils/mysql');
+const { query, execute, getAnioActivo } = require('../utils/mysql');
 const { authenticateToken, requireUserType } = require('../middleware/auth');
 const phpSerialize = require('php-serialize');
 
@@ -682,7 +682,7 @@ router.put('/perfil', uploadAlumno.single('foto'), async (req, res) => {
     }
 
     // Actualizar datos
-    await query(
+    await execute(
       `UPDATE alumnos SET
         nombres = ?,
         apellido_paterno = ?,
