@@ -291,6 +291,51 @@ router.get('/dashboard', async (req, res) => {
       })));
     }
 
+    // Contar eventos del mes actual (actividades, exámenes, tareas)
+    // Cada evento cuenta como 1 aunque tenga rango de fechas
+    const fechaActual = new Date();
+    const mesActual = fechaActual.getMonth() + 1; // 1-12
+    const añoActualNum = fechaActual.getFullYear();
+
+    // Contar actividades del mes actual (cada actividad cuenta como 1)
+    const actividadesMesActual = await query(
+      `SELECT COUNT(DISTINCT a.id) as total
+       FROM actividades a
+       WHERE a.colegio_id = ?
+       AND YEAR(a.fecha_inicio) = ?
+       AND MONTH(a.fecha_inicio) = ?`,
+      [colegio_id, añoActualNum, mesActual]
+    );
+
+    // Contar exámenes del mes actual (cada examen cuenta como 1)
+    const examenesMesActual = await query(
+      `SELECT COUNT(DISTINCT ae.id) as total
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
+       AND YEAR(ae.fecha_desde) = ?
+       AND MONTH(ae.fecha_desde) = ?`,
+      [docente.id, colegio_id, anio_activo, añoActualNum, mesActual]
+    );
+
+    // Contar tareas del mes actual (cada tarea cuenta como 1)
+    const tareasMesActual = await query(
+      `SELECT COUNT(DISTINCT t.id) as total
+       FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       WHERE a.personal_id = ? AND a.colegio_id = ? AND g.anio = ?
+       AND YEAR(t.fecha_entrega) = ?
+       AND MONTH(t.fecha_entrega) = ?`,
+      [docente.id, colegio_id, anio_activo, añoActualNum, mesActual]
+    );
+
+    // Sumar todos los eventos del mes (cada evento cuenta como 1)
+    const totalEventosMes = (actividadesMesActual[0]?.total || 0) + 
+                            (examenesMesActual[0]?.total || 0) + 
+                            (tareasMesActual[0]?.total || 0);
+
     // Construir nombre completo
     const nombreCompleto = `${docente.nombres || ''} ${docente.apellidos || ''}`.trim();
     
@@ -319,7 +364,9 @@ router.get('/dashboard', async (req, res) => {
       estadisticas: {
         gruposAsignados: gruposAsignados[0]?.total || 0,
         cursosAsignados: cursosAsignados[0]?.total || 0,
-        estudiantes: estudiantes[0]?.total || 0
+        estudiantes: estudiantes[0]?.total || 0,
+        eventosMesActual: totalEventosMes,
+        descuentoMesActual: 0 // Por ahora 0, se implementará después
       },
       proximosExamenes: proximosExamenes || [],
       proximasTareas: proximasTareas || [],

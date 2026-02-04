@@ -320,6 +320,22 @@ function DocenteDashboard() {
               <div className="stat-label">Tardanzas de {mesActual}</div>
             </div>
           </div>
+
+          <div className="stat-card mundo-card">
+            <div className="stat-icon">💰</div>
+            <div className="stat-content">
+              <div className="stat-number">{estadisticas?.descuentoMesActual || 0}</div>
+              <div className="stat-label">Descuento de {mesActual}</div>
+            </div>
+          </div>
+
+          <div className="stat-card mundo-card">
+            <div className="stat-icon">📅</div>
+            <div className="stat-content">
+              <div className="stat-number">{estadisticas?.eventosMesActual || 0}</div>
+              <div className="stat-label">Eventos de {mesActual}</div>
+            </div>
+          </div>
         </div>
 
         {/* Próximos Eventos */}
