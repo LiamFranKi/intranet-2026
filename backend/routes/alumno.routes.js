@@ -305,52 +305,58 @@ router.get('/publicaciones', async (req, res) => {
     const grupoId = matricula.length > 0 ? matricula[0].grupo_id : null;
 
     // Obtener publicaciones: solo las de TODOS y las de su grupo
-    let publicaciones;
-    if (grupoId) {
-      publicaciones = await query(
-        `SELECT p.*,
-                u.usuario as autor_usuario,
-                u.id as autor_id,
-                u.tipo as autor_tipo,
-                COALESCE(
-                  CONCAT(pers.nombres, ' ', pers.apellidos),
-                  CONCAT(al.nombres, ' ', al.apellido_paterno, ' ', al.apellido_materno),
-                  u.usuario
-                ) as autor_nombre_completo,
-                COALESCE(pers.foto, al.foto) as autor_foto
-         FROM publicaciones p
-         LEFT JOIN usuarios u ON u.id = p.usuario_id
-         LEFT JOIN personal pers ON pers.id = u.personal_id
-         LEFT JOIN alumnos al ON al.id = u.alumno_id
-         WHERE p.colegio_id = ?
-         AND (p.compartir_con = 'TODOS' OR (p.compartir_con = 'GRUPO' AND FIND_IN_SET(?, p.grupos)))
-         ORDER BY p.fecha_hora DESC
-         LIMIT 50`,
-        [colegio_id, grupoId]
-      );
-    } else {
-      // Si no tiene grupo, solo mostrar publicaciones de TODOS
-      publicaciones = await query(
-        `SELECT p.*,
-                u.usuario as autor_usuario,
-                u.id as autor_id,
-                u.tipo as autor_tipo,
-                COALESCE(
-                  CONCAT(pers.nombres, ' ', pers.apellidos),
-                  CONCAT(al.nombres, ' ', al.apellido_paterno, ' ', al.apellido_materno),
-                  u.usuario
-                ) as autor_nombre_completo,
-                COALESCE(pers.foto, al.foto) as autor_foto
-         FROM publicaciones p
-         LEFT JOIN usuarios u ON u.id = p.usuario_id
-         LEFT JOIN personal pers ON pers.id = u.personal_id
-         LEFT JOIN alumnos al ON al.id = u.alumno_id
-         WHERE p.colegio_id = ?
-         AND p.compartir_con = 'TODOS'
-         ORDER BY p.fecha_hora DESC
-         LIMIT 50`,
-        [colegio_id]
-      );
+    let publicaciones = [];
+    try {
+      if (grupoId) {
+        publicaciones = await query(
+          `SELECT p.*,
+                  u.usuario as autor_usuario,
+                  u.id as autor_id,
+                  u.tipo as autor_tipo,
+                  COALESCE(
+                    CONCAT(pers.nombres, ' ', pers.apellidos),
+                    CONCAT(al.nombres, ' ', al.apellido_paterno, ' ', al.apellido_materno),
+                    u.usuario
+                  ) as autor_nombre_completo,
+                  COALESCE(pers.foto, al.foto) as autor_foto
+           FROM publicaciones p
+           LEFT JOIN usuarios u ON u.id = p.usuario_id
+           LEFT JOIN personal pers ON pers.id = u.personal_id
+           LEFT JOIN alumnos al ON al.id = u.alumno_id
+           WHERE p.colegio_id = ?
+           AND (p.compartir_con = 'TODOS' OR (p.compartir_con = 'GRUPO' AND (p.grupos LIKE ? OR p.grupos LIKE ? OR p.grupos LIKE ?)))
+           ORDER BY p.fecha_hora DESC
+           LIMIT 50`,
+          [colegio_id, `%,${grupoId},%`, `${grupoId},%`, `%,${grupoId}`]
+        );
+      } else {
+        // Si no tiene grupo, solo mostrar publicaciones de TODOS
+        publicaciones = await query(
+          `SELECT p.*,
+                  u.usuario as autor_usuario,
+                  u.id as autor_id,
+                  u.tipo as autor_tipo,
+                  COALESCE(
+                    CONCAT(pers.nombres, ' ', pers.apellidos),
+                    CONCAT(al.nombres, ' ', al.apellido_paterno, ' ', al.apellido_materno),
+                    u.usuario
+                  ) as autor_nombre_completo,
+                  COALESCE(pers.foto, al.foto) as autor_foto
+           FROM publicaciones p
+           LEFT JOIN usuarios u ON u.id = p.usuario_id
+           LEFT JOIN personal pers ON pers.id = u.personal_id
+           LEFT JOIN alumnos al ON al.id = u.alumno_id
+           WHERE p.colegio_id = ?
+           AND p.compartir_con = 'TODOS'
+           ORDER BY p.fecha_hora DESC
+           LIMIT 50`,
+          [colegio_id]
+        );
+      }
+    } catch (error) {
+      console.error('Error obteniendo publicaciones:', error);
+      // Continuar con array vacío en caso de error
+      publicaciones = [];
     }
 
     // Obtener todos los grupos del colegio para mapear IDs a nombres
