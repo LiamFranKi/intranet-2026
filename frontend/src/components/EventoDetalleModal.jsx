@@ -188,6 +188,46 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
             </div>
           )}
 
+          {/* Fecha de registro (para tareas) */}
+          {tipo === 'tarea' && evento.fecha_hora && (
+            <div className="evento-detalle-item">
+              <span className="evento-detalle-icon">📅</span>
+              <div className="evento-detalle-content">
+                <strong>Fecha de Registro:</strong>
+                <span>
+                  {new Date(evento.fecha_hora).toLocaleDateString('es-PE', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Archivo PDF (para exámenes tipo PDF) */}
+          {tipo === 'examen' && evento.tipo === 'PDF' && evento.archivo_pdf && (
+            <div className="evento-detalle-item">
+              <span className="evento-detalle-icon">📄</span>
+              <div className="evento-detalle-content">
+                <strong>Archivo PDF:</strong>
+                <span>
+                  <a 
+                    href={evento.archivo_pdf.startsWith('http') 
+                      ? evento.archivo_pdf 
+                      : `https://nuevo.vanguardschools.edu.pe/Static/Archivos/${evento.archivo_pdf}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#4a83c1', textDecoration: 'underline' }}
+                  >
+                    Ver PDF
+                  </a>
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Lugar (para actividades) */}
           {tipo === 'actividad' && evento.lugar && (
             <div className="evento-detalle-item">
@@ -199,15 +239,16 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
             </div>
           )}
 
-          {/* Detalles */}
-          {((tipo === 'actividad' && evento.detalles) || (tipo === 'tarea' && evento.descripcion)) && (
+          {/* Detalles/Descripción */}
+          {((tipo === 'actividad' && evento.detalles) || (tipo === 'tarea' && evento.descripcion) || (tipo === 'examen' && evento.descripcion)) && (
             <div className="evento-detalle-item evento-detalle-detalles">
               <span className="evento-detalle-icon">📝</span>
               <div className="evento-detalle-content">
-                <strong>Detalles:</strong>
+                <strong>{tipo === 'examen' ? 'Descripción:' : 'Detalles:'}</strong>
                 <p>
                   {tipo === 'actividad' && evento.detalles}
                   {tipo === 'tarea' && evento.descripcion}
+                  {tipo === 'examen' && evento.descripcion}
                 </p>
               </div>
             </div>
