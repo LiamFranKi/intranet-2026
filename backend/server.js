@@ -35,19 +35,37 @@ try {
   console.log('Usando puerto por defecto:', PORT);
 }
 
-// Rate limiting - Configuración más permisiva para desarrollo
+// Rate limiting - Configuración más permisiva
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: isDevelopment ? 1000 : 200, // En desarrollo: 1000 requests, en producción: 200
+  max: isDevelopment ? 1000 : 1000, // Aumentado a 1000 requests en producción (era 200)
   message: 'Too many requests, please try again later.',
   standardHeaders: true, // Retorna rate limit info en headers `RateLimit-*`
   legacyHeaders: false, // Desactiva headers `X-RateLimit-*`
-  // Deshabilitar validación de trust proxy para evitar warnings
-  // El proxy Apache está configurado correctamente y es confiable
-  validate: {
-    trustProxy: false
+  // Usar keyGenerator personalizado para identificar usuarios únicos
+  // Si hay token de autenticación, usar el usuario_id del token
+  // Si no, usar la IP real del cliente (no la del proxy)
+  keyGenerator: (req) => {
+    // Intentar obtener el token del header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.usuario_id) {
+          // Usar usuario_id como clave única para rate limiting
+          return `user_${decoded.usuario_id}`;
+        }
+      } catch (error) {
+        // Si falla decodificar, continuar con IP
+      }
+    }
+    // Si no hay token o falla, usar IP real del cliente
+    // Express con trust proxy debería obtener la IP real del header X-Forwarded-For
+    return req.ip || req.connection.remoteAddress || 'unknown';
   },
   skip: (req) => {
     // Excluir health check del rate limiting
@@ -99,8 +117,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Configurar trust proxy DESPUÉS de los middlewares básicos
 // Esto es necesario cuando el backend está detrás de un proxy reverso (Apache)
-// Configurar solo para la IP del proxy local (127.0.0.1) para evitar warnings de express-rate-limit
-app.set('trust proxy', '127.0.0.1');
+// Configurar para confiar en el proxy y obtener la IP real del cliente
+app.set('trust proxy', true); // Cambiado a true para obtener IPs reales de los clientes
 
 // Servir archivos estáticos ANTES del rate limiter (no deben estar limitados)
 // Servir archivos estáticos (logos, assets) con headers CORS
