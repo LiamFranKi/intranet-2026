@@ -116,16 +116,24 @@ function AlumnoDashboard() {
 
     // Agregar exámenes
     if (proximosExamenes && Array.isArray(proximosExamenes)) {
+      console.log('📝 Procesando exámenes:', proximosExamenes.length);
       proximosExamenes.forEach(examen => {
         const fecha = crearFechaLima(examen.fecha_desde || examen.fecha_evento);
-        if (fecha && fecha >= hoy) {
+        // Si no tiene fecha, usar una fecha futura para que aparezca
+        const fechaFinal = fecha || new Date('9999-12-31');
+        // Incluir si no tiene fecha o si la fecha es >= hoy
+        if (!fecha || fecha >= hoy) {
           eventos.push({
             ...examen,
             tipo: 'examen',
-            fecha: fecha
+            fecha: fechaFinal
           });
+          console.log('✅ Examen agregado:', examen.titulo || examen.id, 'fecha:', fechaFinal);
+        } else {
+          console.log('⚠️ Examen filtrado (fecha pasada):', examen.titulo || examen.id, 'fecha:', fecha);
         }
       });
+      console.log('📝 Total exámenes agregados:', eventos.filter(e => e.tipo === 'examen').length);
     } else {
       console.warn('⚠️ proximosExamenes no es un array válido:', proximosExamenes);
     }
@@ -264,26 +272,34 @@ function AlumnoDashboard() {
           </div>
 
           <div className="stat-card mundo-card">
-            <div className="stat-icon">📝</div>
+            <div className="stat-icon">👨‍🏫</div>
             <div className="stat-content">
-              <div className="stat-number">{estadisticas?.tareasPendientes || 0}</div>
-              <div className="stat-label">Tareas Pendientes</div>
+              <div className="stat-number">{estadisticas?.totalDocentes || 0}</div>
+              <div className="stat-label">Total Docentes</div>
             </div>
           </div>
 
           <div className="stat-card mundo-card">
             <div className="stat-icon">📋</div>
             <div className="stat-content">
-              <div className="stat-number">{estadisticas?.examenesPendientes || 0}</div>
-              <div className="stat-label">Exámenes Pendientes</div>
+              <div className="stat-number">{estadisticas?.totalMatriculas || 0}</div>
+              <div className="stat-label">Total Matrículas</div>
             </div>
           </div>
 
           <div className="stat-card mundo-card">
-            <div className="stat-icon">✉️</div>
+            <div className="stat-icon">⏰</div>
             <div className="stat-content">
-              <div className="stat-number">{estadisticas?.mensajesNoLeidos || 0}</div>
-              <div className="stat-label">Mensajes No Leídos</div>
+              <div className="stat-number">{estadisticas?.totalTardanzas || 0}</div>
+              <div className="stat-label">Total Tardanzas</div>
+            </div>
+          </div>
+
+          <div className="stat-card mundo-card">
+            <div className="stat-icon">❌</div>
+            <div className="stat-content">
+              <div className="stat-number">{estadisticas?.totalFaltas || 0}</div>
+              <div className="stat-label">Total Faltas</div>
             </div>
           </div>
         </div>

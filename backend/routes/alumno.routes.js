@@ -69,7 +69,7 @@ router.get('/dashboard', async (req, res) => {
     const grupoId = matriculaData ? matriculaData.grupo_id : null;
     console.log('✅ [ALUMNO DASHBOARD] Matrícula:', matriculaData ? `Grupo ${grupoId}` : 'Sin matrícula');
 
-    // Contar cursos asignados (asignaturas del grupo del alumno)
+    // Contar cursos asignados (asignaturas del grupo del alumno en el año activo)
     const cursosAsignados = grupoId ? await query(
       `SELECT COUNT(DISTINCT a.id) as total
        FROM asignaturas a
@@ -78,36 +78,29 @@ router.get('/dashboard', async (req, res) => {
       [grupoId, colegio_id, anio_activo]
     ) : [{ total: 0 }];
 
-    // Contar tareas pendientes (tareas del grupo del alumno que aún no han vencido)
-    const tareasPendientes = grupoId ? await query(
-      `SELECT COUNT(DISTINCT t.id) as total
-       FROM asignaturas_tareas t
-       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+    // Contar docentes únicos que le enseñan (sin repetir docente)
+    const totalDocentes = grupoId ? await query(
+      `SELECT COUNT(DISTINCT a.personal_id) as total
+       FROM asignaturas a
        INNER JOIN grupos g ON g.id = a.grupo_id
-       WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND DATE(t.fecha_entrega) >= DATE(NOW())`,
+       WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?`,
       [grupoId, colegio_id, anio_activo]
     ) : [{ total: 0 }];
 
-    // Contar exámenes pendientes (exámenes del grupo del alumno que aún no han vencido)
-    const examenesPendientes = grupoId ? await query(
-      `SELECT COUNT(DISTINCT ae.id) as total
-       FROM asignaturas_examenes ae
-       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
-       INNER JOIN grupos g ON g.id = a.grupo_id
-       WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
-       AND ae.estado = 'ACTIVO'
-       AND (ae.fecha_hasta IS NULL OR DATE(ae.fecha_hasta) >= DATE(NOW()))`,
-      [grupoId, colegio_id, anio_activo]
-    ) : [{ total: 0 }];
-
-    // Contar mensajes no leídos (simplificado, se puede mejorar después)
-    const mensajesNoLeidos = await query(
-      `SELECT COUNT(*) as total
-       FROM mensajes m
-       WHERE m.destinatario_id = ? AND m.estado = 'NO_LEIDO'`,
-      [usuario_id]
+    // Contar total de matrículas registradas (una por año)
+    const totalMatriculas = await query(
+      `SELECT COUNT(DISTINCT g.anio) as total
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ?`,
+      [alumnoData.id, colegio_id]
     );
+
+    // Total Tardanzas (por ahora 0)
+    const totalTardanzas = [{ total: 0 }];
+
+    // Total Faltas (por ahora 0)
+    const totalFaltas = [{ total: 0 }];
 
     // Obtener asignaturas (cursos) del alumno
     // NOTA: No usar LEFT JOIN areas_curso porque esa tabla no existe en la BD
@@ -143,8 +136,8 @@ router.get('/dashboard', async (req, res) => {
        INNER JOIN cursos c ON c.id = a.curso_id
        WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
        AND ae.estado = 'ACTIVO'
-       AND (ae.fecha_desde IS NULL OR DATE(ae.fecha_desde) >= DATE(NOW()))
-       ORDER BY ae.fecha_desde ASC
+       AND (ae.fecha_desde IS NULL OR DATE(ae.fecha_desde) >= CURDATE())
+       ORDER BY COALESCE(ae.fecha_desde, '9999-12-31') ASC
        LIMIT 10`,
       [grupoId, colegio_id, anio_activo]
     ) : [];
@@ -215,9 +208,10 @@ router.get('/dashboard', async (req, res) => {
       } : null,
       estadisticas: {
         cursosAsignados: cursosAsignados[0]?.total || 0,
-        tareasPendientes: tareasPendientes[0]?.total || 0,
-        examenesPendientes: examenesPendientes[0]?.total || 0,
-        mensajesNoLeidos: mensajesNoLeidos[0]?.total || 0
+        totalDocentes: totalDocentes[0]?.total || 0,
+        totalMatriculas: totalMatriculas[0]?.total || 0,
+        totalTardanzas: totalTardanzas[0]?.total || 0,
+        totalFaltas: totalFaltas[0]?.total || 0
       },
       asignaturas: asignaturas || [],
       proximosExamenes: proximosExamenes || [],
