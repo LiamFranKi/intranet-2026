@@ -27,35 +27,8 @@ function DocenteActividades() {
   const [anio, setAnio] = useState(new Date().getFullYear());
   const [actividadesAgrupadas, setActividadesAgrupadas] = useState({});
 
-  // Cargar TODAS las actividades del año una sola vez al inicio
-  const cargarTodasLasActividades = useCallback(async () => {
-    try {
-      setLoading(true);
-      const añoActual = new Date().getFullYear();
-      const response = await api.get('/docente/actividades', {
-        params: { anio: añoActual }
-      });
-      const actividadesData = response.data.actividades || [];
-      setTodasLasActividades(actividadesData);
-      
-      if (response.data.anio) {
-        setAnio(response.data.anio);
-      } else {
-        setAnio(añoActual);
-      }
-
-      console.log(`📅 Todas las actividades del año ${añoActual}:`, actividadesData.length);
-      
-      // Inicializar con todas las actividades
-      filtrarYAgruparActividades(actividadesData, null);
-    } catch (error) {
-      console.error('Error cargando actividades:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filtrarYAgruparActividades]);
-
   // Filtrar y agrupar actividades según el mes seleccionado
+  // DEFINIR PRIMERO para evitar error de referencia circular
   const filtrarYAgruparActividades = useCallback((actividadesData, mes) => {
     // Filtrar por mes si se especifica
     let actividadesFiltradas = actividadesData;
@@ -94,6 +67,34 @@ function DocenteActividades() {
     setActividadesAgrupadas(agrupadas);
   }, []);
 
+  // Cargar TODAS las actividades del año una sola vez al inicio
+  const cargarTodasLasActividades = useCallback(async () => {
+    try {
+      setLoading(true);
+      const añoActual = new Date().getFullYear();
+      const response = await api.get('/docente/actividades', {
+        params: { anio: añoActual }
+      });
+      const actividadesData = response.data.actividades || [];
+      setTodasLasActividades(actividadesData);
+      
+      if (response.data.anio) {
+        setAnio(response.data.anio);
+      } else {
+        setAnio(añoActual);
+      }
+
+      console.log(`📅 Todas las actividades del año ${añoActual}:`, actividadesData.length);
+      
+      // Inicializar con todas las actividades
+      filtrarYAgruparActividades(actividadesData, null);
+    } catch (error) {
+      console.error('Error cargando actividades:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filtrarYAgruparActividades]);
+
   // Cargar todas las actividades al inicio
   useEffect(() => {
     cargarTodasLasActividades();
@@ -112,7 +113,7 @@ function DocenteActividades() {
       // Cleanup para evitar memory leaks
       return () => clearTimeout(timeoutId);
     }
-  }, [mesSeleccionado, todasLasActividades]); // Removido filtrarYAgruparActividades de dependencias
+  }, [mesSeleccionado, todasLasActividades, filtrarYAgruparActividades]);
 
   // Obtener días del mes seleccionado o todos los días con actividades
   const obtenerDiasConActividades = () => {
