@@ -234,23 +234,23 @@
   font-style: italic;
 }
 
-/* Responsive para móviles */
+/* Responsive para móviles - Mismo tamaño que las cards del dashboard */
 @media (max-width: 768px) {
   .calendario-widget {
     width: 100%;
     max-width: 100%;
     margin-left: 0;
     margin-right: 0;
-    padding: 0.75rem;
+    padding: 0.6rem;
     box-sizing: border-box;
     overflow-x: hidden;
   }
 
   .calendario-header {
     flex-wrap: wrap;
-    gap: 0.5rem;
-    padding-bottom: 0.75rem;
-    margin-bottom: 0.75rem;
+    gap: 0.4rem;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.6rem;
   }
 
   .mes-ano {
@@ -259,52 +259,11 @@
   }
 
   .mes-ano span {
-    font-size: 0.95rem;
-  }
-
-  .btn-nav {
-    width: 26px;
-    height: 26px;
-    font-size: 0.9rem;
-  }
-
-  .calendario-dias-semana {
-    gap: 0.1rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .dia-semana {
-    font-size: 0.65rem;
-    padding: 0.35rem 0;
-  }
-
-  .calendario-grid {
-    gap: 0.1rem;
-  }
-
-  .calendario-dia {
-    font-size: 0.75rem;
-    min-height: 32px;
-  }
-}
-
-@media (max-width: 480px) {
-  .calendario-widget {
-    padding: 0.5rem;
-    margin: 0;
-  }
-
-  .calendario-header {
-    padding-bottom: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .mes-ano span {
     font-size: 0.85rem;
   }
 
   .btn-hoy {
-    padding: 0.15rem 0.4rem;
+    padding: 0.2rem 0.5rem;
     font-size: 0.65rem;
   }
 
@@ -321,7 +280,7 @@
 
   .dia-semana {
     font-size: 0.6rem;
-    padding: 0.25rem 0;
+    padding: 0.3rem 0;
   }
 
   .calendario-grid {
@@ -330,13 +289,66 @@
 
   .calendario-dia {
     font-size: 0.7rem;
-    min-height: 28px;
+    min-height: 30px;
   }
 
   .actividad-indicador {
     width: 4px;
     height: 4px;
     bottom: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendario-widget {
+    padding: 0.5rem;
+    margin: 0;
+  }
+
+  .calendario-header {
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    gap: 0.3rem;
+  }
+
+  .mes-ano span {
+    font-size: 0.75rem;
+  }
+
+  .btn-hoy {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.6rem;
+  }
+
+  .btn-nav {
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
+  }
+
+  .calendario-dias-semana {
+    gap: 0.06rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .dia-semana {
+    font-size: 0.55rem;
+    padding: 0.25rem 0;
+  }
+
+  .calendario-grid {
+    gap: 0.06rem;
+  }
+
+  .calendario-dia {
+    font-size: 0.65rem;
+    min-height: 26px;
+  }
+
+  .actividad-indicador {
+    width: 3px;
+    height: 3px;
+    bottom: 1px;
   }
 }
 

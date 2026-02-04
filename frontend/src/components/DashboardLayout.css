@@ -435,9 +435,7 @@
   .dashboard-sidebar-right {
     width: 100%;
     max-width: 100%;
-    padding: 0.75rem 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding: 1rem;
     grid-template-columns: 1fr;
     box-sizing: border-box;
     margin-left: 0;
@@ -451,20 +449,19 @@
     margin-left: 0;
     margin-right: 0;
     box-sizing: border-box;
+    padding: 0.75rem;
   }
 }
 
 @media (max-width: 640px) {
   .dashboard-main {
-    padding: 0.75rem;
+    padding: 1rem;
   }
 
   .dashboard-sidebar-right {
     width: 100%;
     max-width: 100%;
-    padding: 0.5rem 0.75rem;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    padding: 1rem;
     grid-template-columns: 1fr;
     box-sizing: border-box;
     margin-left: 0;
@@ -478,6 +475,7 @@
     margin-left: 0;
     margin-right: 0;
     box-sizing: border-box;
+    padding: 0.6rem;
   }
 
   .user-info {
@@ -487,15 +485,13 @@
 
 @media (max-width: 480px) {
   .dashboard-main {
-    padding: 0.5rem;
+    padding: 1rem;
   }
 
   .dashboard-sidebar-right {
     width: 100%;
     max-width: 100%;
-    padding: 0.5rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
+    padding: 1rem;
     grid-template-columns: 1fr;
     box-sizing: border-box;
     margin-left: 0;
@@ -509,6 +505,7 @@
     margin-left: 0;
     margin-right: 0;
     box-sizing: border-box;
+    padding: 0.5rem;
   }
 }
 
