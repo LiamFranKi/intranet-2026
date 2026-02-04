@@ -13,6 +13,7 @@ function CalendarioWidget() {
   const [actividadesDelDiaSeleccionado, setActividadesDelDiaSeleccionado] = useState([]);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [actividadSeleccionada, setActividadSeleccionada] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const mesActual = fechaActual.getMonth();
   const añoActual = fechaActual.getFullYear();
@@ -25,6 +26,16 @@ function CalendarioWidget() {
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
+
+  // Detectar si es móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Cargar TODAS las actividades de TODOS los años (sin restricción de año)
   useEffect(() => {
@@ -190,9 +201,6 @@ function CalendarioWidget() {
   for (let dia = 1; dia <= diasEnMes; dia++) {
     dias.push(dia);
   }
-
-  // Detectar si es móvil
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   // Filtrar días para móvil: solo Lunes a Viernes (índices 1-5)
   const diasSemanaMobile = isMobile ? diasSemana.slice(1, 6) : diasSemana; // ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
