@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import './NotificacionesWidget.css';
 
 function NotificacionesWidget() {
+  const { user } = useAuth();
   const [notificaciones, setNotificaciones] = useState([]);
   const [mostrarDropdown, setMostrarDropdown] = useState(false);
 
   useEffect(() => {
     cargarNotificaciones();
-  }, []);
+  }, [user]);
 
   const cargarNotificaciones = async () => {
     try {
-      const response = await api.get('/docente/notificaciones');
+      // Usar ruta según el tipo de usuario
+      const ruta = user?.tipo === 'ALUMNO' ? '/alumno/notificaciones' : '/docente/notificaciones';
+      const response = await api.get(ruta);
       setNotificaciones(response.data.notificaciones || []);
     } catch (error) {
       console.error('Error cargando notificaciones:', error);

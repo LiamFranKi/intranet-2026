@@ -5,6 +5,7 @@ import EventoModal from './EventoModal';
 import './CalendarioWidget.css';
 
 function CalendarioWidget() {
+  const { user } = useAuth();
   // Calendario muestra TODAS las actividades de TODOS los años (sin restricción)
   // Usar año actual para la visualización inicial
   const [fechaActual, setFechaActual] = useState(new Date());
@@ -44,9 +45,9 @@ function CalendarioWidget() {
 
   const cargarActividades = async () => {
     try {
-      // Cargar actividades del año que se está visualizando en el calendario
-      // Pasar el año como parámetro para que el backend filtre correctamente
-      const response = await api.get('/docente/actividades', {
+      // Usar ruta según el tipo de usuario
+      const ruta = user?.tipo === 'ALUMNO' ? '/alumno/actividades' : '/docente/actividades';
+      const response = await api.get(ruta, {
         params: { anio: añoActual }
       });
       const actividadesData = response.data.actividades || [];

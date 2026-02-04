@@ -60,7 +60,9 @@ function PublicacionesWidget() {
 
   const cargarPublicaciones = async () => {
     try {
-      const response = await api.get('/docente/publicaciones');
+      // Usar ruta según el tipo de usuario
+      const ruta = esAlumno ? '/alumno/publicaciones' : '/docente/publicaciones';
+      const response = await api.get(ruta);
       const publicacionesData = response.data.publicaciones || [];
       console.log('📰 Publicaciones cargadas:', publicacionesData.length);
       
@@ -82,6 +84,11 @@ function PublicacionesWidget() {
   };
 
   const cargarGrupos = async () => {
+    // Solo cargar grupos si es docente (alumnos no pueden crear publicaciones)
+    if (esAlumno) {
+      setGrupos([]);
+      return;
+    }
     try {
       const response = await api.get('/docente/grupos');
       setGrupos(response.data.grupos || []);
@@ -358,12 +365,15 @@ function PublicacionesWidget() {
     <div className="publicaciones-widget">
       <h3 className="widget-title">Publicaciones</h3>
       
-      {!mostrarFormulario ? (
+      {/* Solo mostrar botón de crear si es docente */}
+      {!esAlumno && !mostrarFormulario && (
         <button className="btn-nueva-publicacion btn-primary btn-block" onClick={() => setMostrarFormulario(true)}>
           <span className="btn-icon">📝</span>
           <span>¿Tienes algo que compartir?</span>
         </button>
-      ) : (
+      )}
+      
+      {!esAlumno && mostrarFormulario && (
         <form className="publicacion-form" onSubmit={handleSubmit}>
           <textarea
             placeholder="¿Tienes algo que compartir?"

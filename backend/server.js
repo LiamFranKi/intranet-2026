@@ -195,7 +195,9 @@ app.use('/api/auditoria', auditoriaRoutes);
 
 // Rutas de docente
 const docenteRoutes = require('./routes/docente.routes');
+const alumnoRoutes = require('./routes/alumno.routes');
 app.use('/api/docente', docenteRoutes);
+app.use('/api/alumno', alumnoRoutes);
 
 // Rutas de prueba (solo desarrollo)
 if (process.env.NODE_ENV === 'development') {
