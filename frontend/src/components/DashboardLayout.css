@@ -423,22 +423,19 @@
 
   .dashboard-sidebar-right {
     width: 100%;
-    padding: 1rem 2rem;
+    padding: 1rem 1.5rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
+    box-sizing: border-box;
   }
 }
 
-@media (max-width: 640px) {
-  .dashboard-main {
-    padding: 1rem;
-  }
-
+@media (max-width: 768px) {
   .dashboard-sidebar-right {
     width: 100%;
     max-width: 100%;
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     padding-left: 1rem;
     padding-right: 1rem;
     grid-template-columns: 1fr;
@@ -447,22 +444,71 @@
     margin-right: 0;
   }
 
+  .calendario-widget,
+  .publicaciones-widget {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-main {
+    padding: 0.75rem;
+  }
+
+  .dashboard-sidebar-right {
+    width: 100%;
+    max-width: 100%;
+    padding: 0.5rem 0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    grid-template-columns: 1fr;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .calendario-widget,
+  .publicaciones-widget {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
+  }
+
   .user-info {
     display: none;
   }
 }
 
-/* Asegurar que los widgets no se peguen a los bordes en móviles */
-@media (max-width: 768px) {
+@media (max-width: 480px) {
+  .dashboard-main {
+    padding: 0.5rem;
+  }
+
   .dashboard-sidebar-right {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    width: 100%;
+    max-width: 100%;
+    padding: 0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    grid-template-columns: 1fr;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .calendario-widget,
   .publicaciones-widget {
+    width: 100%;
+    max-width: 100%;
     margin-left: 0;
     margin-right: 0;
+    box-sizing: border-box;
   }
 }
 
