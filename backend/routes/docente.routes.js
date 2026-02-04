@@ -6379,6 +6379,13 @@ router.post('/aula-virtual/examenes', uploadAulaVirtual.single('archivo_pdf'), a
       fechaHasta = fecha_hasta;
       horaDesde = hora_desde;
       horaHasta = hora_hasta;
+      
+      // IMPORTANTE: Si se configuran fechas/horas, el estado debe ser INACTIVO automáticamente
+      // El examen solo se activará automáticamente cuando esté dentro del rango de fechas/horas
+      if (estado === 'ACTIVO') {
+        console.log(`⚠️ Examen con fecha/hora configurada: forzando estado a INACTIVO (se activará automáticamente cuando llegue la hora)`);
+        estado = 'INACTIVO';
+      }
     } else {
       // Si no está habilitado, usar valores por defecto específicos
       fechaDesde = '0000-00-00';
