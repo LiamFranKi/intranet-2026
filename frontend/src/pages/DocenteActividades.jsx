@@ -53,7 +53,7 @@ function DocenteActividades() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filtrarYAgruparActividades]);
 
   // Filtrar y agrupar actividades según el mes seleccionado
   const filtrarYAgruparActividades = useCallback((actividadesData, mes) => {
@@ -104,12 +104,15 @@ function DocenteActividades() {
     if (todasLasActividades.length > 0) {
       setLoadingMes(true);
       // Simular un pequeño delay para mejor UX (opcional)
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         filtrarYAgruparActividades(todasLasActividades, mesSeleccionado);
         setLoadingMes(false);
       }, 100);
+      
+      // Cleanup para evitar memory leaks
+      return () => clearTimeout(timeoutId);
     }
-  }, [mesSeleccionado, todasLasActividades, filtrarYAgruparActividades]);
+  }, [mesSeleccionado, todasLasActividades]); // Removido filtrarYAgruparActividades de dependencias
 
   // Obtener días del mes seleccionado o todos los días con actividades
   const obtenerDiasConActividades = () => {
