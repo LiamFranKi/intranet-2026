@@ -2010,24 +2010,36 @@ function DocenteAulaVirtual() {
         // Si es una fecha en formato string (YYYY-MM-DD o YYYY-MM-DD HH:MM:SS)
         if (typeof fecha === 'string') {
           // Extraer solo la parte de la fecha (antes del espacio si existe)
-          const fechaParte = fecha.split(' ')[0];
-          // Verificar que tenga el formato correcto
-          if (fechaParte.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            return fechaParte;
+          const fechaParte = fecha.split(' ')[0].trim();
+          
+          // Verificar si es una fecha inválida de MySQL (0000-00-00)
+          if (fechaParte === '0000-00-00' || fechaParte === '0000-00-00 00:00:00' || fechaParte === '') {
+            return '';
           }
+          
+          // Verificar que tenga el formato correcto YYYY-MM-DD
+          if (fechaParte.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Validar que la fecha sea válida (no 0000-00-00)
+            const [año, mes, dia] = fechaParte.split('-').map(Number);
+            if (año > 0 && mes > 0 && dia > 0 && mes <= 12 && dia <= 31) {
+              return fechaParte;
+            }
+            return '';
+          }
+          
           // Si viene en otro formato, intentar parsear
           const fechaObj = new Date(fecha);
-          if (!isNaN(fechaObj.getTime())) {
+          if (!isNaN(fechaObj.getTime()) && fechaObj.getFullYear() > 1900) {
             return fechaObj.toISOString().split('T')[0];
           }
         }
         // Si es un objeto Date
-        if (fecha instanceof Date) {
+        if (fecha instanceof Date && !isNaN(fecha.getTime()) && fecha.getFullYear() > 1900) {
           return fecha.toISOString().split('T')[0];
         }
         return '';
       } catch (error) {
-        console.error('Error formateando fecha:', error);
+        console.error('Error formateando fecha:', error, 'Fecha original:', fecha);
         return '';
       }
     };

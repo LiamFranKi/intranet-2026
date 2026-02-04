@@ -6154,6 +6154,8 @@ router.get('/aula-virtual/examenes', async (req, res) => {
     }
 
     // Obtener exámenes de la asignatura filtrados por ciclo con conteo de preguntas
+    // IMPORTANTE: Habilitar automáticamente exámenes cuando llega la fecha/hora de inicio
+    // Usar CONVERT_TZ para trabajar con zona horaria de Lima (UTC-5)
     const examenes = await query(
       `SELECT ae.*, 
               COUNT(DISTINCT ep.id) as total_preguntas
@@ -6164,6 +6166,47 @@ router.get('/aula-virtual/examenes', async (req, res) => {
        ORDER BY ae.id ASC`,
       [asignatura_id, cicloFiltro]
     );
+
+    // Habilitar automáticamente exámenes que llegaron a su fecha/hora de inicio
+    // Solo si tienen fecha_desde y hora_desde válidas (no 0000-00-00)
+    const ahora = new Date();
+    const ahoraLima = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+    const fechaHoraActual = ahoraLima.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaActual = ahoraLima.toISOString().split('T')[0];
+    const horaActual = ahoraLima.toTimeString().slice(0, 5); // HH:MM
+
+    for (const examen of examenes) {
+      // Solo procesar si el examen está INACTIVO y tiene fecha/hora válidas
+      if (examen.estado === 'INACTIVO' && 
+          examen.fecha_desde && 
+          examen.fecha_desde !== '0000-00-00' && 
+          examen.fecha_desde !== '0000-00-00 00:00:00' &&
+          examen.hora_desde && 
+          examen.hora_desde !== '00:00:00') {
+        
+        // Construir fecha/hora de inicio del examen
+        const fechaInicio = examen.fecha_desde.split(' ')[0]; // Solo la fecha
+        const horaInicio = examen.hora_desde.substring(0, 5); // HH:MM
+        
+        // Comparar fecha y hora
+        const fechaInicioDate = new Date(`${fechaInicio}T${horaInicio}:00`);
+        const ahoraDate = new Date(`${fechaActual}T${horaActual}:00`);
+        
+        // Si la fecha/hora de inicio ya pasó, habilitar el examen
+        if (fechaInicioDate <= ahoraDate) {
+          try {
+            await execute(
+              `UPDATE asignaturas_examenes SET estado = 'ACTIVO' WHERE id = ?`,
+              [examen.id]
+            );
+            console.log(`✅ Examen "${examen.titulo}" (ID: ${examen.id}) habilitado automáticamente`);
+            examen.estado = 'ACTIVO'; // Actualizar en el objeto para la respuesta
+          } catch (error) {
+            console.error(`Error habilitando examen ${examen.id}:`, error);
+          }
+        }
+      }
+    }
 
     // Construir URLs completas para los archivos PDF (usando PHP_SYSTEM_URL para compatibilidad con sistema anterior)
     const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
