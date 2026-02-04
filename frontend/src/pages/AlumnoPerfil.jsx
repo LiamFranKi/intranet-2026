@@ -24,8 +24,7 @@ function AlumnoPerfil() {
     apellido_paterno: '',
     apellido_materno: '',
     email: '',
-    telefono_celular: '',
-    direccion: '',
+    sexo: '',
     fecha_nacimiento: ''
   });
   const [fotoPreview, setFotoPreview] = useState(null);
@@ -85,8 +84,7 @@ function AlumnoPerfil() {
         apellido_paterno: data.apellido_paterno || '',
         apellido_materno: data.apellido_materno || '',
         email: data.email || '',
-        telefono_celular: data.telefono_celular || '',
-        direccion: data.direccion || '',
+        sexo: data.sexo !== undefined && data.sexo !== null ? String(data.sexo) : '',
         fecha_nacimiento: formatearFechaParaInput(data.fecha_nacimiento)
       });
       
@@ -209,8 +207,7 @@ function AlumnoPerfil() {
       formDataToSend.append('apellido_paterno', formData.apellido_paterno);
       formDataToSend.append('apellido_materno', formData.apellido_materno);
       formDataToSend.append('email', formData.email);
-      formDataToSend.append('telefono_celular', formData.telefono_celular);
-      formDataToSend.append('direccion', formData.direccion);
+      formDataToSend.append('sexo', formData.sexo || '');
       formDataToSend.append('fecha_nacimiento', formData.fecha_nacimiento);
       
       if (fotoFile) {
@@ -274,8 +271,7 @@ function AlumnoPerfil() {
             apellido_paterno: perfilActualizado.apellido_paterno || user.apellido_paterno,
             apellido_materno: perfilActualizado.apellido_materno || user.apellido_materno,
             email: perfilActualizado.email || user.email,
-            telefono_celular: perfilActualizado.telefono_celular || user.telefono_celular,
-            direccion: perfilActualizado.direccion || user.direccion
+            sexo: perfilActualizado.sexo !== undefined ? perfilActualizado.sexo : (user.sexo !== undefined ? user.sexo : null)
           };
           setUser(updatedUser);
           localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -499,14 +495,17 @@ function AlumnoPerfil() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="telefono_celular">Teléfono Celular</label>
-                <input
-                  type="tel"
-                  id="telefono_celular"
-                  name="telefono_celular"
-                  value={formData.telefono_celular}
+                <label htmlFor="sexo">Sexo</label>
+                <select
+                  id="sexo"
+                  name="sexo"
+                  value={formData.sexo}
                   onChange={handleInputChange}
-                />
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="0">Masculino</option>
+                  <option value="1">Femenino</option>
+                </select>
               </div>
 
               <div className="form-group">
@@ -516,17 +515,6 @@ function AlumnoPerfil() {
                   id="fecha_nacimiento"
                   name="fecha_nacimiento"
                   value={formData.fecha_nacimiento}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="form-group full-width">
-                <label htmlFor="direccion">Dirección</label>
-                <input
-                  type="text"
-                  id="direccion"
-                  name="direccion"
-                  value={formData.direccion}
                   onChange={handleInputChange}
                 />
               </div>
