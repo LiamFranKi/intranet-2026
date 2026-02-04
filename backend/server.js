@@ -1,6 +1,20 @@
 require('dotenv').config();
 // Configurar zona horaria a Lima, Perú (UTC-5)
 process.env.TZ = 'America/Lima';
+
+// Verificar y mostrar información de zona horaria
+const ahora = new Date();
+const zonaHoraria = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const offset = ahora.getTimezoneOffset();
+const offsetHoras = -offset / 60; // Convertir minutos a horas (negativo porque getTimezoneOffset retorna el offset opuesto)
+
+console.log('🕐 Configuración de Zona Horaria:');
+console.log(`   Zona horaria configurada: ${process.env.TZ}`);
+console.log(`   Zona horaria del sistema: ${zonaHoraria}`);
+console.log(`   Offset UTC: ${offsetHoras >= 0 ? '+' : ''}${offsetHoras}:00`);
+console.log(`   Fecha y hora actual: ${ahora.toLocaleString('es-PE', { timeZone: 'America/Lima', dateStyle: 'full', timeStyle: 'long' })}`);
+console.log(`   ISO String: ${ahora.toISOString()}`);
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
