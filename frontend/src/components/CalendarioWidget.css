@@ -283,6 +283,7 @@
   }
 
   .calendario-dias-semana {
+    grid-template-columns: repeat(5, 1fr) !important;
     gap: 0.15rem !important;
     margin-bottom: 0.3rem !important;
   }
@@ -294,6 +295,7 @@
   }
 
   .calendario-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
     gap: 0.15rem !important;
   }
 
@@ -372,6 +374,7 @@
   }
 
   .calendario-dias-semana {
+    grid-template-columns: repeat(5, 1fr) !important;
     gap: 0.1rem !important;
     margin-bottom: 0.25rem !important;
   }
@@ -382,6 +385,7 @@
   }
 
   .calendario-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
     gap: 0.1rem !important;
   }
 

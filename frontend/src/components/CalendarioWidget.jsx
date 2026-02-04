@@ -191,6 +191,23 @@ function CalendarioWidget() {
     dias.push(dia);
   }
 
+  // Detectar si es móvil
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+
+  // Filtrar días para móvil: solo Lunes a Viernes (índices 1-5)
+  const diasSemanaMobile = isMobile ? diasSemana.slice(1, 6) : diasSemana; // ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']
+  
+  // Filtrar días del mes para móvil: solo los que caen en Lunes (1) a Viernes (5)
+  const diasFiltrados = isMobile 
+    ? dias.map((dia, index) => {
+        if (dia === null) return null;
+        const fechaDia = new Date(añoActual, mesActual, dia);
+        const diaSemana = fechaDia.getDay(); // 0=Domingo, 1=Lunes, ..., 6=Sábado
+        // Solo incluir si es Lunes (1) a Viernes (5)
+        return (diaSemana >= 1 && diaSemana <= 5) ? dia : null;
+      })
+    : dias;
+
   return (
     <>
       <div className="calendario-widget">
@@ -204,7 +221,7 @@ function CalendarioWidget() {
         </div>
 
         <div className="calendario-dias-semana">
-          {diasSemana.map((dia) => (
+          {diasSemanaMobile.map((dia) => (
             <div key={dia} className="dia-semana">
               {dia}
             </div>
@@ -212,7 +229,7 @@ function CalendarioWidget() {
         </div>
 
         <div className="calendario-grid">
-          {dias.map((dia, index) => {
+          {diasFiltrados.map((dia, index) => {
             const tieneAct = dia && tieneActividades(dia);
             return (
               <div
