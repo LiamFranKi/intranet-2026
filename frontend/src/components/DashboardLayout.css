@@ -436,12 +436,33 @@
   }
 
   .dashboard-sidebar-right {
+    width: 100%;
+    max-width: 100%;
     padding: 1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
     grid-template-columns: 1fr;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .user-info {
     display: none;
+  }
+}
+
+/* Asegurar que los widgets no se peguen a los bordes en móviles */
+@media (max-width: 768px) {
+  .dashboard-sidebar-right {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .calendario-widget,
+  .publicaciones-widget {
+    margin-left: 0;
+    margin-right: 0;
   }
 }
 
