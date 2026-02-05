@@ -290,231 +290,189 @@ export default function DashboardLayout({ children }) {
             </>
           ) : (
             <>
-              {/* MENÚ PRINCIPAL */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">MENÚ PRINCIPAL</div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/dashboard" end>
-                    <span className="sidebar-icon">📊</span>
-                    <span className="sidebar-label">Dashboard</span>
-                  </NavLink>
-                </div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/matriculas">
-                    <span className="sidebar-icon">📋</span>
-                    <span className="sidebar-label">Matrículas</span>
-                  </NavLink>
-                </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/dashboard" end>
+                  <span className="sidebar-icon">📊</span>
+                  <span className="sidebar-label">Dashboard</span>
+                </NavLink>
               </div>
-
-              {/* USUARIOS */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">USUARIOS</div>
-                <div className="sidebar-menu-item">
-                  <button
-                    className={`sidebar-menu-toggle ${expandedMenus.usuarios ? 'expanded' : ''}`}
-                    onClick={() => toggleSubmenu('usuarios')}
-                  >
-                    <div className="sidebar-menu-toggle-content">
-                      <span className="sidebar-icon">👥</span>
-                      <span className="sidebar-label">Usuarios</span>
-                    </div>
-                    <span className="sidebar-menu-arrow">▶</span>
-                  </button>
-                  <div className={`sidebar-submenu ${expandedMenus.usuarios ? 'expanded' : ''}`}>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/administradores">
-                      Administradores
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/personal">
-                      Personal
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/alumnos">
-                      Alumnos
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/apoderados">
-                      Apoderados
-                    </NavLink>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/matriculas">
+                  <span className="sidebar-icon">📋</span>
+                  <span className="sidebar-label">Matrículas</span>
+                </NavLink>
+              </div>
+              <div className="sidebar-menu-item">
+                <button
+                  className={`sidebar-menu-toggle ${expandedMenus.usuarios ? 'expanded' : ''}`}
+                  onClick={() => toggleSubmenu('usuarios')}
+                >
+                  <div className="sidebar-menu-toggle-content">
+                    <span className="sidebar-icon">👥</span>
+                    <span className="sidebar-label">Usuarios</span>
                   </div>
+                  <span className="sidebar-menu-arrow">▶</span>
+                </button>
+                <div className={`sidebar-submenu ${expandedMenus.usuarios ? 'expanded' : ''}`}>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/administradores">
+                    Administradores
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/personal">
+                    Personal
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/alumnos">
+                    Alumnos
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/usuarios/apoderados">
+                    Apoderados
+                  </NavLink>
                 </div>
               </div>
-
-              {/* ACADÉMICO */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">ACADÉMICO</div>
-                <div className="sidebar-menu-item">
-                  <button
-                    className={`sidebar-menu-toggle ${expandedMenus.academico ? 'expanded' : ''}`}
-                    onClick={() => toggleSubmenu('academico')}
-                  >
-                    <div className="sidebar-menu-toggle-content">
-                      <span className="sidebar-icon">🎓</span>
-                      <span className="sidebar-label">Académico</span>
-                    </div>
-                    <span className="sidebar-menu-arrow">▶</span>
-                  </button>
-                  <div className={`sidebar-submenu ${expandedMenus.academico ? 'expanded' : ''}`}>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/niveles">
-                      Niveles
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/grados">
-                      Grados
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/cursos">
-                      Cursos
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/asignaturas">
-                      Asignaturas
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/areas">
-                      Áreas
-                    </NavLink>
+              <div className="sidebar-menu-item">
+                <button
+                  className={`sidebar-menu-toggle ${expandedMenus.academico ? 'expanded' : ''}`}
+                  onClick={() => toggleSubmenu('academico')}
+                >
+                  <div className="sidebar-menu-toggle-content">
+                    <span className="sidebar-icon">🎓</span>
+                    <span className="sidebar-label">Académico</span>
                   </div>
+                  <span className="sidebar-menu-arrow">▶</span>
+                </button>
+                <div className={`sidebar-submenu ${expandedMenus.academico ? 'expanded' : ''}`}>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/niveles">
+                    Niveles
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/grados">
+                    Grados
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/cursos">
+                    Cursos
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/asignaturas">
+                    Asignaturas
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/academico/areas">
+                    Áreas
+                  </NavLink>
                 </div>
               </div>
-
-              {/* GAMIFICACIÓN */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">GAMIFICACIÓN</div>
-                <div className="sidebar-menu-item">
-                  <button
-                    className={`sidebar-menu-toggle ${expandedMenus.gamificacion ? 'expanded' : ''}`}
-                    onClick={() => toggleSubmenu('gamificacion')}
-                  >
-                    <div className="sidebar-menu-toggle-content">
-                      <span className="sidebar-icon">🎮</span>
-                      <span className="sidebar-label">Gamificación</span>
-                    </div>
-                    <span className="sidebar-menu-arrow">▶</span>
-                  </button>
-                  <div className={`sidebar-submenu ${expandedMenus.gamificacion ? 'expanded' : ''}`}>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/niveles">
-                      Niveles (Gamificación)
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/logros">
-                      Logros
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/avatares">
-                      Avatares
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/ranking">
-                      Ranking
-                    </NavLink>
+              <div className="sidebar-menu-item">
+                <button
+                  className={`sidebar-menu-toggle ${expandedMenus.gamificacion ? 'expanded' : ''}`}
+                  onClick={() => toggleSubmenu('gamificacion')}
+                >
+                  <div className="sidebar-menu-toggle-content">
+                    <span className="sidebar-icon">🎮</span>
+                    <span className="sidebar-label">Gamificación</span>
                   </div>
-                </div>
-              </div>
-
-              {/* AULA VIRTUAL */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">AULA VIRTUAL</div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/aula">
-                    <span className="sidebar-icon">🏫</span>
-                    <span className="sidebar-label">Aula Virtual</span>
+                  <span className="sidebar-menu-arrow">▶</span>
+                </button>
+                <div className={`sidebar-submenu ${expandedMenus.gamificacion ? 'expanded' : ''}`}>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/niveles">
+                    Niveles (Gamificación)
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/logros">
+                    Logros
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/avatares">
+                    Avatares
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/gamificacion/ranking">
+                    Ranking
                   </NavLink>
                 </div>
               </div>
-
-              {/* CALENDARIO */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">CALENDARIO</div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/calendario">
-                    <span className="sidebar-icon">📅</span>
-                    <span className="sidebar-label">Calendario</span>
-                  </NavLink>
-                </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/aula">
+                  <span className="sidebar-icon">🏫</span>
+                  <span className="sidebar-label">Aula Virtual</span>
+                </NavLink>
               </div>
-
-              {/* NOTIFICACIONES */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">NOTIFICACIONES</div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/notificaciones">
-                    <span className="sidebar-icon">🔔</span>
-                    <span className="sidebar-label">Notificaciones</span>
-                  </NavLink>
-                </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/actividades">
+                  <span className="sidebar-icon">📅</span>
+                  <span className="sidebar-label">Actividades</span>
+                </NavLink>
               </div>
-
-              {/* ASISTENTE IA */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">ASISTENTE IA</div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/vanguarcito">
-                    <span className="sidebar-icon">🤖</span>
-                    <span className="sidebar-label">Vanguarcito</span>
-                  </NavLink>
-                </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/comunicados">
+                  <span className="sidebar-icon">📢</span>
+                  <span className="sidebar-label">Comunicados</span>
+                </NavLink>
               </div>
-
-              {/* REPORTES */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">REPORTES</div>
-                <div className="sidebar-menu-item">
-                  <button
-                    className={`sidebar-menu-toggle ${expandedMenus.reportes ? 'expanded' : ''}`}
-                    onClick={() => toggleSubmenu('reportes')}
-                  >
-                    <div className="sidebar-menu-toggle-content">
-                      <span className="sidebar-icon">📈</span>
-                      <span className="sidebar-label">Reportes</span>
-                    </div>
-                    <span className="sidebar-menu-arrow">▶</span>
-                  </button>
-                  <div className={`sidebar-submenu ${expandedMenus.reportes ? 'expanded' : ''}`}>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/reportes/asistencias">
-                      Asistencias
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/reportes/notas">
-                      Notas
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/reportes/estadisticas">
-                      Estadísticas
-                    </NavLink>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/notificaciones">
+                  <span className="sidebar-icon">🔔</span>
+                  <span className="sidebar-label">Notificaciones</span>
+                </NavLink>
+              </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/vanguarcito">
+                  <span className="sidebar-icon">🤖</span>
+                  <span className="sidebar-label">Vanguarcito</span>
+                </NavLink>
+              </div>
+              <div className="sidebar-menu-item">
+                <button
+                  className={`sidebar-menu-toggle ${expandedMenus.reportes ? 'expanded' : ''}`}
+                  onClick={() => toggleSubmenu('reportes')}
+                >
+                  <div className="sidebar-menu-toggle-content">
+                    <span className="sidebar-icon">📈</span>
+                    <span className="sidebar-label">Reportes</span>
                   </div>
-                </div>
-              </div>
-
-              {/* CONFIGURACIÓN */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">CONFIGURACIÓN</div>
-                <div className="sidebar-menu-item">
-                  <button
-                    className={`sidebar-menu-toggle ${expandedMenus.config ? 'expanded' : ''}`}
-                    onClick={() => toggleSubmenu('config')}
-                  >
-                    <div className="sidebar-menu-toggle-content">
-                      <span className="sidebar-icon">⚙️</span>
-                      <span className="sidebar-label">Configuración</span>
-                    </div>
-                    <span className="sidebar-menu-arrow">▶</span>
-                  </button>
-                  <div className={`sidebar-submenu ${expandedMenus.config ? 'expanded' : ''}`}>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/anio-escolar">
-                      Año Escolar
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/general">
-                      General
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/temas">
-                      Temas y Colores
-                    </NavLink>
-                    <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/pwa">
-                      PWA
-                    </NavLink>
-                  </div>
-                </div>
-              </div>
-
-              {/* AUDITORÍA */}
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">AUDITORÍA</div>
-                <div className="sidebar-item">
-                  <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/auditoria">
-                    <span className="sidebar-icon">🧾</span>
-                    <span className="sidebar-label">Auditoría</span>
+                  <span className="sidebar-menu-arrow">▶</span>
+                </button>
+                <div className={`sidebar-submenu ${expandedMenus.reportes ? 'expanded' : ''}`}>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/reportes/asistencias">
+                    Asistencias
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/reportes/notas">
+                    Notas
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/reportes/estadisticas">
+                    Estadísticas
                   </NavLink>
                 </div>
+              </div>
+              <div className="sidebar-menu-item">
+                <button
+                  className={`sidebar-menu-toggle ${expandedMenus.config ? 'expanded' : ''}`}
+                  onClick={() => toggleSubmenu('config')}
+                >
+                  <div className="sidebar-menu-toggle-content">
+                    <span className="sidebar-icon">⚙️</span>
+                    <span className="sidebar-label">Configuración</span>
+                  </div>
+                  <span className="sidebar-menu-arrow">▶</span>
+                </button>
+                <div className={`sidebar-submenu ${expandedMenus.config ? 'expanded' : ''}`}>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/anio-escolar">
+                    Año Escolar
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/general">
+                    General
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/temas">
+                    Temas y Colores
+                  </NavLink>
+                  <NavLink className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`} to="/admin/config/pwa">
+                    PWA
+                  </NavLink>
+                </div>
+              </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/auditoria">
+                  <span className="sidebar-icon">🧾</span>
+                  <span className="sidebar-label">Auditoría</span>
+                </NavLink>
+              </div>
+              <div className="sidebar-item">
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/mensajes">
+                  <span className="sidebar-icon">✉️</span>
+                  <span className="sidebar-label">Mensajes</span>
+                </NavLink>
               </div>
             </>
           )}
