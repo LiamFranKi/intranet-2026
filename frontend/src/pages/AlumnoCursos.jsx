@@ -45,14 +45,18 @@ function AlumnoCursos() {
   };
 
   const handleEnviarMensaje = (curso) => {
+    console.log('🔵 handleEnviarMensaje llamado con curso:', curso);
     // Abrir modal de mensaje con el docente pre-seleccionado
     // curso.docente_usuario_id es el usuario_id del docente (necesario para enviar mensaje)
-    setDocenteParaMensaje({
+    const docenteData = {
       id: curso.docente_usuario_id || curso.docente_id, // Usar usuario_id si está disponible, sino personal_id
       nombre: curso.docente_nombre,
       curso_nombre: curso.curso_nombre
-    });
+    };
+    console.log('🔵 Datos del docente para mensaje:', docenteData);
+    setDocenteParaMensaje(docenteData);
     setMostrarModalMensaje(true);
+    console.log('🔵 Modal debería estar abierto ahora');
   };
   
   // Manejar cambio de archivos adjuntos
@@ -256,7 +260,13 @@ function AlumnoCursos() {
                     </button>
                     <button
                       className="btn-enviar-mensaje"
-                      onClick={() => handleEnviarMensaje(curso)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔵 Botón Enviar Mensaje clickeado');
+                        handleEnviarMensaje(curso);
+                      }}
+                      type="button"
                     >
                       ✉️ Enviar Mensaje
                     </button>

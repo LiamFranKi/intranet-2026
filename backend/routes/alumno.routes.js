@@ -422,7 +422,8 @@ router.get('/cursos', async (req, res) => {
         return {
           ...curso,
           curso_imagen_url: cursoImagenUrl,
-          docente_foto_url: docenteFotoUrl
+          docente_foto_url: docenteFotoUrl,
+          docente_usuario_id: curso.docente_usuario_id // Asegurar que se incluya el usuario_id
         };
       });
 
