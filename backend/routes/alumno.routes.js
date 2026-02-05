@@ -132,11 +132,14 @@ router.get('/dashboard', async (req, res) => {
     // Total Faltas (por ahora 0)
     const totalFaltas = [{ total: 0 }];
 
-    // Contar mensajes no leídos
+    // Contar mensajes no leídos (solo tipo RECIBIDO, igual que la lista de mensajes)
     const mensajesNoLeidos = await query(
       `SELECT COUNT(*) as total
        FROM mensajes m
-       WHERE m.destinatario_id = ? AND m.estado = 'NO_LEIDO' AND m.borrado = 'NO'`,
+       WHERE m.destinatario_id = ? 
+         AND m.estado = 'NO_LEIDO' 
+         AND m.tipo = 'RECIBIDO'
+         AND m.borrado = 'NO'`,
       [usuario_id]
     );
 
