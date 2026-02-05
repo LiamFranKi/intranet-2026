@@ -80,10 +80,17 @@ function AlumnoComunicados() {
     if (archivoUrl) {
       marcarComoLeido(comunicadoId);
       
-      let urlFinal = normalizeStaticFileUrl(archivoUrl);
+      // El backend ya devuelve archivo_url como URL completa
+      // Solo validar que sea una URL válida
+      let urlFinal = archivoUrl;
+      
+      // Si no es una URL completa, construirla (fallback por si acaso)
+      if (!urlFinal.startsWith('http://') && !urlFinal.startsWith('https://')) {
+        urlFinal = normalizeStaticFileUrl(archivoUrl);
+      }
       
       if (!urlFinal) {
-        console.error('❌ No se pudo normalizar la URL:', archivoUrl);
+        console.error('❌ No se pudo procesar la URL:', archivoUrl);
         return;
       }
       

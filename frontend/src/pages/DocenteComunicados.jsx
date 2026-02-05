@@ -84,27 +84,23 @@ function DocenteComunicados() {
       // Marcar como leído antes de abrir
       marcarComoLeido(comunicadoId);
       
-      // Normalizar la URL usando la configuración centralizada
-      // Esto permite cambiar fácilmente el dominio desde config/staticFiles.js
-      let urlFinal = normalizeStaticFileUrl(archivoUrl);
+      // El backend ya devuelve archivo_url como URL completa
+      // Solo validar que sea una URL válida
+      let urlFinal = archivoUrl;
       
-      if (!urlFinal) {
-        console.error('❌ No se pudo normalizar la URL:', archivoUrl);
-        return;
+      // Si no es una URL completa, construirla (fallback por si acaso)
+      if (!urlFinal.startsWith('http://') && !urlFinal.startsWith('https://')) {
+        urlFinal = normalizeStaticFileUrl(archivoUrl);
       }
       
-      console.log('🔍 handleVerArchivo llamado:');
-      console.log('  - comunicadoId:', comunicadoId);
-      console.log('  - archivoUrl recibido:', archivoUrl);
-      console.log('  - URL normalizada:', urlFinal);
+      if (!urlFinal) {
+        console.error('❌ No se pudo procesar la URL:', archivoUrl);
+        return;
+      }
       
       try {
         // Validar que la URL sea válida
         const urlObj = new URL(urlFinal);
-        
-        console.log('✅ URL validada:', urlObj.href);
-        console.log('  - Hostname:', urlObj.hostname);
-        console.log('  - Pathname:', urlObj.pathname);
         
         // Crear un enlace temporal y hacer clic (más confiable que window.open)
         const link = document.createElement('a');
@@ -116,7 +112,6 @@ function DocenteComunicados() {
         link.style.left = '-9999px';
         document.body.appendChild(link);
         
-        console.log('🔗 Abriendo archivo:', link.href);
         link.click();
         
         setTimeout(() => {
