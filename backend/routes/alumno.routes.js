@@ -639,10 +639,6 @@ router.get('/perfil', async (req, res) => {
  * PUT /api/alumno/perfil
  * Actualizar perfil del alumno (incluyendo foto)
  */
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
 const alumnoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = '/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Image/Fotos';
