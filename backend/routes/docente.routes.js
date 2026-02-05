@@ -3516,10 +3516,6 @@ router.get('/comunicados', async (req, res) => {
           }
           nombreArchivoLimpio = nombreArchivoLimpio.replace(/^\/+/, '');
           
-          // Verificar si el archivo existe físicamente
-          const archivoPath = path.join(staticArchivosPath, nombreArchivoLimpio);
-          archivoExiste = fs.existsSync(archivoPath);
-          
           // Si ya es una URL completa, validar y corregir si es necesario
           if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
             // Corregir errores comunes en URLs existentes
@@ -3544,14 +3540,21 @@ router.get('/comunicados', async (req, res) => {
             nombreArchivo = nombreArchivo.replace(/^\/+/, '');
             archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
           }
-          console.log(`📄 Comunicado ID ${com.id} (SISTEMA ANTERIOR): ${com.archivo} -> ${archivoUrl} ${archivoExiste ? '✅' : '❌ NO EXISTE (archivo: ${nombreArchivoLimpio})'}`);
+          
+          // Verificar si el archivo existe físicamente (solo para logging, no para bloquear)
+          const archivoPath = path.join(staticArchivosPath, nombreArchivoLimpio);
+          archivoExiste = fs.existsSync(archivoPath);
+          
+          // Siempre devolver la URL aunque el archivo no exista físicamente
+          // (el archivo puede estar en otra ubicación o el sistema PHP puede manejarlo)
+          console.log(`📄 Comunicado ID ${com.id} (SISTEMA ANTERIOR): ${com.archivo} -> ${archivoUrl} ${archivoExiste ? '✅' : '⚠️ NO VERIFICADO (archivo: ${nombreArchivoLimpio})'}`);
         }
       }
 
       return {
         ...com,
-        archivo_url: archivoExiste ? archivoUrl : null, // Solo devolver URL si el archivo existe
-        archivo_existe: archivoExiste
+        archivo_url: archivoUrl, // Siempre devolver la URL (el sistema PHP puede manejarla aunque no exista físicamente)
+        archivo_existe: archivoExiste // Información adicional para debugging
       };
     });
 

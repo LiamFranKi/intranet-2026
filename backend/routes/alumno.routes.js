@@ -901,10 +901,6 @@ router.get('/comunicados', async (req, res) => {
           }
           nombreArchivoLimpio = nombreArchivoLimpio.replace(/^\/+/, '');
           
-          // Verificar si el archivo existe físicamente
-          const archivoPath = path.join(staticArchivosPath, nombreArchivoLimpio);
-          archivoExiste = fs.existsSync(archivoPath);
-          
           if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
             archivoUrl = nombreArchivo
               .replace(/https?:\/\/(www\.)?vanguardschools\.edu\.pe/gi, dominioBase)
@@ -920,13 +916,17 @@ router.get('/comunicados', async (req, res) => {
             nombreArchivo = nombreArchivo.replace(/^\/+/, '');
             archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
           }
+          
+          // Verificar si el archivo existe físicamente (solo para logging, no para bloquear)
+          const archivoPath = path.join(staticArchivosPath, nombreArchivoLimpio);
+          archivoExiste = fs.existsSync(archivoPath);
         }
       }
 
       return {
         ...com,
-        archivo_url: archivoExiste ? archivoUrl : null, // Solo devolver URL si el archivo existe
-        archivo_existe: archivoExiste
+        archivo_url: archivoUrl, // Siempre devolver la URL (el sistema PHP puede manejarla aunque no exista físicamente)
+        archivo_existe: archivoExiste // Información adicional para debugging
       };
     });
 
