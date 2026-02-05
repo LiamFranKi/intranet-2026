@@ -139,42 +139,33 @@ function AlumnoDashboard() {
   ];
   const mesActual = meses[new Date().getMonth()];
 
-  // Función para crear fecha desde string interpretándola como hora local (no UTC)
-  const crearFechaLocal = (fechaString) => {
+  // Función auxiliar para crear fecha desde string (ignora zona horaria, solo usa fecha)
+  // SOLO para usar en "Próximos Eventos" del dashboard
+  // IGUAL QUE EN DOCENTEDASHBOARD - Extrae solo la fecha y crea Date directamente en hora local
+  const crearFechaLima = (fechaString) => {
     if (!fechaString) return null;
     
-    // Si es un objeto Date, extraer componentes y recrear en hora local
+    // Si es un objeto Date, extraer solo año, mes, día
     if (fechaString instanceof Date) {
       const year = fechaString.getFullYear();
       const month = fechaString.getMonth();
       const day = fechaString.getDate();
-      const hours = fechaString.getHours();
-      const minutes = fechaString.getMinutes();
-      const seconds = fechaString.getSeconds();
-      return new Date(year, month, day, hours, minutes, seconds);
+      const fecha = new Date(year, month, day);
+      fecha.setHours(0, 0, 0, 0);
+      return fecha;
     }
     
-    // Si viene como string "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
-    // Extraer componentes y crear fecha en hora local
-    const fechaPart = fechaString.toString().replace('T', ' ').split(' ')[0];
-    const horaPart = fechaString.toString().replace('T', ' ').split(' ')[1] || '00:00:00';
+    // Si viene como string "YYYY-MM-DD" o "YYYY-MM-DD HH:MM:SS"
+    // Extraer solo la parte de la fecha (YYYY-MM-DD)
+    const fechaPart = fechaString.toString().split('T')[0].split(' ')[0];
+    if (!fechaPart || fechaPart === '') return null;
     
     const [year, month, day] = fechaPart.split('-').map(Number);
-    const [hours, minutes, seconds] = horaPart.split(':').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
     
-    // Crear fecha en hora local (no UTC)
-    return new Date(year, month - 1, day, hours || 0, minutes || 0, seconds || 0);
-  };
-
-  // Función auxiliar para crear fecha desde string (ignora zona horaria, solo usa fecha)
-  // SOLO para usar en "Próximos Eventos" del dashboard - para comparación de fechas
-  const crearFechaLima = (fechaString) => {
-    if (!fechaString) return null;
-    
-    // Usar crearFechaLocal y luego establecer hora a medianoche para comparación
-    const fecha = crearFechaLocal(fechaString);
-    if (!fecha) return null;
-    
+    // Crear fecha local (sin considerar zona horaria para comparación)
+    // IMPORTANTE: new Date(year, month - 1, day) crea la fecha directamente en hora local
+    const fecha = new Date(year, month - 1, day);
     fecha.setHours(0, 0, 0, 0);
     return fecha;
   };
@@ -236,25 +227,30 @@ function AlumnoDashboard() {
       console.warn('⚠️ proximasTareas no es un array válido:', proximasTareas);
     }
 
-    // Agregar actividades
+    // Agregar actividades (igual que en DocenteDashboard)
     if (proximasActividades && Array.isArray(proximasActividades)) {
+      console.log('📅 Procesando actividades para Próximos Eventos:', proximasActividades.length);
       proximasActividades.forEach(actividad => {
-        // Usar crearFechaLocal para interpretar correctamente la fecha como hora local
-        const fechaLocal = crearFechaLocal(actividad.fecha_inicio || actividad.fecha_evento);
-        if (fechaLocal) {
-          // Crear fecha para comparación (solo fecha, sin hora)
-          const fecha = new Date(fechaLocal.getFullYear(), fechaLocal.getMonth(), fechaLocal.getDate());
-          fecha.setHours(0, 0, 0, 0);
-          
-          if (fecha >= hoy) {
-            eventos.push({
-              ...actividad,
-              tipo: 'actividad',
-              fecha: fecha
-            });
-          }
+        // Usar fecha_inicio o fecha_evento si está disponible
+        const fechaActividad = crearFechaLima(actividad.fecha_inicio || actividad.fecha_evento);
+        console.log('📅 Actividad procesada:', {
+          id: actividad.id,
+          descripcion: actividad.descripcion,
+          fecha_inicio: actividad.fecha_inicio,
+          fecha_evento: actividad.fecha_evento,
+          fechaProcesada: fechaActividad ? fechaActividad.toISOString() : 'null'
+        });
+        if (fechaActividad) {
+          eventos.push({
+            ...actividad,
+            tipo: 'actividad',
+            fecha: fechaActividad
+          });
+        } else {
+          console.log('⚠️ Actividad sin fecha válida:', actividad.id);
         }
       });
+      console.log('📅 Total actividades agregadas:', eventos.filter(e => e.tipo === 'actividad').length);
     } else {
       console.warn('⚠️ proximasActividades no es un array válido:', proximasActividades);
     }
