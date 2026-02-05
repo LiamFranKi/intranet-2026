@@ -1,23 +1,50 @@
 import React from 'react';
 import './EventoDetalleModal.css';
 
+// Función para crear fecha desde string interpretándola como hora local (no UTC)
+const crearFechaLocal = (fechaString) => {
+  if (!fechaString) return null;
+  
+  // Si es un objeto Date, extraer componentes y recrear en hora local
+  if (fechaString instanceof Date) {
+    const year = fechaString.getFullYear();
+    const month = fechaString.getMonth();
+    const day = fechaString.getDate();
+    const hours = fechaString.getHours();
+    const minutes = fechaString.getMinutes();
+    const seconds = fechaString.getSeconds();
+    return new Date(year, month, day, hours, minutes, seconds);
+  }
+  
+  // Si viene como string "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
+  // Extraer componentes y crear fecha en hora local
+  const fechaPart = fechaString.toString().replace('T', ' ').split(' ')[0];
+  const horaPart = fechaString.toString().replace('T', ' ').split(' ')[1] || '00:00:00';
+  
+  const [year, month, day] = fechaPart.split('-').map(Number);
+  const [hours, minutes, seconds] = horaPart.split(':').map(Number);
+  
+  // Crear fecha en hora local (no UTC)
+  return new Date(year, month - 1, day, hours || 0, minutes || 0, seconds || 0);
+};
+
 function EventoDetalleModal({ evento, tipo, onClose }) {
   if (!evento) return null;
 
   const getFechaEvento = () => {
     if (tipo === 'examen') {
-      return evento.fecha_desde ? new Date(evento.fecha_desde) : null;
+      return evento.fecha_desde ? crearFechaLocal(evento.fecha_desde) : null;
     } else if (tipo === 'tarea') {
       // Las tareas tienen fecha_entrega (NO fecha_fin)
-      return evento.fecha_entrega ? new Date(evento.fecha_entrega) : null;
+      return evento.fecha_entrega ? crearFechaLocal(evento.fecha_entrega) : null;
     } else if (tipo === 'actividad') {
-      return evento.fecha_inicio ? new Date(evento.fecha_inicio) : null;
+      return evento.fecha_inicio ? crearFechaLocal(evento.fecha_inicio) : null;
     }
     return null;
   };
 
   const fechaEvento = getFechaEvento();
-  const fechaFin = tipo === 'actividad' && evento.fecha_fin ? new Date(evento.fecha_fin) : null;
+  const fechaFin = tipo === 'actividad' && evento.fecha_fin ? crearFechaLocal(evento.fecha_fin) : null;
 
   return (
     <div className="evento-detalle-modal-overlay" onClick={onClose}>
@@ -75,13 +102,13 @@ function EventoDetalleModal({ evento, tipo, onClose }) {
           )}
 
           {/* Hora (solo para actividades, NO para exámenes) */}
-          {tipo === 'actividad' && evento.fecha_inicio && (
+          {tipo === 'actividad' && evento.fecha_inicio && fechaEvento && (
             <div className="evento-detalle-item">
               <span className="evento-detalle-icon">🕐</span>
               <div className="evento-detalle-content">
                 <strong>Hora:</strong>
                 <span>
-                  {new Date(evento.fecha_inicio).toLocaleTimeString('es-PE', {
+                  {fechaEvento.toLocaleTimeString('es-PE', {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
