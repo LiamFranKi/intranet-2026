@@ -4,13 +4,24 @@
   padding: 2rem;
   max-width: 1600px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fce7f3 100%);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #f0f9ff 100%);
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Ocultar scrollbar pero mantener funcionalidad */
+.docente-aula-virtual::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
+.docente-aula-virtual {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 /* Decoración de fondo sutil */
@@ -158,7 +169,6 @@
 
 /* Card de Sección (Versión Colapsada) - Diseño Mejorado */
 .aula-section-card {
-  background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
   padding: 1.75rem;
   box-shadow: 0 8px 30px rgba(99, 102, 241, 0.08);
@@ -193,7 +203,6 @@
   transform: translateY(-8px) scale(1.01);
   box-shadow: 0 20px 50px rgba(99, 102, 241, 0.15);
   border-color: rgba(196, 181, 253, 0.4);
-  background: rgba(255, 255, 255, 1);
 }
 
 .aula-section-card.expanded {
@@ -205,30 +214,35 @@
 .aula-section-card.temas-card {
   --card-color-1: #93c5fd;
   --card-color-2: #60a5fa;
+  background: linear-gradient(145deg, #f0f9ff, #e0f2fe);
 }
 
 /* Card - Tareas (Lavanda pastel suave) */
 .aula-section-card.tareas-card {
   --card-color-1: #c4b5fd;
   --card-color-2: #a78bfa;
+  background: linear-gradient(145deg, #faf5ff, #f3e8ff);
 }
 
 /* Card - Exámenes (Rosa pastel suave) */
 .aula-section-card.examenes-card {
   --card-color-1: #f9a8d4;
   --card-color-2: #f472b6;
+  background: linear-gradient(145deg, #fdf2f8, #fce7f3);
 }
 
 /* Card - Videos (Verde menta pastel suave) */
 .aula-section-card.videos-card {
   --card-color-1: #6ee7b7;
   --card-color-2: #34d399;
+  background: linear-gradient(145deg, #f0fdfa, #ecfdf5);
 }
 
 /* Card - Enlaces (Cyan pastel suave) */
 .aula-section-card.enlaces-card {
   --card-color-1: #7dd3fc;
   --card-color-2: #38bdf8;
+  background: linear-gradient(145deg, #f0f9ff, #e0f2fe);
 }
 
 /* Header del Card */
@@ -1014,6 +1028,12 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+  
+  /* Ocultar scrollbar en móviles también */
+  .docente-aula-virtual::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
 
   .docente-aula-virtual .page-header h1 {
     font-size: 1.5rem;
@@ -1415,6 +1435,12 @@
     -webkit-overflow-scrolling: touch;
     height: auto;
     min-height: 100vh;
+  }
+  
+  /* Ocultar scrollbar en móviles */
+  .docente-aula-virtual::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
   }
 
   /* Asegurar que las tablas tengan scroll horizontal */
