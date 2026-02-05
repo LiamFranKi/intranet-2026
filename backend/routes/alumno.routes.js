@@ -392,24 +392,37 @@ router.get('/cursos', async (req, res) => {
       [grupoId, colegio_id]
     );
 
-    // Construir URLs de imágenes
-    const cursosConImagenes = cursos.map(curso => {
-      let cursoImagenUrl = null;
-      if (curso.curso_imagen && curso.curso_imagen !== '') {
-        const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
-        const isProduction = process.env.NODE_ENV === 'production';
-        if (isProduction) {
-          cursoImagenUrl = `${phpSystemUrl}/Static/Image/Cursos/${curso.curso_imagen}`;
-        } else {
-          cursoImagenUrl = `http://localhost:5000/Static/Image/Cursos/${curso.curso_imagen}`;
+      // Construir URLs de imágenes
+      const cursosConImagenes = cursos.map(curso => {
+        let cursoImagenUrl = null;
+        if (curso.curso_imagen && curso.curso_imagen !== '') {
+          const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+          const isProduction = process.env.NODE_ENV === 'production';
+          if (isProduction) {
+            cursoImagenUrl = `${phpSystemUrl}/Static/Image/Cursos/${curso.curso_imagen}`;
+          } else {
+            cursoImagenUrl = `http://localhost:5000/Static/Image/Cursos/${curso.curso_imagen}`;
+          }
         }
-      }
-      
-      return {
-        ...curso,
-        curso_imagen_url: cursoImagenUrl
-      };
-    });
+        
+        // Construir URL de foto del docente
+        let docenteFotoUrl = null;
+        if (curso.docente_foto && curso.docente_foto !== '') {
+          const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+          const isProduction = process.env.NODE_ENV === 'production';
+          if (isProduction) {
+            docenteFotoUrl = `${phpSystemUrl}/Static/Image/Fotos/${curso.docente_foto}`;
+          } else {
+            docenteFotoUrl = `http://localhost:5000/Static/Image/Fotos/${curso.docente_foto}`;
+          }
+        }
+        
+        return {
+          ...curso,
+          curso_imagen_url: cursoImagenUrl,
+          docente_foto_url: docenteFotoUrl
+        };
+      });
 
     res.json({ cursos: cursosConImagenes });
   } catch (error) {
