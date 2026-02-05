@@ -3456,8 +3456,14 @@ router.get('/comunicados', async (req, res) => {
     // 1. Sistema PHP anterior: archivos en /Static/Archivos/
     // 2. Sistema nuevo (React/Node.js): archivos en /uploads/comunicados/
     // El backend detecta automáticamente el origen y construye la URL correcta
+    const fs = require('fs');
+    const path = require('path');
+    const staticArchivosPath = '/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Archivos';
+    
     const comunicadosConUrls = (comunicados || []).map(com => {
       let archivoUrl = null;
+      let archivoExiste = false;
+      
       if (com.archivo && com.archivo.trim() !== '') {
         let nombreArchivo = com.archivo.trim();
         const isProduction = process.env.NODE_ENV === 'production';
@@ -3485,11 +3491,34 @@ router.get('/comunicados', async (req, res) => {
               ? `https://nuevo.vanguardschools.edu.pe/${nombreArchivo}`
               : `http://localhost:5000/${nombreArchivo}`;
           }
-          console.log(`📄 Comunicado ID ${com.id} (SISTEMA NUEVO): ${com.archivo} -> ${archivoUrl}`);
+          // Para sistema nuevo, verificar en backend/uploads/comunicados/
+          const uploadsPath = path.join(__dirname, '../../uploads/comunicados', nombreArchivo.replace(/^\/?uploads\/comunicados\//, ''));
+          archivoExiste = fs.existsSync(uploadsPath);
+          console.log(`📄 Comunicado ID ${com.id} (SISTEMA NUEVO): ${com.archivo} -> ${archivoUrl} ${archivoExiste ? '✅' : '❌ NO EXISTE'}`);
         } else {
           // SISTEMA ANTERIOR (PHP): Archivo en /Static/Archivos/
           // Usar el subdominio correcto: nuevo.vanguardschools.edu.pe
           const dominioBase = 'https://nuevo.vanguardschools.edu.pe';
+          
+          // Extraer solo el nombre del archivo para verificar existencia
+          let nombreArchivoLimpio = nombreArchivo;
+          if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
+            // Extraer nombre del archivo de la URL
+            nombreArchivoLimpio = nombreArchivo.split('/').pop();
+          } else if (nombreArchivo.startsWith('/Static/Archivos/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('/Static/Archivos/', '');
+          } else if (nombreArchivo.startsWith('Static/Archivos/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('Static/Archivos/', '');
+          } else if (nombreArchivo.startsWith('/Static/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('/Static/', '');
+          } else if (nombreArchivo.startsWith('Static/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('Static/', '');
+          }
+          nombreArchivoLimpio = nombreArchivoLimpio.replace(/^\/+/, '');
+          
+          // Verificar si el archivo existe físicamente
+          const archivoPath = path.join(staticArchivosPath, nombreArchivoLimpio);
+          archivoExiste = fs.existsSync(archivoPath);
           
           // Si ya es una URL completa, validar y corregir si es necesario
           if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
@@ -3515,13 +3544,14 @@ router.get('/comunicados', async (req, res) => {
             nombreArchivo = nombreArchivo.replace(/^\/+/, '');
             archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
           }
-          console.log(`📄 Comunicado ID ${com.id} (SISTEMA ANTERIOR): ${com.archivo} -> ${archivoUrl}`);
+          console.log(`📄 Comunicado ID ${com.id} (SISTEMA ANTERIOR): ${com.archivo} -> ${archivoUrl} ${archivoExiste ? '✅' : '❌ NO EXISTE (archivo: ${nombreArchivoLimpio})'}`);
         }
       }
 
       return {
         ...com,
-        archivo_url: archivoUrl
+        archivo_url: archivoExiste ? archivoUrl : null, // Solo devolver URL si el archivo existe
+        archivo_existe: archivoExiste
       };
     });
 

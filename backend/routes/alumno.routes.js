@@ -855,8 +855,14 @@ router.get('/comunicados', async (req, res) => {
     const comunicados = await query(querySql, params);
 
     // Construir URLs de archivos (igual que en docente)
+    const fs = require('fs');
+    const path = require('path');
+    const staticArchivosPath = '/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Archivos';
+    
     const comunicadosConUrls = (comunicados || []).map(com => {
       let archivoUrl = null;
+      let archivoExiste = false;
+      
       if (com.archivo && com.archivo.trim() !== '') {
         let nombreArchivo = com.archivo.trim();
         const isProduction = process.env.NODE_ENV === 'production';
@@ -874,8 +880,30 @@ router.get('/comunicados', async (req, res) => {
               ? `https://nuevo.vanguardschools.edu.pe/${nombreArchivo}`
               : `http://localhost:5000/${nombreArchivo}`;
           }
+          // Para sistema nuevo, verificar en backend/uploads/comunicados/
+          const uploadsPath = path.join(__dirname, '../../uploads/comunicados', nombreArchivo.replace(/^\/?uploads\/comunicados\//, ''));
+          archivoExiste = fs.existsSync(uploadsPath);
         } else {
           const dominioBase = 'https://nuevo.vanguardschools.edu.pe';
+          
+          // Extraer solo el nombre del archivo para verificar existencia
+          let nombreArchivoLimpio = nombreArchivo;
+          if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
+            nombreArchivoLimpio = nombreArchivo.split('/').pop();
+          } else if (nombreArchivo.startsWith('/Static/Archivos/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('/Static/Archivos/', '');
+          } else if (nombreArchivo.startsWith('Static/Archivos/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('Static/Archivos/', '');
+          } else if (nombreArchivo.startsWith('/Static/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('/Static/', '');
+          } else if (nombreArchivo.startsWith('Static/')) {
+            nombreArchivoLimpio = nombreArchivo.replace('Static/', '');
+          }
+          nombreArchivoLimpio = nombreArchivoLimpio.replace(/^\/+/, '');
+          
+          // Verificar si el archivo existe físicamente
+          const archivoPath = path.join(staticArchivosPath, nombreArchivoLimpio);
+          archivoExiste = fs.existsSync(archivoPath);
           
           if (nombreArchivo.startsWith('http://') || nombreArchivo.startsWith('https://')) {
             archivoUrl = nombreArchivo
@@ -897,7 +925,8 @@ router.get('/comunicados', async (req, res) => {
 
       return {
         ...com,
-        archivo_url: archivoUrl
+        archivo_url: archivoExiste ? archivoUrl : null, // Solo devolver URL si el archivo existe
+        archivo_existe: archivoExiste
       };
     });
 
