@@ -404,21 +404,19 @@ function AlumnoDashboard() {
             <>
               <div className="eventos-grid">
                 {eventosPagina.map((evento, index) => {
-                  const fecha = evento.fecha;
-                  // DEBUG: Log para ver qué está pasando con la fecha
-                  if (evento.tipo === 'actividad') {
-                    console.log('🔍 [ALUMNO DASHBOARD] Mostrando actividad:', {
-                      id: evento.id,
-                      descripcion: evento.descripcion,
-                      fecha_inicio_original: evento.fecha_inicio,
-                      fecha_objeto: fecha,
-                      fecha_toISOString: fecha.toISOString(),
-                      fecha_toString: fecha.toString(),
-                      getDate: fecha.getDate(),
-                      getMonth: fecha.getMonth(),
-                      getFullYear: fecha.getFullYear(),
-                      fecha_getTime: fecha.getTime()
-                    });
+                  // IMPORTANTE: Para actividades, recrear la fecha desde el string original
+                  // para evitar problemas de zona horaria
+                  let fecha = evento.fecha;
+                  if (evento.tipo === 'actividad' && evento.fecha_inicio) {
+                    // Recrear la fecha desde el string original para asegurar que sea correcta
+                    const fechaPart = evento.fecha_inicio.toString().split('T')[0].split(' ')[0];
+                    if (fechaPart) {
+                      const [year, month, day] = fechaPart.split('-').map(Number);
+                      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                        fecha = new Date(year, month - 1, day);
+                        fecha.setHours(0, 0, 0, 0);
+                      }
+                    }
                   }
                   const dia = fecha.getDate();
                   const mes = meses[fecha.getMonth()];
