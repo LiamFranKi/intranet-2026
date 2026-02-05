@@ -110,6 +110,11 @@
 
 .curso-docente-nombre {
   margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
 }
 
 .docente-nombre-text {
@@ -117,6 +122,10 @@
   font-weight: 700;
   color: #4b5563;
   text-align: center;
+  display: inline-block;
+  width: 100%;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 .curso-actions-alumno {
