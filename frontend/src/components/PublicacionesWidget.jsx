@@ -53,6 +53,7 @@ function PublicacionesWidget() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [imagenModal, setImagenModal] = useState(null); // Para el modal de imagen
+  const cameraInputRef = useRef(null); // Referencia para input de cámara en móvil
 
   useEffect(() => {
     cargarPublicaciones();
@@ -144,17 +145,35 @@ function PublicacionesWidget() {
   };
 
   const iniciarCamara = async () => {
+    // Detectar si es móvil o desktop
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // En móviles, usar el atributo capture que es más confiable
+    if (isMobile) {
+      // Crear o usar input file con capture para abrir cámara directamente
+      if (cameraInputRef.current) {
+        cameraInputRef.current.click();
+      } else {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // Cámara trasera en móvil
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            handleImagenChange({ target: { files: [file] } });
+          }
+        };
+        cameraInputRef.current = input;
+        input.click();
+      }
+      return;
+    }
+    
+    // En desktop, usar getUserMedia para vista previa
     try {
-      // Detectar si es móvil o desktop
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      // Configuración de cámara según dispositivo
-      const videoConstraints = isMobile 
-        ? { facingMode: 'environment' } // Cámara trasera en móvil
-        : { facingMode: 'user' }; // Webcam en desktop
-      
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: videoConstraints
+        video: { facingMode: 'user' } // Webcam en desktop
       });
       
       streamRef.current = stream;
@@ -397,15 +416,31 @@ function PublicacionesWidget() {
               />
             </label>
             
-            <button 
-              type="button" 
-              className="icon-btn" 
-              onClick={mostrarCamara ? detenerCamara : iniciarCamara}
-              title="Tomar foto"
-            >
-              <span className="icon-text">📸</span>
-              <span className="icon-label">Tomar foto</span>
-            </button>
+            {/* En móviles, usar input con capture directamente */}
+            {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? (
+              <label className="icon-btn" title="Tomar foto">
+                <span className="icon-text">📸</span>
+                <span className="icon-label">Tomar foto</span>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImagenChange}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            ) : (
+              <button 
+                type="button" 
+                className="icon-btn" 
+                onClick={mostrarCamara ? detenerCamara : iniciarCamara}
+                title="Tomar foto"
+              >
+                <span className="icon-text">📸</span>
+                <span className="icon-label">Tomar foto</span>
+              </button>
+            )}
             
             <label className="icon-btn" title="Agregar archivo">
               <span className="icon-text">📎</span>
