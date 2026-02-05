@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import DashboardLayout from '../components/DashboardLayout';
-import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import './DocenteActividades.css';
-import './DocenteGrupos.css';
+import DashboardLayout from '../../components/DashboardLayout';
+import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import '../DocenteActividades.css';
+import '../DocenteGrupos.css';
 import Swal from 'sweetalert2';
 
 const MESES = [

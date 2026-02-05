@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import DashboardLayout from '../components/DashboardLayout';
+import DashboardLayout from '../../components/DashboardLayout';
 import './AulaVirtual.css';
 
 const mockAsignaciones = [

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import DashboardLayout from '../components/DashboardLayout';
-import api from '../services/api';
-import { normalizeStaticFileUrl } from '../config/staticFiles';
-import { useAuth } from '../context/AuthContext';
-import './DocenteComunicados.css';
-import './DocenteGrupos.css';
+import DashboardLayout from '../../components/DashboardLayout';
+import api from '../../services/api';
+import { normalizeStaticFileUrl } from '../../config/staticFiles';
+import { useAuth } from '../../context/AuthContext';
+import '../DocenteComunicados.css';
+import '../DocenteGrupos.css';
 import Swal from 'sweetalert2';
 
 function AdminComunicados() {
