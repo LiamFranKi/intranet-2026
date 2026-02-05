@@ -162,13 +162,43 @@ function AdminActividades() {
     });
   };
 
+  // Función para convertir fecha de datetime-local a formato ISO con zona horaria local
+  const convertirFechaLocal = (fechaLocal) => {
+    if (!fechaLocal) return null;
+    
+    // datetime-local viene como "YYYY-MM-DDTHH:mm" (sin zona horaria)
+    // Necesitamos crear un Date interpretándolo como hora local
+    const fecha = new Date(fechaLocal);
+    
+    // Si la fecha es inválida, retornar null
+    if (isNaN(fecha.getTime())) return null;
+    
+    // Obtener los componentes de la fecha en hora local
+    const año = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const horas = String(fecha.getHours()).padStart(2, '0');
+    const minutos = String(fecha.getMinutes()).padStart(2, '0');
+    const segundos = String(fecha.getSeconds()).padStart(2, '0');
+    
+    // Retornar en formato "YYYY-MM-DD HH:mm:ss" (hora local, sin conversión UTC)
+    return `${año}-${mes}-${dia} ${horas}:${minutos}:${segundos}`;
+  };
+
   const handleGuardarActividad = async (e) => {
     e.preventDefault();
     
     try {
+      // Convertir fechas a formato que preserve la hora local
+      const datosEnviar = {
+        ...formulario,
+        fecha_inicio: convertirFechaLocal(formulario.fecha_inicio),
+        fecha_fin: formulario.fecha_fin ? convertirFechaLocal(formulario.fecha_fin) : null
+      };
+
       if (actividadEditando) {
         // Editar
-        const response = await api.put(`/docente/actividades/${actividadEditando.id}`, formulario);
+        const response = await api.put(`/docente/actividades/${actividadEditando.id}`, datosEnviar);
         
         if (response.data.success) {
           Swal.fire({
@@ -183,7 +213,7 @@ function AdminActividades() {
         }
       } else {
         // Crear
-        const response = await api.post('/docente/actividades', formulario);
+        const response = await api.post('/docente/actividades', datosEnviar);
         
         if (response.data.success) {
           Swal.fire({
