@@ -80,41 +80,57 @@ function AlumnoComunicados() {
     if (archivoUrl) {
       marcarComoLeido(comunicadoId);
       
-      // El backend ya devuelve archivo_url como URL completa
-      // Solo validar que sea una URL válida
-      let urlFinal = archivoUrl;
+      console.log('🔍 [COMUNICADOS ALUMNO] handleVerArchivo:');
+      console.log('  - comunicadoId:', comunicadoId);
+      console.log('  - archivoUrl recibido:', archivoUrl);
       
-      // Si no es una URL completa, construirla (fallback por si acaso)
+      // El backend ya devuelve archivo_url como URL completa
+      // Asegurarse de que sea una URL absoluta válida
+      let urlFinal = archivoUrl.trim();
+      
+      // Si no es una URL completa, construirla
       if (!urlFinal.startsWith('http://') && !urlFinal.startsWith('https://')) {
+        console.log('⚠️ URL no es completa, normalizando...');
         urlFinal = normalizeStaticFileUrl(archivoUrl);
       }
       
       if (!urlFinal) {
         console.error('❌ No se pudo procesar la URL:', archivoUrl);
+        alert('Error: No se pudo construir la URL del archivo');
         return;
       }
       
+      console.log('✅ URL final:', urlFinal);
+      
       try {
+        // Validar que la URL sea válida
         const urlObj = new URL(urlFinal);
+        console.log('✅ URL validada:', urlObj.href);
+        console.log('  - Protocolo:', urlObj.protocol);
+        console.log('  - Hostname:', urlObj.hostname);
+        console.log('  - Pathname:', urlObj.pathname);
         
-        const link = document.createElement('a');
-        link.href = urlObj.href;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.style.position = 'fixed';
-        link.style.top = '-9999px';
-        link.style.left = '-9999px';
-        document.body.appendChild(link);
+        // Abrir directamente con window.open para mejor control
+        const nuevaVentana = window.open(urlObj.href, '_blank', 'noopener,noreferrer');
         
-        link.click();
-        
-        setTimeout(() => {
-          document.body.removeChild(link);
-        }, 100);
+        if (!nuevaVentana) {
+          // Si el popup fue bloqueado, usar el método del enlace
+          const link = document.createElement('a');
+          link.href = urlObj.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.download = ''; // Forzar descarga si no se puede abrir
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            document.body.removeChild(link);
+          }, 100);
+        }
         
       } catch (error) {
         console.error('❌ Error al procesar URL:', error);
-        alert(`Error al abrir el archivo. URL: ${urlFinal}`);
+        console.error('URL problemática:', urlFinal);
+        alert(`Error al abrir el archivo.\nURL: ${urlFinal}\n\nError: ${error.message}`);
       }
     }
   };
