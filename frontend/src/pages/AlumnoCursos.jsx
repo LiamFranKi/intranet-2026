@@ -55,8 +55,26 @@ function AlumnoCursos() {
 
         {cursos.length > 0 ? (
           <div className="cursos-grid">
-            {cursos.map((curso) => (
-              <div key={curso.asignatura_id} className="curso-card-alumno mundo-card">
+            {cursos.map((curso, index) => {
+              // Colores pastel suaves para cada card
+              const coloresPastel = [
+                'linear-gradient(145deg, #fef3f2, #fff5f5)', // Rosa pastel
+                'linear-gradient(145deg, #f0fdf4, #f0fff4)', // Verde pastel
+                'linear-gradient(145deg, #eff6ff, #f0f9ff)', // Azul pastel
+                'linear-gradient(145deg, #faf5ff, #faf5ff)', // Púrpura pastel
+                'linear-gradient(145deg, #fff7ed, #fffaf0)', // Naranja pastel
+                'linear-gradient(145deg, #f0fdfa, #f0fffe)', // Turquesa pastel
+                'linear-gradient(145deg, #fefce8, #fffff0)', // Amarillo pastel
+                'linear-gradient(145deg, #fce7f3, #fdf2f8)', // Rosa claro pastel
+              ];
+              const colorFondo = coloresPastel[index % coloresPastel.length];
+              
+              return (
+              <div 
+                key={curso.asignatura_id} 
+                className="curso-card-alumno mundo-card"
+                style={{ background: colorFondo }}
+              >
                 {/* Contenido del card */}
                 <div className="curso-content">
                   {/* Foto circular del docente arriba */}
@@ -106,7 +124,8 @@ function AlumnoCursos() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state mundo-card">
