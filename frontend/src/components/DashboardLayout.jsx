@@ -18,6 +18,11 @@ export default function DashboardLayout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Debug: verificar que el componente se monta
+  React.useEffect(() => {
+    console.log('✅ [DASHBOARD LAYOUT] Componente montado, user:', user?.tipo);
+  }, [user]);
 
   // Resolver URL base en tiempo de ejecución (no en compilación)
   const apiBaseUrl = useMemo(() => {

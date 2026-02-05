@@ -827,17 +827,17 @@ router.put('/perfil/password', async (req, res) => {
  */
 router.get('/comunicados', async (req, res) => {
   try {
-    const { colegio_id } = req.user;
+    const { colegio_id, anio_activo } = req.user;
     const { page = 1, limit = 12, search = '' } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    // Construir query base
+    // Construir query base - Filtrar por año activo
     let querySql = `
       SELECT c.*
        FROM comunicados c
-       WHERE c.colegio_id = ? AND c.estado = 'ACTIVO'
+       WHERE c.colegio_id = ? AND c.estado = 'ACTIVO' AND YEAR(c.fecha_hora) = ?
     `;
-    const params = [colegio_id];
+    const params = [colegio_id, anio_activo];
 
     // Agregar búsqueda si existe
     if (search && search.trim() !== '') {
