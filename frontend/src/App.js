@@ -19,6 +19,9 @@ import DocenteAulaVirtual from './pages/DocenteAulaVirtual';
 import AlumnoDashboard from './pages/AlumnoDashboard';
 import AlumnoPerfil from './pages/AlumnoPerfil';
 import AlumnoAulaVirtual from './pages/AlumnoAulaVirtual';
+import AlumnoComunicados from './pages/AlumnoComunicados';
+import AlumnoActividades from './pages/AlumnoActividades';
+import AlumnoMensajes from './pages/AlumnoMensajes';
 import './App.css';
 
 // Configurar React Router para evitar warnings
@@ -221,7 +224,7 @@ function AppRoutes() {
         path="/alumno/comunicados"
         element={
           <PrivateRoute>
-            <AlumnoDashboard />
+            <AlumnoComunicados />
           </PrivateRoute>
         }
       />
@@ -229,7 +232,7 @@ function AppRoutes() {
         path="/alumno/actividades"
         element={
           <PrivateRoute>
-            <AlumnoDashboard />
+            <AlumnoActividades />
           </PrivateRoute>
         }
       />
@@ -237,7 +240,7 @@ function AppRoutes() {
         path="/alumno/mensajes"
         element={
           <PrivateRoute>
-            <AlumnoDashboard />
+            <AlumnoMensajes />
           </PrivateRoute>
         }
       />
