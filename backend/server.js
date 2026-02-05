@@ -19,6 +19,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 
@@ -66,7 +67,6 @@ const limiter = rateLimit({
     // Si no hay token o falla, usar IP real del cliente
     // Express con trust proxy debería obtener la IP real del header X-Forwarded-For
     // Usar ipKeyGenerator helper para manejar IPv6 correctamente
-    const { ipKeyGenerator } = require('express-rate-limit');
     return ipKeyGenerator(req);
   },
   skip: (req) => {
