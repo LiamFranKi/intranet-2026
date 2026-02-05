@@ -44,6 +44,17 @@ function SortableItem({ archivo, onEdit, onDelete, openDropdown, toggleDropdown,
         {archivo.nombre}
       </td>
       <td className="text-center">
+        {archivo.fecha_hora ? (
+          new Date(archivo.fecha_hora).toLocaleDateString('es-PE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          })
+        ) : (
+          '-'
+        )}
+      </td>
+      <td className="text-center">
         <div className="btn-group-opciones">
           <button 
             className="btn-opciones"
@@ -1355,6 +1366,7 @@ function DocenteAulaVirtual() {
               <thead>
                 <tr>
                   <th>NOMBRE</th>
+                  <th>FECHA</th>
                   <th>ACCIONES</th>
                 </tr>
               </thead>
