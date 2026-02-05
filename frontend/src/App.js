@@ -5,8 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ColegioProvider } from './context/ColegioContext';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import AulaVirtual from './pages/admin/AulaVirtual';
+import Dashboard from './pages/admin/Dashboard';
 import DocenteDashboard from './pages/DocenteDashboard';
 import DocentePerfil from './pages/DocentePerfil';
 import DocenteGrupos from './pages/DocenteGrupos';
@@ -83,9 +82,11 @@ function NavigateToDashboard() {
     return <Navigate to="/docente/dashboard" />;
   } else if (tipo === 'ALUMNO') {
     return <Navigate to="/alumno/dashboard" />;
+  } else if (tipo === 'ADMINISTRADOR') {
+    return <Navigate to="/admin/dashboard" />;
   }
   
-  return <Navigate to="/dashboard" />;
+  return <Navigate to="/admin/dashboard" />;
 }
 
 function AppRoutes() {
@@ -93,18 +94,10 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
-        path="/dashboard"
+        path="/admin/dashboard"
         element={
           <PrivateRoute>
             <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/aula"
-        element={
-          <PrivateRoute>
-            <AulaVirtual />
           </PrivateRoute>
         }
       />

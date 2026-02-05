@@ -291,7 +291,7 @@ export default function DashboardLayout({ children }) {
           ) : (
             <>
               <div className="sidebar-item">
-                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/dashboard" end>
+                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/dashboard" end>
                   <span className="sidebar-icon">📊</span>
                   <span className="sidebar-label">Dashboard</span>
                 </NavLink>
@@ -382,12 +382,6 @@ export default function DashboardLayout({ children }) {
                     Ranking
                   </NavLink>
                 </div>
-              </div>
-              <div className="sidebar-item">
-                <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/aula">
-                  <span className="sidebar-icon">🏫</span>
-                  <span className="sidebar-label">Aula Virtual</span>
-                </NavLink>
               </div>
               <div className="sidebar-item">
                 <NavLink className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`} to="/admin/actividades">

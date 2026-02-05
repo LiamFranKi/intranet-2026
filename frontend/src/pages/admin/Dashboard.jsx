@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import DashboardLayout from '../components/DashboardLayout';
+import { useAuth } from '../../context/AuthContext';
+import DashboardLayout from '../../components/DashboardLayout';
 import './Dashboard.css';
 
 function Dashboard() {
