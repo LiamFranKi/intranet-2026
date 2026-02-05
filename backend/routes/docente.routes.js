@@ -3934,20 +3934,31 @@ router.put('/actividades/:id', async (req, res) => {
       return res.status(404).json({ error: 'Actividad no encontrada' });
     }
 
-    // Validar fechas
-    const fechaInicio = new Date(fecha_inicio);
-    const fechaFin = fecha_fin ? new Date(fecha_fin) : fechaInicio;
+    // Las fechas vienen en formato "YYYY-MM-DD HH:mm:ss" (hora local)
+    // Usarlas directamente sin conversión UTC para preservar la hora local
+    let fechaInicioStr = fecha_inicio;
+    let fechaFinStr = fecha_fin || fecha_inicio;
 
-    if (isNaN(fechaInicio.getTime())) {
+    // Validar formato de fecha (debe ser "YYYY-MM-DD HH:mm:ss")
+    const fechaRegex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+    if (!fechaRegex.test(fechaInicioStr)) {
+      return res.status(400).json({ error: 'Formato de fecha de inicio inválido. Debe ser YYYY-MM-DD HH:mm:ss' });
+    }
+    if (fechaFinStr && !fechaRegex.test(fechaFinStr)) {
+      return res.status(400).json({ error: 'Formato de fecha de fin inválido. Debe ser YYYY-MM-DD HH:mm:ss' });
+    }
+
+    // Validar que las fechas sean lógicas
+    const fechaInicioObj = new Date(fechaInicioStr.replace(' ', 'T'));
+    const fechaFinObj = new Date(fechaFinStr.replace(' ', 'T'));
+
+    if (isNaN(fechaInicioObj.getTime())) {
       return res.status(400).json({ error: 'Fecha de inicio inválida' });
     }
 
-    if (fechaFin < fechaInicio) {
+    if (fechaFinObj < fechaInicioObj) {
       return res.status(400).json({ error: 'La fecha de fin no puede ser anterior a la fecha de inicio' });
     }
-
-    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
-    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
 
     // Actualizar actividad
     await execute(
