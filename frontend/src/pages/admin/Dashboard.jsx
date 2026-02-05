@@ -173,7 +173,7 @@ function Dashboard() {
               Esta funcionalidad está siendo desarrollada. Pronto estará disponible para su uso.
             </p>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/admin/dashboard')}
               style={{
                 marginTop: '2rem',
                 padding: '0.75rem 2rem',
@@ -294,7 +294,7 @@ function Dashboard() {
                   <span className="quick-icon">⚙️</span>
                   <span className="quick-title">Configuración</span>
                 </div>
-                <div className="quick-access-item" role="button" tabIndex={0} onClick={() => navigate('/aula')}>
+                <div className="quick-access-item" role="button" tabIndex={0} onClick={() => navigate('/admin/usuarios/alumnos')}>
                   <span className="quick-icon">👥</span>
                   <span className="quick-title">Ver Alumnos</span>
                 </div>
