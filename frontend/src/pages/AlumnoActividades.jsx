@@ -138,14 +138,18 @@ function AlumnoActividades() {
   };
 
   const formatearFecha = (fechaStr) => {
-    const fecha = new Date(fechaStr);
+    // IMPORTANTE: Parsear el string "YYYY-MM-DD" manualmente para crear Date en hora local
+    // Igual que hace el calendario - evita problemas de zona horaria
+    const [year, month, day] = fechaStr.split('-').map(Number);
+    const fecha = new Date(year, month - 1, day); // Crear en hora local, no UTC
+    
     const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     
     return {
       diaSemana: diasSemana[fecha.getDay()],
-      dia: fecha.getDate(),
+      dia: fecha.getDate(), // Ahora devolverá el día correcto porque la fecha está en hora local
       mes: meses[fecha.getMonth()],
       anio: fecha.getFullYear(),
       fechaCompleta: fecha
