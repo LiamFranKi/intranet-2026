@@ -3571,18 +3571,32 @@ function DocenteAulaVirtual() {
                                       href={archivo.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
+                                      title={archivo.url}
                                       style={{
-                                        display: 'inline-block',
-                                        padding: '4px 12px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '40px',
+                                        height: '40px',
                                         backgroundColor: '#2196f3',
                                         color: 'white',
-                                        borderRadius: '4px',
+                                        borderRadius: '8px',
                                         textDecoration: 'none',
-                                        fontSize: '0.85rem',
-                                        margin: '2px'
+                                        fontSize: '1.2rem',
+                                        margin: '2px',
+                                        transition: 'all 0.2s',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.target.style.backgroundColor = '#1976d2';
+                                        e.target.style.transform = 'scale(1.1)';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.target.style.backgroundColor = '#2196f3';
+                                        e.target.style.transform = 'scale(1)';
                                       }}
                                     >
-                                      📎 {archivo.nombre || 'Archivo'}
+                                      📄
                                     </a>
                                   ))}
                                 </div>

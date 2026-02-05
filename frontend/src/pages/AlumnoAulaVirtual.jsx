@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
+import Swal from 'sweetalert2';
 import './DocenteAulaVirtual-gamificado.css';
 
 function AlumnoAulaVirtual() {
@@ -22,9 +24,84 @@ function AlumnoAulaVirtual() {
   
   // Estado para card expandido
   const [expandedCard, setExpandedCard] = useState(null);
+  
+  // Estado para modal de tarea
+  const [mostrarModalTarea, setMostrarModalTarea] = useState(false);
+  const [tareaDetalle, setTareaDetalle] = useState(null);
+  const [urlEntrega, setUrlEntrega] = useState('');
+  const [enviandoEntrega, setEnviandoEntrega] = useState(false);
 
   const toggleCard = (cardName) => {
     setExpandedCard(expandedCard === cardName ? null : cardName);
+  };
+  
+  const abrirModalTarea = async (tareaId) => {
+    try {
+      // Cargar detalles de la tarea
+      const response = await api.get(`/alumno/aula-virtual/tareas/${tareaId}`);
+      setTareaDetalle(response.data.tarea);
+      setMostrarModalTarea(true);
+      
+      // Marcar como visto
+      try {
+        await api.post(`/alumno/aula-virtual/tareas/${tareaId}/marcar-visto`);
+      } catch (error) {
+        console.warn('Error marcando como visto:', error);
+      }
+    } catch (error) {
+      console.error('Error cargando detalles de tarea:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudieron cargar los detalles de la tarea'
+      });
+    }
+  };
+  
+  const cerrarModalTarea = () => {
+    setMostrarModalTarea(false);
+    setTareaDetalle(null);
+    setUrlEntrega('');
+  };
+  
+  const handleEnviarEntrega = async (e) => {
+    e.preventDefault();
+    
+    if (!urlEntrega.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'URL requerida',
+        text: 'Por favor ingresa la URL de tu trabajo'
+      });
+      return;
+    }
+    
+    setEnviandoEntrega(true);
+    try {
+      await api.post(`/alumno/aula-virtual/tareas/${tareaDetalle.id}/entregar`, {
+        url: urlEntrega.trim()
+      });
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'Tu trabajo ha sido enviado correctamente'
+      });
+      
+      // Recargar detalles de la tarea para mostrar la entrega
+      const response = await api.get(`/alumno/aula-virtual/tareas/${tareaDetalle.id}`);
+      setTareaDetalle(response.data.tarea);
+      setUrlEntrega('');
+    } catch (error) {
+      console.error('Error enviando entrega:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo enviar el trabajo'
+      });
+    } finally {
+      setEnviandoEntrega(false);
+    }
   };
 
   const cargarDatosCurso = useCallback(async () => {
@@ -234,6 +311,7 @@ function AlumnoAulaVirtual() {
                 <th>NOMBRE</th>
                 <th>FECHA DE REGISTRO</th>
                 <th>FECHA DE ENTREGA</th>
+                <th className="text-center">ACCIONES</th>
               </tr>
             </thead>
             <tbody>
@@ -253,6 +331,29 @@ function AlumnoAulaVirtual() {
                     ) : (
                       '-'
                     )}
+                  </td>
+                  <td className="text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        abrirModalTarea(tarea.id);
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.4rem 1rem',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                      onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                    >
+                      👁️ VER
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -474,7 +575,7 @@ function AlumnoAulaVirtual() {
               Bimestre {bim}
             </button>
           ))}
-        </div>
+            </div>
 
         {/* Grid de Cards Gamificado */}
         <div className="aula-dashboard-grid">
@@ -492,7 +593,7 @@ function AlumnoAulaVirtual() {
               </div>
             </div>
             {expandedCard === 'temas' && renderCardContent('temas')}
-          </div>
+            </div>
 
           {/* Card: TAREAS */}
           <div 
@@ -505,10 +606,10 @@ function AlumnoAulaVirtual() {
                 <h3 className="card-title">Tareas Virtuales</h3>
                 <p className="card-count">{tareas.filter(t => t.ciclo === bimestreGlobal).length}</p>
                 <p className="card-subtitle">Tareas asignadas</p>
-              </div>
-            </div>
+                        </div>
+                    </div>
             {expandedCard === 'tareas' && renderCardContent('tareas')}
-          </div>
+                </div>
 
           {/* Card: EXÁMENES */}
           <div 
@@ -521,10 +622,10 @@ function AlumnoAulaVirtual() {
                 <h3 className="card-title">Exámenes</h3>
                 <p className="card-count">{examenes.filter(e => e.ciclo === bimestreGlobal).length}</p>
                 <p className="card-subtitle">Exámenes creados</p>
-              </div>
-            </div>
+                        </div>
+                    </div>
             {expandedCard === 'examenes' && renderCardContent('examenes')}
-          </div>
+                </div>
 
           {/* Card: VIDEOTECA */}
           <div 
@@ -537,10 +638,10 @@ function AlumnoAulaVirtual() {
                 <h3 className="card-title">Videoteca</h3>
                 <p className="card-count">{videos.filter(v => v.ciclo === bimestreGlobal).length}</p>
                 <p className="card-subtitle">Videos disponibles</p>
-              </div>
-            </div>
+                        </div>
+                    </div>
             {expandedCard === 'videos' && renderCardContent('videos')}
-          </div>
+                </div>
 
           {/* Card: ENLACES */}
           <div 
@@ -559,6 +660,339 @@ function AlumnoAulaVirtual() {
           </div>
         </div>
       </div>
+      
+      {/* Modal de Detalles de Tarea */}
+      {mostrarModalTarea && tareaDetalle && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '2rem'
+          }}
+          onClick={cerrarModalTarea}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '2rem',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, color: '#374151', fontSize: '1.5rem' }}>Detalles de la Tarea</h2>
+              <button
+                onClick={cerrarModalTarea}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: '0.5rem',
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ 
+                      padding: '0.75rem', 
+                      textAlign: 'left', 
+                      width: '200px',
+                      backgroundColor: '#f0f9ff',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      TÍTULO
+                    </th>
+                    <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                      {tareaDetalle.titulo}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ 
+                      padding: '0.75rem', 
+                      textAlign: 'left',
+                      backgroundColor: '#f0f9ff',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      DESCRIPCIÓN
+                    </th>
+                    <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                      <div dangerouslySetInnerHTML={{ __html: tareaDetalle.descripcion?.replace(/\n/g, '<br />') || '-' }} />
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ 
+                      padding: '0.75rem', 
+                      textAlign: 'left',
+                      backgroundColor: '#f0f9ff',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      FECHA DE REGISTRO
+                    </th>
+                    <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                      {tareaDetalle.fecha_hora ? (
+                        new Date(tareaDetalle.fecha_hora).toLocaleDateString('es-PE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })
+                      ) : '-'}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ 
+                      padding: '0.75rem', 
+                      textAlign: 'left',
+                      backgroundColor: '#f0f9ff',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      FECHA DE ENTREGA
+                    </th>
+                    <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                      {tareaDetalle.fecha_entrega ? (
+                        new Date(tareaDetalle.fecha_entrega).toLocaleDateString('es-PE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })
+                      ) : '-'}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ 
+                      padding: '0.75rem', 
+                      textAlign: 'left',
+                      backgroundColor: '#f0f9ff',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      ENVIADO POR
+                    </th>
+                    <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                      {tareaDetalle.docente_nombre || '-'}
+                    </td>
+                  </tr>
+                  {tareaDetalle.archivos && tareaDetalle.archivos.length > 0 && (
+                    <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ 
+                        padding: '0.75rem', 
+                        textAlign: 'left',
+                        backgroundColor: '#f0f9ff',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        ARCHIVOS ADJUNTOS
+                      </th>
+                      <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                        {tareaDetalle.archivos.map((archivo, idx) => (
+                          <div key={idx} style={{ marginBottom: '0.5rem' }}>
+                            {archivo.archivo_url ? (
+                              <a
+                                href={archivo.archivo_url}
+                                download={archivo.nombre}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: '#2563eb',
+                                  textDecoration: 'none',
+                                  fontWeight: '600'
+                                }}
+                              >
+                                📄 {archivo.nombre}
+                              </a>
+                            ) : (
+                              <span>📄 {archivo.nombre}</span>
+                            )}
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                  {tareaDetalle.enlace && (
+                    <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ 
+                        padding: '0.75rem', 
+                        textAlign: 'left',
+                        backgroundColor: '#f0f9ff',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        URL
+                      </th>
+                      <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                        <a
+                          href={tareaDetalle.enlace}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: '#2563eb',
+                            textDecoration: 'none',
+                            wordBreak: 'break-all'
+                          }}
+                        >
+                          {tareaDetalle.enlace}
+                        </a>
+                      </td>
+                    </tr>
+                  )}
+                  {tareaDetalle.entregas && tareaDetalle.entregas.length > 0 && (
+                    <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ 
+                        padding: '0.75rem', 
+                        textAlign: 'left',
+                        backgroundColor: '#f0f9ff',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        ARCHIVO(S) ENVIADO(S)
+                      </th>
+                      <td style={{ padding: '0.75rem', backgroundColor: 'white' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            {tareaDetalle.entregas.map((entrega, idx) => (
+                              <tr key={idx}>
+                                <td style={{ padding: '0.5rem 0' }}>
+                                  {entrega.url && (
+                                    <a
+                                      href={entrega.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        color: '#2563eb',
+                                        textDecoration: 'none',
+                                        wordBreak: 'break-all'
+                                      }}
+                                    >
+                                      {entrega.url.length > 50 ? `${entrega.url.substring(0, 50)}...` : entrega.url}
+                                    </a>
+                                  )}
+                                </td>
+                                <td style={{ padding: '0.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#6b7280' }}>
+                                  {entrega.fecha_hora ? (
+                                    new Date(entrega.fecha_hora).toLocaleString('es-PE', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })
+                                  ) : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <th style={{ 
+                      padding: '0.75rem', 
+                      textAlign: 'left',
+                      backgroundColor: '#f0f9ff',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      NOTA
+                    </th>
+                    <td style={{ padding: '0.75rem', backgroundColor: 'white', fontWeight: '700', fontSize: '1.1rem' }}>
+                      {tareaDetalle.nota || '-'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Formulario para enviar trabajo */}
+            {tareaDetalle.fecha_entrega && new Date(tareaDetalle.fecha_entrega) >= new Date(new Date().setHours(0, 0, 0, 0)) && (
+              <div style={{
+                marginTop: '2rem',
+                padding: '1.5rem',
+                backgroundColor: '#f9fafb',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#374151' }}>Enviar Trabajo Realizado</h3>
+                <div style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  padding: '0.75rem',
+                  borderRadius: '6px',
+                  marginBottom: '1rem',
+                  textAlign: 'center',
+                  fontWeight: '600'
+                }}>
+                  Ingresa la URL del archivo (Drive, Dropbox, etc).
+                </div>
+                <form onSubmit={handleEnviarEntrega}>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <label style={{ fontWeight: '600', color: '#374151', minWidth: '60px' }}>
+                      URL:
+                    </label>
+                    <input
+                      type="url"
+                      value={urlEntrega}
+                      onChange={(e) => setUrlEntrega(e.target.value)}
+                      placeholder="https://drive.google.com/..."
+                      required
+                      style={{
+                        flex: 1,
+                        padding: '0.75rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem'
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={enviandoEntrega}
+                      style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.75rem 1.5rem',
+                        cursor: enviandoEntrega ? 'not-allowed' : 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        opacity: enviandoEntrega ? 0.6 : 1,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {enviandoEntrega ? 'Enviando...' : 'Enviar'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </DashboardLayout>
   );
 }

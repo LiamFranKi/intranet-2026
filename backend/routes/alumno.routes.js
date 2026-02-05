@@ -1935,4 +1935,239 @@ router.get('/aula-virtual/enlaces', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/alumno/aula-virtual/tareas/:tareaId
+ * Obtener detalles completos de una tarea (con archivos, nota, entregas del alumno)
+ */
+router.get('/aula-virtual/tareas/:tareaId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { tareaId } = req.params;
+
+    // Verificar que el alumno tiene acceso a esta tarea
+    const tarea = await query(
+      `SELECT t.*, 
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
+              a.id as asignatura_id,
+              c.nombre as curso_nombre
+       FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN personal p ON p.id = a.personal_id
+       INNER JOIN matriculas m ON m.grupo_id = g.id
+       WHERE t.id = ? AND m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [tareaId, alumno_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    const tareaData = tarea[0];
+
+    // Obtener archivos adjuntos de la tarea
+    const archivos = await query(
+      `SELECT * FROM asignaturas_tareas_archivos WHERE tarea_id = ?`,
+      [tareaId]
+    );
+
+    // Construir URLs de archivos
+    const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const archivosConUrls = archivos.map(archivo => {
+      let archivoUrl = null;
+      if (archivo.archivo && archivo.archivo !== '') {
+        archivoUrl = isDevelopment
+          ? `http://localhost:5000/Static/Archivos/${archivo.archivo}`
+          : `${phpSystemUrl}/Static/Archivos/${archivo.archivo}`;
+      }
+      return {
+        ...archivo,
+        archivo_url: archivoUrl
+      };
+    });
+
+    // Obtener entregas del alumno para esta tarea
+    const entregas = await query(
+      `SELECT * FROM asignaturas_tareas_entregas
+       WHERE tarea_id = ? AND alumno_id = ? AND tipo = 'ALUMNO'
+       ORDER BY fecha_hora DESC`,
+      [tareaId, alumno_id]
+    );
+
+    // Obtener matrícula del alumno para obtener la nota
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    let nota = null;
+    if (matricula.length > 0) {
+      const notaData = await query(
+        `SELECT nota FROM asignaturas_tareas_notas
+         WHERE tarea_id = ? AND matricula_id = ?`,
+        [tareaId, matricula[0].matricula_id]
+      );
+      if (notaData.length > 0) {
+        nota = notaData[0].nota || '-';
+      }
+    }
+
+    res.json({
+      tarea: {
+        id: tareaData.id,
+        titulo: tareaData.titulo,
+        descripcion: tareaData.descripcion,
+        fecha_hora: tareaData.fecha_hora,
+        fecha_entrega: tareaData.fecha_entrega,
+        docente_nombre: tareaData.docente_nombre,
+        curso_nombre: tareaData.curso_nombre,
+        enlace: tareaData.enlace || null,
+        archivos: archivosConUrls,
+        entregas: entregas,
+        nota: nota || '-'
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo detalles de tarea:', error);
+    res.status(500).json({ error: 'Error al obtener detalles de la tarea' });
+  }
+});
+
+/**
+ * POST /api/alumno/aula-virtual/tareas/:tareaId/entregar
+ * Enviar la URL de la entrega del alumno
+ */
+router.post('/aula-virtual/tareas/:tareaId/entregar', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { tareaId } = req.params;
+    const { url } = req.body;
+
+    if (!url || url.trim() === '') {
+      return res.status(400).json({ error: 'La URL es requerida' });
+    }
+
+    // Verificar que el alumno tiene acceso a esta tarea
+    const tarea = await query(
+      `SELECT t.*, a.grupo_id
+       FROM asignaturas_tareas t
+       INNER JOIN asignaturas a ON a.id = t.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN matriculas m ON m.grupo_id = g.id
+       WHERE t.id = ? AND m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [tareaId, alumno_id, colegio_id, anio_activo]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
+    }
+
+    // Verificar que la fecha de entrega no haya pasado
+    const fechaEntrega = new Date(tarea[0].fecha_entrega);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    fechaEntrega.setHours(0, 0, 0, 0);
+
+    if (hoy > fechaEntrega) {
+      return res.status(400).json({ error: 'La fecha de entrega ya ha pasado' });
+    }
+
+    // Insertar la entrega
+    const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    await execute(
+      `INSERT INTO asignaturas_tareas_entregas 
+       (alumno_id, tarea_id, archivo, url, nombre, fecha_hora, tipo, mensaje)
+       VALUES (?, ?, '', ?, ?, ?, 'ALUMNO', '')`,
+      [alumno_id, tareaId, url.trim(), url.trim(), fechaHora]
+    );
+
+    res.json({
+      success: true,
+      message: 'Entrega enviada correctamente'
+    });
+  } catch (error) {
+    console.error('Error enviando entrega:', error);
+    res.status(500).json({ error: 'Error al enviar la entrega' });
+  }
+});
+
+/**
+ * POST /api/alumno/aula-virtual/tareas/:tareaId/marcar-visto
+ * Marcar una tarea como vista por el alumno
+ */
+router.post('/aula-virtual/tareas/:tareaId/marcar-visto', async (req, res) => {
+  try {
+    const { tareaId } = req.params;
+    const { alumno_id } = req.user;
+
+    if (!alumno_id) {
+      return res.status(400).json({ error: 'alumno_id es requerido' });
+    }
+
+    // Obtener la tarea actual
+    const tarea = await query(
+      `SELECT * FROM asignaturas_tareas WHERE id = ?`,
+      [tareaId]
+    );
+
+    if (tarea.length === 0) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+
+    const tareaActual = tarea[0];
+
+    // Deserializar campo "visto" (formato PHP serialized)
+    let vistos = [];
+    try {
+      if (tareaActual.visto && tareaActual.visto !== '') {
+        const deserialized = phpSerialize.unserialize(tareaActual.visto);
+        vistos = Array.isArray(deserialized) ? deserialized : [];
+      }
+    } catch (error) {
+      console.warn('Error deserializando campo visto:', error);
+      vistos = [];
+    }
+
+    // Si el alumno_id no está en el array, agregarlo
+    if (!vistos.includes(alumno_id)) {
+      vistos.push(alumno_id);
+      
+      // Serializar el array actualizado
+      const vistoSerializado = phpSerialize.serialize(vistos);
+
+      // Actualizar el campo visto en la BD
+      await execute(
+        `UPDATE asignaturas_tareas SET visto = ? WHERE id = ?`,
+        [vistoSerializado, tareaId]
+      );
+
+      console.log('✅ [TAREA VISTO] Alumno marcó tarea como vista:', {
+        tarea_id: tareaId,
+        alumno_id: alumno_id,
+        vistos_actualizados: vistos
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Tarea marcada como vista',
+      visto: true
+    });
+  } catch (error) {
+    console.error('Error marcando tarea como vista:', error);
+    res.status(500).json({ error: 'Error al marcar tarea como vista' });
+  }
+});
+
 module.exports = router;
