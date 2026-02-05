@@ -282,6 +282,155 @@ function AlumnoCursos() {
             <p>No tienes cursos asignados para el año académico actual</p>
           </div>
         )}
+        
+        {/* Modal de Enviar Mensaje al Docente */}
+        {mostrarModalMensaje && docenteParaMensaje && createPortal(
+          <div 
+            className="modal-mensaje-overlay" 
+            onClick={() => setMostrarModalMensaje(false)}
+            style={{ zIndex: 100000 }}
+          >
+            <div 
+              className="modal-mensaje-container" 
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-mensaje-docente-title"
+            >
+              <div className="modal-mensaje-header">
+                <h2 id="modal-mensaje-docente-title">✉️ Enviar Mensaje al Docente</h2>
+                <button
+                  className="modal-mensaje-close"
+                  onClick={() => {
+                    setMostrarModalMensaje(false);
+                    setAsuntoMensaje('');
+                    setContenidoMensaje('');
+                    setArchivosAdjuntos([]);
+                    setDocenteParaMensaje(null);
+                  }}
+                  type="button"
+                  aria-label="Cerrar modal"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="modal-mensaje-body">
+                {/* Información del docente */}
+                <div className="mensaje-grupo-info">
+                  <p><strong>Docente:</strong> {docenteParaMensaje.nombre}</p>
+                  <p><strong>Curso:</strong> {docenteParaMensaje.curso_nombre}</p>
+                  <p className="mensaje-info-text">El mensaje se enviará directamente al docente</p>
+                </div>
+
+                {/* Campo Asunto */}
+                <div className="form-group">
+                  <label htmlFor="asunto-mensaje-docente">Asunto:</label>
+                  <input
+                    type="text"
+                    id="asunto-mensaje-docente"
+                    className="form-input"
+                    value={asuntoMensaje}
+                    onChange={(e) => setAsuntoMensaje(e.target.value)}
+                    placeholder="Asunto del mensaje"
+                  />
+                </div>
+
+                {/* Campo Mensaje con Editor de Texto Enriquecido */}
+                <div className="form-group">
+                  <label htmlFor="mensaje-editor-docente">Mensaje:</label>
+                  <div id="mensaje-editor-wrapper-docente">
+                    <ReactQuill
+                      ref={quillRefMensaje}
+                      theme="snow"
+                      value={contenidoMensaje}
+                      onChange={setContenidoMensaje}
+                      placeholder="Escribe tu mensaje aquí..."
+                      modules={{
+                        toolbar: [
+                          [{ 'header': [1, 2, 3, false] }],
+                          ['bold', 'italic', 'underline', 'strike'],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          [{ 'color': [] }, { 'background': [] }],
+                          [{ 'align': [] }],
+                          ['link', 'image'],
+                          ['clean']
+                        ]
+                      }}
+                      formats={[
+                        'header', 'bold', 'italic', 'underline', 'strike',
+                        'list', 'bullet', 'color', 'background', 'align',
+                        'link', 'image'
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* Campo Archivos Adjuntos */}
+                <div className="form-group">
+                  <label>Archivos Adjuntos:</label>
+                  <div className="archivos-container">
+                    <input
+                      type="file"
+                      id="archivos-input-docente"
+                      multiple
+                      onChange={handleArchivoChange}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor="archivos-input-docente" className="btn-adjuntar-archivo">
+                      📎 Adjuntar Archivos
+                    </label>
+                    {archivosAdjuntos.length > 0 && (
+                      <div className="archivos-lista">
+                        {archivosAdjuntos.map((archivo, index) => (
+                          <div key={index} className="archivo-item">
+                            <span className="archivo-nombre">{archivo.name}</span>
+                            <span className="archivo-tamaño">
+                              {(archivo.size / 1024).toFixed(2)} KB
+                            </span>
+                            <button
+                              type="button"
+                              className="archivo-eliminar"
+                              onClick={() => eliminarArchivo(index)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Botones */}
+                <div className="form-actions">
+                  <button
+                    className="btn-cancelar"
+                    onClick={() => {
+                      setMostrarModalMensaje(false);
+                      setAsuntoMensaje('');
+                      setContenidoMensaje('');
+                      setArchivosAdjuntos([]);
+                      setDocenteParaMensaje(null);
+                    }}
+                    type="button"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-enviar"
+                    onClick={enviarMensajeAlDocente}
+                    disabled={enviandoMensaje}
+                    type="button"
+                  >
+                    {enviandoMensaje ? '⏳ Enviando...' : '✉️ Enviar Mensaje'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       </div>
     </DashboardLayout>
   );
