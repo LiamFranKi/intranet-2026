@@ -101,7 +101,7 @@ function AlumnoCursos() {
                       className="btn-enviar-mensaje"
                       onClick={() => handleEnviarMensaje(curso)}
                     >
-                      ✉️ Enviar Mensaje Docente
+                      ✉️ Enviar Mensaje
                     </button>
                   </div>
                 </div>
