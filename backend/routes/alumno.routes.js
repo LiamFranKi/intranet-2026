@@ -373,6 +373,8 @@ router.get('/cursos', async (req, res) => {
     }
 
     // Obtener asignaturas (cursos) del alumno
+    // IMPORTANTE: Igual que el sistema anterior - obtener asignaturas del grupo sin filtrar por año
+    // El año ya está implícito en el grupo (grupoId ya corresponde al año activo)
     const cursos = await query(
       `SELECT a.id as asignatura_id,
               c.id as curso_id,
@@ -382,12 +384,11 @@ router.get('/cursos', async (req, res) => {
               p.id as docente_id,
               a.link_aula_virtual
        FROM asignaturas a
-       INNER JOIN grupos g ON g.id = a.grupo_id
        INNER JOIN cursos c ON c.id = a.curso_id
        INNER JOIN personal p ON p.id = a.personal_id
-       WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
-       ORDER BY c.nombre ASC`,
-      [grupoId, colegio_id, anio_activo]
+       WHERE a.grupo_id = ? AND a.colegio_id = ?
+       ORDER BY c.orden ASC, c.nombre ASC`,
+      [grupoId, colegio_id]
     );
 
     // Construir URLs de imágenes
