@@ -827,6 +827,7 @@ router.put('/perfil/password', async (req, res) => {
  */
 router.get('/comunicados', async (req, res) => {
   try {
+    console.log('📥 [ALUMNO COMUNICADOS] GET /comunicados - Iniciando, año activo:', req.user?.anio_activo);
     const { colegio_id, anio_activo } = req.user;
     const { page = 1, limit = 12, search = '' } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -925,6 +926,7 @@ router.get('/comunicados', async (req, res) => {
  */
 router.get('/mensajes/recibidos', async (req, res) => {
   try {
+    console.log('📥 [ALUMNO MENSAJES] GET /mensajes/recibidos - Iniciando');
     const { usuario_id, colegio_id } = req.user;
     const { page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -1314,6 +1316,7 @@ router.put('/mensajes/:mensajeId/marcar-leido', async (req, res) => {
  */
 router.get('/mensajes/anios-disponibles', async (req, res) => {
   try {
+    console.log('📥 [ALUMNO MENSAJES] GET /mensajes/anios-disponibles - Iniciando');
     const { usuario_id } = req.user;
 
     const aniosRecibidos = await query(
