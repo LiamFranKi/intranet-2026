@@ -422,45 +422,6 @@ function AdminComunicados() {
                   className={`comunicado-card ${esNuevo ? 'comunicado-nuevo' : ''}`}
                   style={{ position: 'relative' }}
                 >
-                  <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
-                    <button
-                      onClick={() => abrirModalEditar(comunicado)}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '0.5rem 0.7rem',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
-                      onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                      title="Editar"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleEliminarComunicado(comunicado)}
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.95)',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '0.5rem 0.7rem',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        color: 'white',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
-                      onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                      title="Eliminar"
-                    >
-                      🗑️
-                    </button>
-                  </div>
                   <div className="comunicado-card-header">
                     <div className="comunicado-icon">
                       {comunicado.tipo === 'ARCHIVO' ? '📄' : '📝'}
@@ -486,7 +447,7 @@ function AdminComunicados() {
                       📅 {formatearFecha(comunicado.fecha_hora)}
                     </div>
                   </div>
-                  <div className="comunicado-card-footer">
+                  <div className="comunicado-card-footer" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'flex-end' }}>
                     {comunicado.archivo_url && (
                       <button
                         className="btn-ver-archivo"
@@ -507,6 +468,64 @@ function AdminComunicados() {
                         ✓ Leído
                       </button>
                     )}
+                    <button
+                      onClick={() => abrirModalEditar(comunicado)}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.75rem',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        color: 'white',
+                        fontWeight: '600',
+                        boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'scale(1.05)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 2px 6px rgba(16, 185, 129, 0.3)';
+                      }}
+                      title="Editar"
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button
+                      onClick={() => handleEliminarComunicado(comunicado)}
+                      style={{
+                        background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.75rem',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        color: 'white',
+                        fontWeight: '600',
+                        boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.transform = 'scale(1.05)';
+                        e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 2px 6px rgba(239, 68, 68, 0.3)';
+                      }}
+                      title="Eliminar"
+                    >
+                      🗑️ Eliminar
+                    </button>
                   </div>
                 </div>
                 );
