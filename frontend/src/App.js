@@ -16,6 +16,7 @@ import DocenteActividades from './pages/DocenteActividades';
 import DocenteMensajes from './pages/DocenteMensajes';
 import AdminActividades from './pages/admin/AdminActividades';
 import AdminComunicados from './pages/admin/AdminComunicados';
+import AdminConfiguracion from './pages/admin/AdminConfiguracion';
 import DocenteAulaVirtual from './pages/DocenteAulaVirtual';
 import AlumnoDashboard from './pages/AlumnoDashboard';
 import AlumnoPerfil from './pages/AlumnoPerfil';
@@ -437,7 +438,7 @@ function AppRoutes() {
         path="/admin/config/general"
         element={
           <PrivateRoute>
-            <Dashboard />
+            <AdminConfiguracion />
           </PrivateRoute>
         }
       />

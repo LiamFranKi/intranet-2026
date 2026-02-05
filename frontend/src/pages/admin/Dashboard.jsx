@@ -141,8 +141,8 @@ function Dashboard() {
     icon: '📊'
   };
 
-  // Si es una ruta específica de admin (pero NO el dashboard principal), mostrar contenido específico
-  const isAdminRoute = (location.pathname.startsWith('/admin/') && location.pathname !== '/admin/dashboard') || location.pathname === '/auditoria';
+  // Si es una ruta específica de admin (pero NO el dashboard principal ni configuración), mostrar contenido específico
+  const isAdminRoute = (location.pathname.startsWith('/admin/') && location.pathname !== '/admin/dashboard' && location.pathname !== '/admin/config/general') || location.pathname === '/auditoria';
   
   if (isAdminRoute) {
     return (
