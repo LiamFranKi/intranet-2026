@@ -65,8 +65,8 @@
 
 /* Foto circular del docente arriba */
 .docente-foto-container {
-  width: 120px !important;
-  height: 120px !important;
+  width: 160px !important;
+  height: 160px !important;
   margin: 0 auto 0.75rem;
   display: flex;
   align-items: center;
@@ -217,8 +217,8 @@
   }
   
   .docente-foto-container {
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
   }
 }
 
