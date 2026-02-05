@@ -57,52 +57,39 @@ function AlumnoCursos() {
           <div className="cursos-grid">
             {cursos.map((curso) => (
               <div key={curso.asignatura_id} className="curso-card-alumno mundo-card">
-                {/* Imagen del curso como cabecera */}
-                {curso.curso_imagen_url && (
-                  <div className="curso-imagen-header">
-                    <img 
-                      src={curso.curso_imagen_url} 
-                      alt={curso.curso_nombre}
-                      className="curso-imagen-cabecera"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-                
                 {/* Contenido del card */}
                 <div className="curso-content">
-                  {/* Icono circular si no hay imagen de cabecera */}
-                  {!curso.curso_imagen_url && (
-                    <div className="curso-icon-circle">
-                      {curso.curso_imagen_url ? (
-                        <img 
-                          src={curso.curso_imagen_url} 
-                          alt={curso.curso_nombre}
-                          className="curso-imagen-circle"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            if (e.target.nextSibling) {
-                              e.target.nextSibling.style.display = 'flex';
-                            }
-                          }}
-                        />
-                      ) : null}
-                      {!curso.curso_imagen_url && <span className="curso-emoji-circle">📚</span>}
-                      {curso.curso_imagen_url && (
-                        <span className="curso-emoji-circle" style={{ display: 'none' }}>📚</span>
-                      )}
-                    </div>
-                  )}
+                  {/* Foto circular del docente arriba */}
+                  <div className="docente-foto-container">
+                    {curso.docente_foto_url ? (
+                      <img 
+                        src={curso.docente_foto_url} 
+                        alt={curso.docente_nombre}
+                        className="docente-foto-circular"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          if (e.target.nextSibling) {
+                            e.target.nextSibling.style.display = 'flex';
+                          }
+                        }}
+                      />
+                    ) : null}
+                    {!curso.docente_foto_url && (
+                      <div className="docente-foto-placeholder">
+                        <span className="docente-icon-placeholder">👨‍🏫</span>
+                      </div>
+                    )}
+                  </div>
                   
+                  {/* Nombre del curso */}
                   <h3 className="curso-nombre-alumno">{curso.curso_nombre}</h3>
                   
-                  <div className="curso-docente-info">
-                    <span className="docente-icon">👨‍🏫</span>
-                    <span className="docente-nombre">{curso.docente_nombre || 'Sin docente asignado'}</span>
+                  {/* Nombre del docente */}
+                  <div className="curso-docente-nombre">
+                    <span className="docente-nombre-text">{curso.docente_nombre || 'Sin docente asignado'}</span>
                   </div>
 
+                  {/* Botones de acción */}
                   <div className="curso-actions-alumno">
                     <button
                       className="btn-aula-virtual"

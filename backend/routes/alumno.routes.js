@@ -382,6 +382,7 @@ router.get('/cursos', async (req, res) => {
               c.imagen as curso_imagen,
               CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
               p.id as docente_id,
+              p.foto as docente_foto,
               a.aula_virtual as link_aula_virtual
        FROM asignaturas a
        INNER JOIN cursos c ON c.id = a.curso_id
