@@ -405,6 +405,21 @@ function AlumnoDashboard() {
               <div className="eventos-grid">
                 {eventosPagina.map((evento, index) => {
                   const fecha = evento.fecha;
+                  // DEBUG: Log para ver qué está pasando con la fecha
+                  if (evento.tipo === 'actividad') {
+                    console.log('🔍 [ALUMNO DASHBOARD] Mostrando actividad:', {
+                      id: evento.id,
+                      descripcion: evento.descripcion,
+                      fecha_inicio_original: evento.fecha_inicio,
+                      fecha_objeto: fecha,
+                      fecha_toISOString: fecha.toISOString(),
+                      fecha_toString: fecha.toString(),
+                      getDate: fecha.getDate(),
+                      getMonth: fecha.getMonth(),
+                      getFullYear: fecha.getFullYear(),
+                      fecha_getTime: fecha.getTime()
+                    });
+                  }
                   const dia = fecha.getDate();
                   const mes = meses[fecha.getMonth()];
                   // Obtener título según el tipo de evento
