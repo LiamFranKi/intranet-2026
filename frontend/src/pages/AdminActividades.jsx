@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './DocenteActividades.css';
+import './DocenteGrupos.css';
 import Swal from 'sweetalert2';
 
 const MESES = [
@@ -29,7 +31,8 @@ function AdminActividades() {
   const [mesSeleccionado, setMesSeleccionado] = useState(null);
   const [anio, setAnio] = useState(new Date().getFullYear());
   const [actividadesAgrupadas, setActividadesAgrupadas] = useState({});
-  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [actividadEditando, setActividadEditando] = useState(null);
   const [formulario, setFormulario] = useState({
     descripcion: '',
     lugar: '',
@@ -110,38 +113,134 @@ function AdminActividades() {
     }
   }, [mesSeleccionado, todasLasActividades, filtrarYAgruparActividades]);
 
-  const handleCrearActividad = async (e) => {
+  const abrirModalCrear = () => {
+    setActividadEditando(null);
+    setFormulario({
+      descripcion: '',
+      lugar: '',
+      detalles: '',
+      fecha_inicio: '',
+      fecha_fin: ''
+    });
+    setMostrarModal(true);
+  };
+
+  const abrirModalEditar = (actividad) => {
+    setActividadEditando(actividad);
+    // Formatear fechas para datetime-local (YYYY-MM-DDTHH:mm)
+    const fechaInicio = new Date(actividad.fecha_inicio);
+    const fechaFin = actividad.fecha_fin ? new Date(actividad.fecha_fin) : fechaInicio;
+    
+    const formatearParaInput = (fecha) => {
+      const year = fecha.getFullYear();
+      const month = String(fecha.getMonth() + 1).padStart(2, '0');
+      const day = String(fecha.getDate()).padStart(2, '0');
+      const hours = String(fecha.getHours()).padStart(2, '0');
+      const minutes = String(fecha.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    setFormulario({
+      descripcion: actividad.descripcion || '',
+      lugar: actividad.lugar || '',
+      detalles: actividad.detalles || '',
+      fecha_inicio: formatearParaInput(fechaInicio),
+      fecha_fin: formatearParaInput(fechaFin)
+    });
+    setMostrarModal(true);
+  };
+
+  const cerrarModal = () => {
+    setMostrarModal(false);
+    setActividadEditando(null);
+    setFormulario({
+      descripcion: '',
+      lugar: '',
+      detalles: '',
+      fecha_inicio: '',
+      fecha_fin: ''
+    });
+  };
+
+  const handleGuardarActividad = async (e) => {
     e.preventDefault();
     
     try {
-      const response = await api.post('/docente/actividades', formulario);
-      
-      if (response.data.success) {
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Actividad creada correctamente',
-          timer: 2000,
-          showConfirmButton: false
-        });
+      if (actividadEditando) {
+        // Editar
+        const response = await api.put(`/docente/actividades/${actividadEditando.id}`, formulario);
         
-        setFormulario({
-          descripcion: '',
-          lugar: '',
-          detalles: '',
-          fecha_inicio: '',
-          fecha_fin: ''
-        });
-        setMostrarFormulario(false);
-        cargarTodasLasActividades();
+        if (response.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'Actividad actualizada correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          cerrarModal();
+          cargarTodasLasActividades();
+        }
+      } else {
+        // Crear
+        const response = await api.post('/docente/actividades', formulario);
+        
+        if (response.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'Actividad creada correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          cerrarModal();
+          cargarTodasLasActividades();
+        }
       }
     } catch (error) {
-      console.error('Error creando actividad:', error);
+      console.error('Error guardando actividad:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'Error al crear actividad'
+        text: error.response?.data?.error || 'Error al guardar actividad'
       });
+    }
+  };
+
+  const handleEliminarActividad = async (actividad) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar la actividad "${actividad.descripcion}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.delete(`/docente/actividades/${actividad.id}`);
+        
+        if (response.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Eliminado!',
+            text: 'Actividad eliminada correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          cargarTodasLasActividades();
+        }
+      } catch (error) {
+        console.error('Error eliminando actividad:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'Error al eliminar actividad'
+        });
+      }
     }
   };
 
@@ -214,7 +313,7 @@ function AdminActividades() {
           </div>
           <button 
             className="btn-crear-actividad"
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            onClick={abrirModalCrear}
             style={{
               padding: '0.75rem 1.5rem',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -230,152 +329,6 @@ function AdminActividades() {
             ➕ Crear Actividad
           </button>
         </div>
-
-        {mostrarFormulario && (
-          <div className="formulario-actividad" style={{
-            background: 'white',
-            padding: '2rem',
-            borderRadius: '16px',
-            marginBottom: '2rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <h2 style={{ marginBottom: '1.5rem', color: '#1f2937' }}>Nueva Actividad</h2>
-            <form onSubmit={handleCrearActividad}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                  Descripción *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formulario.descripcion}
-                  onChange={(e) => setFormulario({...formulario, descripcion: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem'
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                  Lugar
-                </label>
-                <input
-                  type="text"
-                  value={formulario.lugar}
-                  onChange={(e) => setFormulario({...formulario, lugar: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem'
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                  Detalles
-                </label>
-                <textarea
-                  value={formulario.detalles}
-                  onChange={(e) => setFormulario({...formulario, detalles: e.target.value})}
-                  rows="4"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                    Fecha Inicio *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={formulario.fecha_inicio}
-                    onChange={(e) => setFormulario({...formulario, fecha_inicio: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      fontSize: '1rem'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                    Fecha Fin
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formulario.fecha_fin}
-                    onChange={(e) => setFormulario({...formulario, fecha_fin: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      fontSize: '1rem'
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMostrarFormulario(false);
-                    setFormulario({
-                      descripcion: '',
-                      lugar: '',
-                      detalles: '',
-                      fecha_inicio: '',
-                      fecha_fin: ''
-                    });
-                  }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  Crear Actividad
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         <div className="actividades-main-container">
           <div className="meses-sidebar">
@@ -461,8 +414,41 @@ function AdminActividades() {
                             <div
                               key={`${actividad.id}-${actIndex}`}
                               className="actividad-card"
-                              style={{ background: obtenerColorActividad(actIndex) }}
+                              style={{ background: obtenerColorActividad(actIndex), position: 'relative' }}
                             >
+                              <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  onClick={() => abrirModalEditar(actividad)}
+                                  style={{
+                                    background: 'rgba(255, 255, 255, 0.9)',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '0.4rem 0.6rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                  }}
+                                  title="Editar"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleEliminarActividad(actividad)}
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.9)',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '0.4rem 0.6rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    color: 'white',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                  }}
+                                  title="Eliminar"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                               <div className="actividad-time">
                                 <span className="time-icon">🕐</span>
                                 {horaInicio}
@@ -505,9 +491,131 @@ function AdminActividades() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Crear/Editar Actividad */}
+      {mostrarModal && createPortal(
+        <div 
+          className="modal-mensaje-overlay" 
+          onClick={cerrarModal}
+          style={{ zIndex: 100000 }}
+        >
+          <div 
+            className="modal-mensaje-container" 
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-actividad-title"
+            style={{ maxWidth: '700px' }}
+          >
+            <div className="modal-mensaje-header">
+              <h2 id="modal-actividad-title">
+                {actividadEditando ? '✏️ Editar Actividad' : '➕ Crear Nueva Actividad'}
+              </h2>
+              <button
+                className="modal-mensaje-close"
+                onClick={cerrarModal}
+                type="button"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-mensaje-body">
+              <form onSubmit={handleGuardarActividad}>
+                <div className="form-group">
+                  <label>Descripción *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formulario.descripcion}
+                    onChange={(e) => setFormulario({...formulario, descripcion: e.target.value})}
+                    className="form-input"
+                    placeholder="Ej: Reunión de padres de familia"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Lugar</label>
+                  <input
+                    type="text"
+                    value={formulario.lugar}
+                    onChange={(e) => setFormulario({...formulario, lugar: e.target.value})}
+                    className="form-input"
+                    placeholder="Ej: Auditorio principal"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Detalles</label>
+                  <textarea
+                    value={formulario.detalles}
+                    onChange={(e) => setFormulario({...formulario, detalles: e.target.value})}
+                    rows="4"
+                    className="form-input"
+                    placeholder="Información adicional sobre la actividad..."
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label>Fecha Inicio *</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={formulario.fecha_inicio}
+                      onChange={(e) => setFormulario({...formulario, fecha_inicio: e.target.value})}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Fecha Fin</label>
+                    <input
+                      type="datetime-local"
+                      value={formulario.fecha_fin}
+                      onChange={(e) => setFormulario({...formulario, fecha_fin: e.target.value})}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={cerrarModal}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      background: '#f3f4f6',
+                      color: '#374151',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {actividadEditando ? 'Guardar Cambios' : 'Crear Actividad'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </DashboardLayout>
   );
 }
 
 export default AdminActividades;
-

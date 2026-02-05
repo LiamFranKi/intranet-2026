@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
 import { normalizeStaticFileUrl } from '../config/staticFiles';
 import { useAuth } from '../context/AuthContext';
 import './DocenteComunicados.css';
+import './DocenteGrupos.css';
 import Swal from 'sweetalert2';
 
 function AdminComunicados() {
@@ -13,7 +15,8 @@ function AdminComunicados() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [comunicadosLeidos, setComunicadosLeidos] = useState(new Set());
-  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [comunicadoEditando, setComunicadoEditando] = useState(null);
   const [formulario, setFormulario] = useState({
     descripcion: '',
     contenido: '',
@@ -22,6 +25,7 @@ function AdminComunicados() {
     show_in_home: false
   });
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+  const [archivoActual, setArchivoActual] = useState(null);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
@@ -65,7 +69,49 @@ function AdminComunicados() {
     }
   };
 
-  const handleCrearComunicado = async (e) => {
+  const abrirModalCrear = () => {
+    setComunicadoEditando(null);
+    setFormulario({
+      descripcion: '',
+      contenido: '',
+      tipo: 'TEXTO',
+      privacidad: '',
+      show_in_home: false
+    });
+    setArchivoSeleccionado(null);
+    setArchivoActual(null);
+    setMostrarModal(true);
+  };
+
+  const abrirModalEditar = (comunicado) => {
+    setComunicadoEditando(comunicado);
+    setFormulario({
+      descripcion: comunicado.descripcion || '',
+      contenido: comunicado.contenido || '',
+      tipo: comunicado.tipo || 'TEXTO',
+      privacidad: comunicado.privacidad || '',
+      show_in_home: comunicado.show_in_home === 1 || comunicado.show_in_home === true
+    });
+    setArchivoSeleccionado(null);
+    setArchivoActual(comunicado.archivo_url || null);
+    setMostrarModal(true);
+  };
+
+  const cerrarModal = () => {
+    setMostrarModal(false);
+    setComunicadoEditando(null);
+    setFormulario({
+      descripcion: '',
+      contenido: '',
+      tipo: 'TEXTO',
+      privacidad: '',
+      show_in_home: false
+    });
+    setArchivoSeleccionado(null);
+    setArchivoActual(null);
+  };
+
+  const handleGuardarComunicado = async (e) => {
     e.preventDefault();
     
     try {
@@ -80,39 +126,89 @@ function AdminComunicados() {
         formData.append('archivo', archivoSeleccionado);
       }
 
-      const response = await api.post('/docente/comunicados', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      
-      if (response.data.success) {
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Comunicado creado correctamente',
-          timer: 2000,
-          showConfirmButton: false
+      if (comunicadoEditando) {
+        // Editar
+        const response = await api.put(`/docente/comunicados/${comunicadoEditando.id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
         });
         
-        setFormulario({
-          descripcion: '',
-          contenido: '',
-          tipo: 'TEXTO',
-          privacidad: '',
-          show_in_home: false
+        if (response.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'Comunicado actualizado correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          cerrarModal();
+          cargarComunicados();
+        }
+      } else {
+        // Crear
+        const response = await api.post('/docente/comunicados', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
         });
-        setArchivoSeleccionado(null);
-        setMostrarFormulario(false);
-        cargarComunicados();
+        
+        if (response.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Éxito!',
+            text: 'Comunicado creado correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          cerrarModal();
+          cargarComunicados();
+        }
       }
     } catch (error) {
-      console.error('Error creando comunicado:', error);
+      console.error('Error guardando comunicado:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'Error al crear comunicado'
+        text: error.response?.data?.error || 'Error al guardar comunicado'
       });
+    }
+  };
+
+  const handleEliminarComunicado = async (comunicado) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas eliminar el comunicado "${comunicado.descripcion}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await api.delete(`/docente/comunicados/${comunicado.id}`);
+        
+        if (response.data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Eliminado!',
+            text: 'Comunicado eliminado correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          cargarComunicados();
+        }
+      } catch (error) {
+        console.error('Error eliminando comunicado:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.response?.data?.error || 'Error al eliminar comunicado'
+        });
+      }
     }
   };
 
@@ -283,7 +379,7 @@ function AdminComunicados() {
             <p>Comunicados y anuncios oficiales del colegio</p>
           </div>
           <button 
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            onClick={abrirModalCrear}
             style={{
               padding: '0.75rem 1.5rem',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -299,147 +395,6 @@ function AdminComunicados() {
             ➕ Crear Comunicado
           </button>
         </div>
-
-        {mostrarFormulario && (
-          <div className="formulario-comunicado" style={{
-            background: 'white',
-            padding: '2rem',
-            borderRadius: '16px',
-            marginBottom: '2rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <h2 style={{ marginBottom: '1.5rem', color: '#1f2937' }}>Nuevo Comunicado</h2>
-            <form onSubmit={handleCrearComunicado}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                  Descripción *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formulario.descripcion}
-                  onChange={(e) => setFormulario({...formulario, descripcion: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem'
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                  Contenido
-                </label>
-                <textarea
-                  value={formulario.contenido}
-                  onChange={(e) => setFormulario({...formulario, contenido: e.target.value})}
-                  rows="6"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                  Tipo
-                </label>
-                <select
-                  value={formulario.tipo}
-                  onChange={(e) => setFormulario({...formulario, tipo: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem'
-                  }}
-                >
-                  <option value="TEXTO">Texto</option>
-                  <option value="ARCHIVO">Archivo</option>
-                </select>
-              </div>
-              {formulario.tipo === 'ARCHIVO' && (
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#374151' }}>
-                    Archivo
-                  </label>
-                  <input
-                    type="file"
-                    onChange={(e) => setArchivoSeleccionado(e.target.files[0])}
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      fontSize: '1rem'
-                    }}
-                  />
-                </div>
-              )}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={formulario.show_in_home}
-                    onChange={(e) => setFormulario({...formulario, show_in_home: e.target.checked})}
-                  />
-                  <span style={{ fontWeight: '600', color: '#374151' }}>Mostrar en inicio</span>
-                </label>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMostrarFormulario(false);
-                    setFormulario({
-                      descripcion: '',
-                      contenido: '',
-                      tipo: 'TEXTO',
-                      privacidad: '',
-                      show_in_home: false
-                    });
-                    setArchivoSeleccionado(null);
-                  }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: '#f3f4f6',
-                    color: '#374151',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: '600'
-                  }}
-                >
-                  Crear Comunicado
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         <div className="comunicados-search-bar">
           <form onSubmit={handleSearch} className="search-form">
@@ -465,7 +420,41 @@ function AdminComunicados() {
                 <div 
                   key={comunicado.id} 
                   className={`comunicado-card ${esNuevo ? 'comunicado-nuevo' : ''}`}
+                  style={{ position: 'relative' }}
                 >
+                  <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
+                    <button
+                      onClick={() => abrirModalEditar(comunicado)}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.4rem 0.6rem',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                      title="Editar"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleEliminarComunicado(comunicado)}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.95)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '0.4rem 0.6rem',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        color: 'white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                      title="Eliminar"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                   <div className="comunicado-card-header">
                     <div className="comunicado-icon">
                       {comunicado.tipo === 'ARCHIVO' ? '📄' : '📝'}
@@ -533,9 +522,142 @@ function AdminComunicados() {
           </div>
         )}
       </div>
+
+      {/* Modal de Crear/Editar Comunicado */}
+      {mostrarModal && createPortal(
+        <div 
+          className="modal-mensaje-overlay" 
+          onClick={cerrarModal}
+          style={{ zIndex: 100000 }}
+        >
+          <div 
+            className="modal-mensaje-container" 
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-comunicado-title"
+            style={{ maxWidth: '800px' }}
+          >
+            <div className="modal-mensaje-header">
+              <h2 id="modal-comunicado-title">
+                {comunicadoEditando ? '✏️ Editar Comunicado' : '➕ Crear Nuevo Comunicado'}
+              </h2>
+              <button
+                className="modal-mensaje-close"
+                onClick={cerrarModal}
+                type="button"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-mensaje-body">
+              <form onSubmit={handleGuardarComunicado}>
+                <div className="form-group">
+                  <label>Descripción *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formulario.descripcion}
+                    onChange={(e) => setFormulario({...formulario, descripcion: e.target.value})}
+                    className="form-input"
+                    placeholder="Ej: Circular informativa sobre..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contenido</label>
+                  <textarea
+                    value={formulario.contenido}
+                    onChange={(e) => setFormulario({...formulario, contenido: e.target.value})}
+                    rows="6"
+                    className="form-input"
+                    placeholder="Contenido del comunicado..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Tipo</label>
+                  <select
+                    value={formulario.tipo}
+                    onChange={(e) => setFormulario({...formulario, tipo: e.target.value})}
+                    className="form-input"
+                  >
+                    <option value="TEXTO">Texto</option>
+                    <option value="ARCHIVO">Archivo</option>
+                  </select>
+                </div>
+                {formulario.tipo === 'ARCHIVO' && (
+                  <div className="form-group">
+                    <label>Archivo</label>
+                    <input
+                      type="file"
+                      onChange={(e) => setArchivoSeleccionado(e.target.files[0])}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif"
+                      className="form-input"
+                    />
+                    {archivoActual && !archivoSeleccionado && (
+                      <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
+                        Archivo actual: <a href={archivoActual} target="_blank" rel="noopener noreferrer">{archivoActual}</a>
+                      </p>
+                    )}
+                    {archivoSeleccionado && (
+                      <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#059669' }}>
+                        Nuevo archivo seleccionado: {archivoSeleccionado.name}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={formulario.show_in_home}
+                      onChange={(e) => setFormulario({...formulario, show_in_home: e.target.checked})}
+                    />
+                    <span>Mostrar en inicio</span>
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={cerrarModal}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      background: '#f3f4f6',
+                      color: '#374151',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {comunicadoEditando ? 'Guardar Cambios' : 'Crear Comunicado'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </DashboardLayout>
   );
 }
 
 export default AdminComunicados;
-

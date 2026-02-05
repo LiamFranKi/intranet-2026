@@ -3526,6 +3526,138 @@ router.post('/comunicados', uploadComunicado.single('archivo'), async (req, res)
 });
 
 /**
+ * PUT /api/docente/comunicados/:id
+ * Actualizar comunicado (solo ADMINISTRADOR)
+ */
+router.put('/comunicados/:id', uploadComunicado.single('archivo'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    
+    if (req.user.tipo !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo los administradores pueden editar comunicados' });
+    }
+
+    const { id } = req.params;
+    const { descripcion, contenido, tipo, privacidad, show_in_home } = req.body;
+
+    // Verificar que el comunicado existe
+    const comunicados = await query(
+      `SELECT * FROM comunicados WHERE id = ? AND colegio_id = ?`,
+      [id, colegio_id]
+    );
+
+    if (comunicados.length === 0) {
+      return res.status(404).json({ error: 'Comunicado no encontrado' });
+    }
+
+    let archivoPath = comunicados[0].archivo || '';
+    if (req.file) {
+      archivoPath = `/Static/Archivos/${req.file.filename}`;
+    }
+
+    const tipoComunicado = tipo || (archivoPath ? 'ARCHIVO' : 'TEXTO');
+
+    // Actualizar comunicado
+    await execute(
+      `UPDATE comunicados 
+       SET descripcion = ?, contenido = ?, archivo = ?, privacidad = ?, tipo = ?, show_in_home = ?
+       WHERE id = ? AND colegio_id = ?`,
+      [descripcion, contenido || '', archivoPath, privacidad || '', tipoComunicado, show_in_home ? 1 : 0, id, colegio_id]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'ADMINISTRADOR',
+      accion: 'ACTUALIZAR',
+      modulo: 'COMUNICADOS',
+      entidad: 'comunicado',
+      entidad_id: parseInt(id),
+      descripcion: `Actualizó comunicado: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(comunicados[0]),
+      datos_nuevos: JSON.stringify({ descripcion, contenido, tipo: tipoComunicado, archivo: archivoPath }),
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error registrando comunicado:', err));
+
+    req.skipAudit = true;
+
+    res.json({
+      success: true,
+      message: 'Comunicado actualizado correctamente'
+    });
+  } catch (error) {
+    console.error('Error actualizando comunicado:', error);
+    res.status(500).json({ error: 'Error al actualizar comunicado' });
+  }
+});
+
+/**
+ * DELETE /api/docente/comunicados/:id
+ * Eliminar comunicado (solo ADMINISTRADOR)
+ */
+router.delete('/comunicados/:id', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    
+    if (req.user.tipo !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo los administradores pueden eliminar comunicados' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar que el comunicado existe
+    const comunicados = await query(
+      `SELECT * FROM comunicados WHERE id = ? AND colegio_id = ?`,
+      [id, colegio_id]
+    );
+
+    if (comunicados.length === 0) {
+      return res.status(404).json({ error: 'Comunicado no encontrado' });
+    }
+
+    // Eliminar comunicado
+    await execute(
+      `DELETE FROM comunicados WHERE id = ? AND colegio_id = ?`,
+      [id, colegio_id]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'ADMINISTRADOR',
+      accion: 'ELIMINAR',
+      modulo: 'COMUNICADOS',
+      entidad: 'comunicado',
+      entidad_id: parseInt(id),
+      descripcion: `Eliminó comunicado: ${comunicados[0].descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(comunicados[0]),
+      datos_nuevos: null,
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error registrando comunicado:', err));
+
+    req.skipAudit = true;
+
+    res.json({
+      success: true,
+      message: 'Comunicado eliminado correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando comunicado:', error);
+    res.status(500).json({ error: 'Error al eliminar comunicado' });
+  }
+});
+
+/**
  * GET /api/docente/comunicados
  * Obtener comunicados (solo lectura, generados por admin)
  */
@@ -3760,6 +3892,150 @@ router.post('/actividades', async (req, res) => {
   } catch (error) {
     console.error('Error creando actividad:', error);
     res.status(500).json({ error: 'Error al crear actividad' });
+  }
+});
+
+/**
+ * PUT /api/docente/actividades/:id
+ * Actualizar actividad (solo ADMINISTRADOR)
+ */
+router.put('/actividades/:id', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    
+    if (req.user.tipo !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo los administradores pueden editar actividades' });
+    }
+
+    const { id } = req.params;
+    const { descripcion, lugar, detalles, fecha_inicio, fecha_fin } = req.body;
+
+    if (!descripcion || !fecha_inicio) {
+      return res.status(400).json({ error: 'Descripción y fecha de inicio son requeridas' });
+    }
+
+    // Verificar que la actividad existe y pertenece al colegio
+    const actividades = await query(
+      `SELECT * FROM actividades WHERE id = ? AND colegio_id = ?`,
+      [id, colegio_id]
+    );
+
+    if (actividades.length === 0) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+
+    // Validar fechas
+    const fechaInicio = new Date(fecha_inicio);
+    const fechaFin = fecha_fin ? new Date(fecha_fin) : fechaInicio;
+
+    if (isNaN(fechaInicio.getTime())) {
+      return res.status(400).json({ error: 'Fecha de inicio inválida' });
+    }
+
+    if (fechaFin < fechaInicio) {
+      return res.status(400).json({ error: 'La fecha de fin no puede ser anterior a la fecha de inicio' });
+    }
+
+    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+
+    // Actualizar actividad
+    await execute(
+      `UPDATE actividades 
+       SET descripcion = ?, lugar = ?, detalles = ?, fecha_inicio = ?, fecha_fin = ?
+       WHERE id = ? AND colegio_id = ?`,
+      [descripcion, lugar || '', detalles || '', fechaInicioStr, fechaFinStr, id, colegio_id]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'ADMINISTRADOR',
+      accion: 'ACTUALIZAR',
+      modulo: 'ACTIVIDADES',
+      entidad: 'actividad',
+      entidad_id: parseInt(id),
+      descripcion: `Actualizó actividad: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'PUT',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(actividades[0]),
+      datos_nuevos: JSON.stringify({ descripcion, lugar, detalles, fecha_inicio, fecha_fin }),
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error registrando actividad:', err));
+
+    req.skipAudit = true;
+
+    res.json({
+      success: true,
+      message: 'Actividad actualizada correctamente'
+    });
+  } catch (error) {
+    console.error('Error actualizando actividad:', error);
+    res.status(500).json({ error: 'Error al actualizar actividad' });
+  }
+});
+
+/**
+ * DELETE /api/docente/actividades/:id
+ * Eliminar actividad (solo ADMINISTRADOR)
+ */
+router.delete('/actividades/:id', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    
+    if (req.user.tipo !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo los administradores pueden eliminar actividades' });
+    }
+
+    const { id } = req.params;
+
+    // Verificar que la actividad existe
+    const actividades = await query(
+      `SELECT * FROM actividades WHERE id = ? AND colegio_id = ?`,
+      [id, colegio_id]
+    );
+
+    if (actividades.length === 0) {
+      return res.status(404).json({ error: 'Actividad no encontrada' });
+    }
+
+    // Eliminar actividad
+    await execute(
+      `DELETE FROM actividades WHERE id = ? AND colegio_id = ?`,
+      [id, colegio_id]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'ADMINISTRADOR',
+      accion: 'ELIMINAR',
+      modulo: 'ACTIVIDADES',
+      entidad: 'actividad',
+      entidad_id: parseInt(id),
+      descripcion: `Eliminó actividad: ${actividades[0].descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'DELETE',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_anteriores: JSON.stringify(actividades[0]),
+      datos_nuevos: null,
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error registrando actividad:', err));
+
+    req.skipAudit = true;
+
+    res.json({
+      success: true,
+      message: 'Actividad eliminada correctamente'
+    });
+  } catch (error) {
+    console.error('Error eliminando actividad:', error);
+    res.status(500).json({ error: 'Error al eliminar actividad' });
   }
 });
 
