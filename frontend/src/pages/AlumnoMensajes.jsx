@@ -133,6 +133,7 @@ function MensajeModalContent({ mensaje, vista, onClose, onMensajeLeido }) {
 }
 
 function AlumnoMensajes() {
+  console.log('✅ [ALUMNO MENSAJES] Componente montado');
   const [vista, setVista] = useState('recibidos'); // 'recibidos', 'enviados', 'nuevo'
   const [mensajesRecibidos, setMensajesRecibidos] = useState([]);
   const [mensajesEnviados, setMensajesEnviados] = useState([]);
@@ -212,11 +213,13 @@ function AlumnoMensajes() {
   const cargarMensajesRecibidos = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('📥 [ALUMNO MENSAJES] Cargando mensajes recibidos...');
       const params = {};
       if (anioFiltro) {
         params.anio = anioFiltro;
       }
       const response = await api.get('/alumno/mensajes/recibidos', { params });
+      console.log('✅ [ALUMNO MENSAJES] Mensajes recibidos cargados:', response.data.mensajes?.length || 0);
       const mensajes = response.data.mensajes || [];
       // Debug: verificar archivos en mensajes
       mensajes.forEach((mensaje, index) => {
@@ -232,8 +235,10 @@ function AlumnoMensajes() {
         setAnioFiltro(null);
       }
     } catch (error) {
-      console.error('Error cargando mensajes recibidos:', error);
+      console.error('❌ [ALUMNO MENSAJES] Error cargando mensajes recibidos:', error);
+      console.error('Error details:', error.response?.data || error.message);
       Swal.fire('Error', 'No se pudieron cargar los mensajes recibidos', 'error');
+      setMensajesRecibidos([]);
       setMensajesSeleccionados(new Set());
     } finally {
       setLoading(false);

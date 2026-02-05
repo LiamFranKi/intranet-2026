@@ -5,6 +5,7 @@ import { normalizeStaticFileUrl } from '../config/staticFiles';
 import './AlumnoComunicados.css';
 
 function AlumnoComunicados() {
+  console.log('✅ [ALUMNO COMUNICADOS] Componente montado');
   const [loading, setLoading] = useState(true);
   const [comunicados, setComunicados] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +38,7 @@ function AlumnoComunicados() {
   const cargarComunicados = async () => {
     try {
       setLoading(true);
+      console.log('📥 [ALUMNO COMUNICADOS] Cargando comunicados...');
       const params = {
         page: currentPage,
         limit: 12,
@@ -44,11 +46,14 @@ function AlumnoComunicados() {
       };
       const response = await api.get('/alumno/comunicados', { params });
       const comunicadosData = response.data.comunicados || [];
+      console.log('✅ [ALUMNO COMUNICADOS] Comunicados cargados:', comunicadosData.length);
       
       setComunicados(comunicadosData);
       setPagination(response.data.pagination || pagination);
     } catch (error) {
-      console.error('Error cargando comunicados:', error);
+      console.error('❌ [ALUMNO COMUNICADOS] Error cargando comunicados:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      setComunicados([]);
     } finally {
       setLoading(false);
     }

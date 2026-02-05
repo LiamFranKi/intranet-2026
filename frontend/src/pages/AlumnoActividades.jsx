@@ -19,6 +19,7 @@ const MESES = [
 ];
 
 function AlumnoActividades() {
+  console.log('✅ [ALUMNO ACTIVIDADES] Componente montado');
   const [loading, setLoading] = useState(true);
   const [loadingMes, setLoadingMes] = useState(false);
   const [todasLasActividades, setTodasLasActividades] = useState([]);
@@ -62,11 +63,13 @@ function AlumnoActividades() {
   const cargarTodasLasActividades = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('📥 [ALUMNO ACTIVIDADES] Cargando actividades...');
       const añoActual = new Date().getFullYear();
       const response = await api.get('/alumno/actividades', {
         params: { anio: añoActual }
       });
       const actividadesData = response.data.actividades || [];
+      console.log('✅ [ALUMNO ACTIVIDADES] Actividades cargadas:', actividadesData.length);
       setTodasLasActividades(actividadesData);
       
       if (response.data.anio) {
@@ -77,7 +80,9 @@ function AlumnoActividades() {
       
       filtrarYAgruparActividades(actividadesData, null);
     } catch (error) {
-      console.error('Error cargando actividades:', error);
+      console.error('❌ [ALUMNO ACTIVIDADES] Error cargando actividades:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      setTodasLasActividades([]);
     } finally {
       setLoading(false);
     }
