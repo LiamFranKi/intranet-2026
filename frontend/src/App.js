@@ -191,7 +191,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/alumno/aula-virtual"
+        path="/alumno/aula-virtual/:cursoId"
         element={
           <PrivateRoute>
             <AlumnoAulaVirtual />
