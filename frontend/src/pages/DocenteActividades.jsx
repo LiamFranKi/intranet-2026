@@ -18,6 +18,22 @@ const MESES = [
   { num: 12, nombre: 'Diciembre', nombreCorto: 'Dic', icon: '🎄' }
 ];
 
+// Función para crear fecha desde string interpretándola como hora local (no UTC)
+const crearFechaLocal = (fechaString) => {
+  if (!fechaString) return null;
+  
+  // Si viene como "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
+  // Extraer componentes y crear fecha en hora local
+  const fechaPart = fechaString.toString().replace('T', ' ').split(' ')[0];
+  const horaPart = fechaString.toString().replace('T', ' ').split(' ')[1] || '00:00:00';
+  
+  const [year, month, day] = fechaPart.split('-').map(Number);
+  const [hours, minutes, seconds] = horaPart.split(':').map(Number);
+  
+  // Crear fecha en hora local (no UTC)
+  return new Date(year, month - 1, day, hours || 0, minutes || 0, seconds || 0);
+};
+
 function DocenteActividades() {
   const [loading, setLoading] = useState(true);
   const [loadingMes, setLoadingMes] = useState(false); // Loading solo para cambio de mes
@@ -34,8 +50,8 @@ function DocenteActividades() {
     let actividadesFiltradas = actividadesData;
     if (mes !== null) {
       actividadesFiltradas = actividadesData.filter(a => {
-        const fecha = new Date(a.fecha_inicio);
-        return fecha.getMonth() + 1 === mes;
+        const fecha = crearFechaLocal(a.fecha_inicio);
+        return fecha && fecha.getMonth() + 1 === mes;
       });
     }
     
@@ -44,13 +60,20 @@ function DocenteActividades() {
     // Agrupar actividades por día
     const agrupadas = {};
     actividadesFiltradas.forEach(actividad => {
-      const fechaInicio = new Date(actividad.fecha_inicio);
-      const fechaFin = actividad.fecha_fin ? new Date(actividad.fecha_fin) : fechaInicio;
+      const fechaInicio = crearFechaLocal(actividad.fecha_inicio);
+      const fechaFin = actividad.fecha_fin ? crearFechaLocal(actividad.fecha_fin) : fechaInicio;
+      
+      if (!fechaInicio) return;
       
       // Crear un rango de fechas
       const fechaActual = new Date(fechaInicio);
       while (fechaActual <= fechaFin) {
-        const fechaKey = fechaActual.toISOString().split('T')[0];
+        // Usar formato YYYY-MM-DD en hora local
+        const year = fechaActual.getFullYear();
+        const month = String(fechaActual.getMonth() + 1).padStart(2, '0');
+        const day = String(fechaActual.getDate()).padStart(2, '0');
+        const fechaKey = `${year}-${month}-${day}`;
+        
         if (!agrupadas[fechaKey]) {
           agrupadas[fechaKey] = [];
         }
@@ -122,13 +145,16 @@ function DocenteActividades() {
     
     // Filtrar por mes seleccionado
     return dias.filter(fecha => {
-      const fechaObj = new Date(fecha);
-      return fechaObj.getMonth() + 1 === mesSeleccionado;
+      const fechaObj = crearFechaLocal(fecha);
+      return fechaObj && fechaObj.getMonth() + 1 === mesSeleccionado;
     });
   };
 
   const formatearFecha = (fechaStr) => {
-    const fecha = new Date(fechaStr);
+    // Interpretar fecha como hora local (no UTC)
+    const fecha = crearFechaLocal(fechaStr);
+    if (!fecha) return { diaSemana: '', dia: 0, mes: '', anio: 0, fechaCompleta: null };
+    
     const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -208,8 +234,8 @@ function DocenteActividades() {
               {MESES.map((mes) => {
                 // Usar todasLasActividades para calcular conteos (no las filtradas)
                 const actividadesDelMes = todasLasActividades.filter(a => {
-                  const fecha = new Date(a.fecha_inicio);
-                  return fecha.getMonth() + 1 === mes.num;
+                  const fecha = crearFechaLocal(a.fecha_inicio);
+                  return fecha && fecha.getMonth() + 1 === mes.num;
                 });
                 const tieneActividades = actividadesDelMes.length > 0;
                 const esMesActual = mes.num === mesActual;
@@ -246,7 +272,11 @@ function DocenteActividades() {
                 {diasConActividades.map((fechaKey, index) => {
                   const fechaInfo = formatearFecha(fechaKey);
                   const actividadesDelDia = actividadesAgrupadas[fechaKey];
-                  const esHoy = fechaKey === new Date().toISOString().split('T')[0];
+                  
+                  // Comparar con hoy en hora local
+                  const hoy = new Date();
+                  const hoyKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+                  const esHoy = fechaKey === hoyKey;
                   
                   return (
                     <div key={fechaKey} className="timeline-day">
@@ -272,9 +302,16 @@ function DocenteActividades() {
                       
                       <div className="actividades-del-dia">
                         {actividadesDelDia.map((actividad, actIndex) => {
-                          const fechaInicio = new Date(actividad.fecha_inicio);
-                          const fechaFin = actividad.fecha_fin ? new Date(actividad.fecha_fin) : fechaInicio;
-                          const esRango = fechaInicio.toISOString().split('T')[0] !== fechaFin.toISOString().split('T')[0];
+                          const fechaInicio = crearFechaLocal(actividad.fecha_inicio);
+                          const fechaFin = actividad.fecha_fin ? crearFechaLocal(actividad.fecha_fin) : fechaInicio;
+                          
+                          if (!fechaInicio) return null;
+                          
+                          // Comparar fechas en formato local
+                          const fechaInicioKey = `${fechaInicio.getFullYear()}-${String(fechaInicio.getMonth() + 1).padStart(2, '0')}-${String(fechaInicio.getDate()).padStart(2, '0')}`;
+                          const fechaFinKey = `${fechaFin.getFullYear()}-${String(fechaFin.getMonth() + 1).padStart(2, '0')}-${String(fechaFin.getDate()).padStart(2, '0')}`;
+                          const esRango = fechaInicioKey !== fechaFinKey;
+                          
                           const horaInicio = fechaInicio.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
                           
                           return (
@@ -300,7 +337,7 @@ function DocenteActividades() {
                               {esRango && (
                                 <div className="actividad-rango">
                                   <span className="rango-icon">📆</span>
-                                  Del {fechaInicio.toLocaleDateString('es-PE')} al {fechaFin.toLocaleDateString('es-PE')}
+                                  Del {fechaInicio.toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })} al {fechaFin.toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' })}
                                 </div>
                               )}
                             </div>
