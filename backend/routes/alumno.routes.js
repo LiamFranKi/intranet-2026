@@ -225,6 +225,50 @@ router.get('/dashboard', async (req, res) => {
       [colegio_id, añoActual]
     );
 
+    // Obtener comunicado con show_in_home activo (más reciente)
+    const comunicadoHome = await query(
+      `SELECT c.*
+       FROM comunicados c
+       WHERE c.colegio_id = ? AND c.estado = 'ACTIVO' AND c.show_in_home = 1
+       ORDER BY c.fecha_hora DESC
+       LIMIT 1`,
+      [colegio_id]
+    );
+
+    // Construir URL del archivo del comunicado si existe
+    let comunicadoHomeData = null;
+    if (comunicadoHome.length > 0) {
+      const com = comunicadoHome[0];
+      let archivoUrl = null;
+      
+      if (com.archivo && com.archivo.trim() !== '') {
+        const nombreArchivo = com.archivo.trim();
+        const esSistemaNuevo = nombreArchivo.startsWith('/uploads/comunicados/') || 
+                               nombreArchivo.startsWith('uploads/comunicados/');
+        const isProduction = process.env.NODE_ENV === 'production';
+        const dominioBase = 'https://nuevo.vanguardschools.edu.pe';
+        
+        if (esSistemaNuevo) {
+          archivoUrl = isProduction
+            ? `https://nuevo.vanguardschools.edu.pe${nombreArchivo.startsWith('/') ? nombreArchivo : '/' + nombreArchivo}`
+            : `http://localhost:5000${nombreArchivo.startsWith('/') ? nombreArchivo : '/' + nombreArchivo}`;
+        } else {
+          if (nombreArchivo.startsWith('/Static/')) {
+            archivoUrl = `${dominioBase}${nombreArchivo}`;
+          } else if (nombreArchivo.startsWith('Static/')) {
+            archivoUrl = `${dominioBase}/${nombreArchivo}`;
+          } else {
+            archivoUrl = `${dominioBase}/Static/Archivos/${nombreArchivo}`;
+          }
+        }
+      }
+      
+      comunicadoHomeData = {
+        ...com,
+        archivo_url: archivoUrl
+      };
+    }
+
     // Construir URL de foto
     let fotoUrl = null;
     if (alumnoData.foto && alumnoData.foto !== '') {
@@ -264,7 +308,8 @@ router.get('/dashboard', async (req, res) => {
       asignaturas: asignaturas || [],
       proximosExamenes: proximosExamenes || [],
       proximasTareas: proximasTareas || [],
-      proximasActividades: actividades || []
+      proximasActividades: actividades || [],
+      comunicadoHome: comunicadoHomeData
     };
     
     console.log('✅ [ALUMNO DASHBOARD] Datos cargados exitosamente:', {

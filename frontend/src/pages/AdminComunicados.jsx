@@ -422,18 +422,21 @@ function AdminComunicados() {
                   className={`comunicado-card ${esNuevo ? 'comunicado-nuevo' : ''}`}
                   style={{ position: 'relative' }}
                 >
-                  <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
+                  <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
                     <button
                       onClick={() => abrirModalEditar(comunicado)}
                       style={{
                         background: 'rgba(255, 255, 255, 0.95)',
                         border: 'none',
-                        borderRadius: '6px',
-                        padding: '0.4rem 0.6rem',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.7rem',
                         cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        fontSize: '1rem',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                        transition: 'all 0.2s'
                       }}
+                      onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+                      onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                       title="Editar"
                     >
                       ✏️
@@ -443,13 +446,16 @@ function AdminComunicados() {
                       style={{
                         background: 'rgba(239, 68, 68, 0.95)',
                         border: 'none',
-                        borderRadius: '6px',
-                        padding: '0.4rem 0.6rem',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.7rem',
                         cursor: 'pointer',
-                        fontSize: '0.9rem',
+                        fontSize: '1rem',
                         color: 'white',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                        transition: 'all 0.2s'
                       }}
+                      onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+                      onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                       title="Eliminar"
                     >
                       🗑️
@@ -596,25 +602,98 @@ function AdminComunicados() {
                       className="form-input"
                     />
                     {archivoActual && !archivoSeleccionado && (
-                      <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
-                        Archivo actual: <a href={archivoActual} target="_blank" rel="noopener noreferrer">{archivoActual}</a>
-                      </p>
+                      <div style={{ 
+                        marginTop: '0.75rem', 
+                        padding: '0.75rem 1rem',
+                        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                        borderRadius: '10px',
+                        border: '2px solid #bae6fd',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem'
+                      }}>
+                        <span style={{ fontSize: '1.5rem' }}>📎</span>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280', fontWeight: '600' }}>
+                            Archivo actual:
+                          </p>
+                          <a 
+                            href={archivoActual} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ 
+                              fontSize: '0.9rem', 
+                              color: '#4a83c1',
+                              textDecoration: 'none',
+                              wordBreak: 'break-all'
+                            }}
+                            onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                            onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                          >
+                            {archivoActual.split('/').pop()}
+                          </a>
+                        </div>
+                      </div>
                     )}
                     {archivoSeleccionado && (
-                      <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#059669' }}>
-                        Nuevo archivo seleccionado: {archivoSeleccionado.name}
-                      </p>
+                      <div style={{ 
+                        marginTop: '0.75rem', 
+                        padding: '0.75rem 1rem',
+                        background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+                        borderRadius: '10px',
+                        border: '2px solid #6ee7b7',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem'
+                      }}>
+                        <span style={{ fontSize: '1.5rem' }}>✅</span>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', fontWeight: '600' }}>
+                            Nuevo archivo seleccionado:
+                          </p>
+                          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#047857' }}>
+                            {archivoSeleccionado.name}
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
-                <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <div className="form-group" style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  padding: '1rem',
+                  background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+                  borderRadius: '12px',
+                  border: '2px solid #e5e7eb'
+                }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.75rem', 
+                    cursor: 'pointer',
+                    margin: 0,
+                    userSelect: 'none'
+                  }}>
                     <input
                       type="checkbox"
                       checked={formulario.show_in_home}
                       onChange={(e) => setFormulario({...formulario, show_in_home: e.target.checked})}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        cursor: 'pointer',
+                        accentColor: '#667eea'
+                      }}
                     />
-                    <span>Mostrar en inicio</span>
+                    <span style={{ 
+                      fontSize: '1rem', 
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Mostrar en inicio
+                    </span>
                   </label>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
