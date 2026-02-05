@@ -22,6 +22,22 @@ const MESES = [
   { num: 12, nombre: 'Diciembre', nombreCorto: 'Dic', icon: '🎄' }
 ];
 
+// Función para crear fecha desde string interpretándola como hora local (no UTC)
+const crearFechaLocal = (fechaString) => {
+  if (!fechaString) return null;
+  
+  // Si viene como "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
+  // Extraer componentes y crear fecha en hora local
+  const fechaPart = fechaString.toString().replace('T', ' ').split(' ')[0];
+  const horaPart = fechaString.toString().replace('T', ' ').split(' ')[1] || '00:00:00';
+  
+  const [year, month, day] = fechaPart.split('-').map(Number);
+  const [hours, minutes, seconds] = horaPart.split(':').map(Number);
+  
+  // Crear fecha en hora local (no UTC)
+  return new Date(year, month - 1, day, hours || 0, minutes || 0, seconds || 0);
+};
+
 function AdminActividades() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -40,22 +56,6 @@ function AdminActividades() {
     fecha_inicio: '',
     fecha_fin: ''
   });
-
-  // Función para crear fecha desde string interpretándola como hora local (no UTC)
-  const crearFechaLocal = (fechaString) => {
-    if (!fechaString) return null;
-    
-    // Si viene como "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
-    // Extraer componentes y crear fecha en hora local
-    const fechaPart = fechaString.toString().replace('T', ' ').split(' ')[0];
-    const horaPart = fechaString.toString().replace('T', ' ').split(' ')[1] || '00:00:00';
-    
-    const [year, month, day] = fechaPart.split('-').map(Number);
-    const [hours, minutes, seconds] = horaPart.split(':').map(Number);
-    
-    // Crear fecha en hora local (no UTC)
-    return new Date(year, month - 1, day, hours || 0, minutes || 0, seconds || 0);
-  };
 
   const filtrarYAgruparActividades = useCallback((actividadesData, mes) => {
     let actividadesFiltradas = actividadesData;
