@@ -128,9 +128,17 @@ router.get('/configuracion', async (req, res) => {
     let rangosCiclosNotas = {};
     if (colegioData.rangos_ciclos_notas) {
       try {
-        rangosCiclosNotas = JSON.parse(colegioData.rangos_ciclos_notas);
+        // rangos_ciclos_notas está serializado con PHP serialize(), no JSON
+        const deserialized = phpSerialize.unserialize(colegioData.rangos_ciclos_notas);
+        rangosCiclosNotas = deserialized || {};
       } catch (e) {
-        console.warn('Error parseando rangos_ciclos_notas:', e);
+        console.warn('Error deserializando rangos_ciclos_notas:', e);
+        // Intentar como JSON por si acaso
+        try {
+          rangosCiclosNotas = JSON.parse(colegioData.rangos_ciclos_notas);
+        } catch (e2) {
+          console.warn('Error parseando rangos_ciclos_notas como JSON:', e2);
+        }
       }
     }
 
@@ -211,10 +219,20 @@ router.put('/configuracion', uploadConfig.fields([
       }
     });
 
-    // Serializar rangos_ciclos_notas
+    // Serializar rangos_ciclos_notas (PHP serialize, no JSON)
     if (body.rangos_ciclos_notas) {
+      let rangosData = body.rangos_ciclos_notas;
+      // Si viene como string JSON, parsearlo primero
+      if (typeof rangosData === 'string') {
+        try {
+          rangosData = JSON.parse(rangosData);
+        } catch (e) {
+          console.warn('Error parseando rangos_ciclos_notas del body:', e);
+        }
+      }
+      const serialized = phpSerialize.serialize(rangosData);
       updateFields.push('rangos_ciclos_notas = ?');
-      updateValues.push(JSON.stringify(body.rangos_ciclos_notas));
+      updateValues.push(serialized);
     }
 
     // Serializar rangos_mensajes
