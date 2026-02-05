@@ -282,15 +282,11 @@ function Dashboard() {
             </div>
             <div className="card-body">
               <div className="quick-access-grid">
-                <div className="quick-access-item" role="button" tabIndex={0} onClick={() => navigate('/aula')}>
-                  <span className="quick-icon">🎓</span>
-                  <span className="quick-title">Aula Virtual</span>
-                </div>
                 <div className="quick-access-item" role="button" tabIndex={0} onClick={() => navigate('/auditoria')}>
                   <span className="quick-icon">📊</span>
                   <span className="quick-title">Reportes</span>
                 </div>
-                <div className="quick-access-item" role="button" tabIndex={0} onClick={() => navigate('/dashboard')}>
+                <div className="quick-access-item" role="button" tabIndex={0} onClick={() => navigate('/admin/config/general')}>
                   <span className="quick-icon">⚙️</span>
                   <span className="quick-title">Configuración</span>
                 </div>

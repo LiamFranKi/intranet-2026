@@ -42,8 +42,10 @@ function Login() {
         navigate('/docente/dashboard');
       } else if (user.tipo === 'ALUMNO') {
         navigate('/alumno/dashboard');
+      } else if (user.tipo === 'ADMINISTRADOR') {
+        navigate('/admin/dashboard');
       } else {
-        navigate('/dashboard');
+        navigate('/admin/dashboard');
       }
     }
   }, [isAuthenticated, user, navigate]);
@@ -98,8 +100,10 @@ function Login() {
         navigate('/docente/dashboard');
       } else if (result.user?.tipo === 'ALUMNO') {
         navigate('/alumno/dashboard');
+      } else if (result.user?.tipo === 'ADMINISTRADOR') {
+        navigate('/admin/dashboard');
       } else {
-        navigate('/dashboard');
+        navigate('/admin/dashboard');
       }
     } catch (error) {
       Swal.fire({
