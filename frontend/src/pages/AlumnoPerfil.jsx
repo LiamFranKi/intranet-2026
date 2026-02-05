@@ -531,6 +531,113 @@ function AlumnoPerfil() {
                   <span className="info-value">{perfil.dni || 'N/A'}</span>
                 </div>
               </div>
+              
+              {/* Información de Apoderados */}
+              {(perfil.padre || perfil.madre) && (
+                <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '2px solid #e5e7eb' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#374151', marginBottom: '1.5rem' }}>
+                    👨‍👩‍👧‍👦 Apoderados
+                  </h3>
+                  
+                  <div style={{ display: 'grid', gap: '1.5rem' }}>
+                    {/* Padre */}
+                    {perfil.padre && (
+                      <div style={{ 
+                        padding: '1.25rem', 
+                        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                        borderRadius: '12px',
+                        border: '2px solid #bae6fd'
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.5rem', 
+                          marginBottom: '1rem',
+                          fontSize: '1rem',
+                          fontWeight: '700',
+                          color: '#1e40af'
+                        }}>
+                          👨 Padre
+                        </div>
+                        <div style={{ display: 'grid', gap: '0.75rem' }}>
+                          <div className="info-item">
+                            <span className="info-label">Nombre completo:</span>
+                            <span className="info-value">
+                              {`${perfil.padre.nombres || ''} ${perfil.padre.apellido_paterno || ''} ${perfil.padre.apellido_materno || ''}`.trim() || 'N/A'}
+                            </span>
+                          </div>
+                          {perfil.padre.telefono_celular && (
+                            <div className="info-item">
+                              <span className="info-label">📱 Teléfono celular:</span>
+                              <span className="info-value">{perfil.padre.telefono_celular}</span>
+                            </div>
+                          )}
+                          {perfil.padre.telefono_fijo && (
+                            <div className="info-item">
+                              <span className="info-label">☎️ Teléfono fijo:</span>
+                              <span className="info-value">{perfil.padre.telefono_fijo}</span>
+                            </div>
+                          )}
+                          {perfil.padre.email && (
+                            <div className="info-item">
+                              <span className="info-label">✉️ Email:</span>
+                              <span className="info-value">{perfil.padre.email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Madre */}
+                    {perfil.madre && (
+                      <div style={{ 
+                        padding: '1.25rem', 
+                        background: 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)',
+                        borderRadius: '12px',
+                        border: '2px solid #fbcfe8'
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.5rem', 
+                          marginBottom: '1rem',
+                          fontSize: '1rem',
+                          fontWeight: '700',
+                          color: '#9f1239'
+                        }}>
+                          👩 Madre
+                        </div>
+                        <div style={{ display: 'grid', gap: '0.75rem' }}>
+                          <div className="info-item">
+                            <span className="info-label">Nombre completo:</span>
+                            <span className="info-value">
+                              {`${perfil.madre.nombres || ''} ${perfil.madre.apellido_paterno || ''} ${perfil.madre.apellido_materno || ''}`.trim() || 'N/A'}
+                            </span>
+                          </div>
+                          {perfil.madre.telefono_celular && (
+                            <div className="info-item">
+                              <span className="info-label">📱 Teléfono celular:</span>
+                              <span className="info-value">{perfil.madre.telefono_celular}</span>
+                            </div>
+                          )}
+                          {perfil.madre.telefono_fijo && (
+                            <div className="info-item">
+                              <span className="info-label">☎️ Teléfono fijo:</span>
+                              <span className="info-value">{perfil.madre.telefono_fijo}</span>
+                            </div>
+                          )}
+                          {perfil.madre.email && (
+                            <div className="info-item">
+                              <span className="info-label">✉️ Email:</span>
+                              <span className="info-value">{perfil.madre.email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

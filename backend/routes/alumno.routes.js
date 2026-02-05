@@ -651,6 +651,26 @@ router.get('/perfil', async (req, res) => {
 
     const alumnoData = alumno[0];
 
+    // Obtener apoderados (padre y madre)
+    const apoderados = await query(
+      `SELECT ap.*, 
+              CASE 
+                WHEN ap.parentesco = 0 THEN 'Padre'
+                WHEN ap.parentesco = 1 THEN 'Madre'
+                ELSE 'Otro'
+              END as parentesco_nombre
+       FROM apoderados ap
+       INNER JOIN familias f ON f.apoderado_id = ap.id
+       WHERE f.alumno_id = ? AND ap.colegio_id = ?
+       AND ap.parentesco IN (0, 1)
+       ORDER BY ap.parentesco ASC`,
+      [alumnoData.id, colegio_id]
+    );
+
+    // Separar padre y madre
+    const padre = apoderados.find(a => a.parentesco === 0) || null;
+    const madre = apoderados.find(a => a.parentesco === 1) || null;
+
     // Construir URL de foto
     let fotoUrl = null;
     if (alumnoData.foto && alumnoData.foto !== '') {
@@ -672,7 +692,23 @@ router.get('/perfil', async (req, res) => {
       email: alumnoData.email || null,
       sexo: alumnoData.sexo !== undefined ? alumnoData.sexo : null,
       foto: fotoUrl,
-      fecha_nacimiento: alumnoData.fecha_nacimiento
+      fecha_nacimiento: alumnoData.fecha_nacimiento,
+      padre: padre ? {
+        nombres: padre.nombres || '',
+        apellido_paterno: padre.apellido_paterno || '',
+        apellido_materno: padre.apellido_materno || '',
+        telefono_fijo: padre.telefono_fijo || '',
+        telefono_celular: padre.telefono_celular || '',
+        email: padre.email || ''
+      } : null,
+      madre: madre ? {
+        nombres: madre.nombres || '',
+        apellido_paterno: madre.apellido_paterno || '',
+        apellido_materno: madre.apellido_materno || '',
+        telefono_fijo: madre.telefono_fijo || '',
+        telefono_celular: madre.telefono_celular || '',
+        email: madre.email || ''
+      } : null
     });
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
