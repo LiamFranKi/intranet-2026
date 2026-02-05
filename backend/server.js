@@ -65,7 +65,9 @@ const limiter = rateLimit({
     }
     // Si no hay token o falla, usar IP real del cliente
     // Express con trust proxy debería obtener la IP real del header X-Forwarded-For
-    return req.ip || req.connection.remoteAddress || 'unknown';
+    // Usar ipKeyGenerator helper para manejar IPv6 correctamente
+    const { ipKeyGenerator } = require('express-rate-limit');
+    return ipKeyGenerator(req);
   },
   skip: (req) => {
     // Excluir health check del rate limiting
