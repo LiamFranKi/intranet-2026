@@ -15,6 +15,8 @@ import DocenteHorario from './pages/DocenteHorario';
 import DocenteComunicados from './pages/DocenteComunicados';
 import DocenteActividades from './pages/DocenteActividades';
 import DocenteMensajes from './pages/DocenteMensajes';
+import AdminActividades from './pages/AdminActividades';
+import AdminComunicados from './pages/AdminComunicados';
 import DocenteAulaVirtual from './pages/DocenteAulaVirtual';
 import AlumnoDashboard from './pages/AlumnoDashboard';
 import AlumnoPerfil from './pages/AlumnoPerfil';
@@ -361,7 +363,7 @@ function AppRoutes() {
         path="/admin/actividades"
         element={
           <PrivateRoute>
-            <DocenteActividades />
+            <AdminActividades />
           </PrivateRoute>
         }
       />
@@ -369,7 +371,7 @@ function AppRoutes() {
         path="/admin/comunicados"
         element={
           <PrivateRoute>
-            <DocenteComunicados />
+            <AdminComunicados />
           </PrivateRoute>
         }
       />

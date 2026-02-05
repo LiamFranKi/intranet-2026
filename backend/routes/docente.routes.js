@@ -158,9 +158,20 @@ const uploadMensajes = multer({
   fileFilter: fileFilterMensajes
 });
 
-// Todas las rutas requieren autenticación y ser DOCENTE
+// Todas las rutas requieren autenticación y ser DOCENTE o ADMINISTRADOR
 router.use(authenticateToken);
-router.use(requireUserType('DOCENTE'));
+// Permitir DOCENTE y ADMINISTRADOR en todas las rutas
+router.use((req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Usuario no autenticado' });
+  }
+  if (req.user.tipo !== 'DOCENTE' && req.user.tipo !== 'ADMINISTRADOR') {
+    return res.status(403).json({ 
+      error: 'No tienes permisos para acceder a este recurso' 
+    });
+  }
+  next();
+});
 
 /**
  * GET /api/docente/dashboard
@@ -3416,6 +3427,105 @@ router.get('/tutoria', async (req, res) => {
 });
 
 /**
+ * POST /api/docente/comunicados
+ * Crear nuevo comunicado (solo ADMINISTRADOR puede crear)
+ */
+const uploadComunicado = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      // Guardar en Static/Archivos/ del sistema PHP (compartido)
+      const uploadPath = '/home/vanguard/nuevo.vanguardschools.edu.pe/Static/Archivos';
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
+      cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, `comunicado-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar|jpg|jpeg|png|gif/i;
+    if (allowedTypes.test(path.extname(file.originalname))) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido'));
+    }
+  }
+});
+
+router.post('/comunicados', uploadComunicado.single('archivo'), async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    
+    // Solo administradores pueden crear comunicados
+    if (req.user.tipo !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo los administradores pueden crear comunicados' });
+    }
+
+    const { descripcion, contenido, tipo, privacidad, show_in_home } = req.body;
+
+    if (!descripcion) {
+      return res.status(400).json({ error: 'La descripción es requerida' });
+    }
+
+    let archivoPath = '';
+    if (req.file) {
+      // Guardar ruta como /Static/Archivos/ (compartido con sistema PHP)
+      archivoPath = `/Static/Archivos/${req.file.filename}`;
+    }
+
+    const tipoComunicado = tipo || (archivoPath ? 'ARCHIVO' : 'TEXTO');
+    const fechaHora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    // Insertar comunicado
+    const result = await execute(
+      `INSERT INTO comunicados (colegio_id, descripcion, contenido, archivo, privacidad, fecha_hora, tipo, estado, show_in_home)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVO', ?)`,
+      [colegio_id, descripcion, contenido || '', archivoPath, privacidad || '', fechaHora, tipoComunicado, show_in_home ? 1 : 0]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'ADMINISTRADOR',
+      accion: 'CREAR',
+      modulo: 'COMUNICADOS',
+      entidad: 'comunicado',
+      entidad_id: result.insertId,
+      descripcion: `Creó comunicado: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: JSON.stringify({ descripcion, contenido, tipo: tipoComunicado, archivo: archivoPath }),
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error registrando comunicado:', err));
+
+    req.skipAudit = true;
+
+    res.json({
+      success: true,
+      message: 'Comunicado creado correctamente',
+      comunicado: {
+        id: result.insertId,
+        descripcion,
+        contenido,
+        archivo: archivoPath,
+        tipo: tipoComunicado,
+        fecha_hora: fechaHora
+      }
+    });
+  } catch (error) {
+    console.error('Error creando comunicado:', error);
+    res.status(500).json({ error: 'Error al crear comunicado' });
+  }
+});
+
+/**
  * GET /api/docente/comunicados
  * Obtener comunicados (solo lectura, generados por admin)
  */
@@ -3570,6 +3680,86 @@ router.get('/comunicados', async (req, res) => {
   } catch (error) {
     console.error('Error obteniendo comunicados:', error);
     res.status(500).json({ error: 'Error al obtener comunicados' });
+  }
+});
+
+/**
+ * POST /api/docente/actividades
+ * Crear nueva actividad (solo ADMINISTRADOR puede crear)
+ */
+router.post('/actividades', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id } = req.user;
+    
+    // Solo administradores pueden crear actividades
+    if (req.user.tipo !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo los administradores pueden crear actividades' });
+    }
+
+    const { descripcion, lugar, detalles, fecha_inicio, fecha_fin } = req.body;
+
+    if (!descripcion || !fecha_inicio) {
+      return res.status(400).json({ error: 'Descripción y fecha de inicio son requeridas' });
+    }
+
+    // Validar fechas
+    const fechaInicio = new Date(fecha_inicio);
+    const fechaFin = fecha_fin ? new Date(fecha_fin) : fechaInicio;
+
+    if (isNaN(fechaInicio.getTime())) {
+      return res.status(400).json({ error: 'Fecha de inicio inválida' });
+    }
+
+    if (fechaFin < fechaInicio) {
+      return res.status(400).json({ error: 'La fecha de fin no puede ser anterior a la fecha de inicio' });
+    }
+
+    // Formatear fechas para MySQL
+    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+
+    // Insertar actividad
+    const result = await execute(
+      `INSERT INTO actividades (colegio_id, descripcion, lugar, detalles, fecha_inicio, fecha_fin, usuario_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [colegio_id, descripcion, lugar || '', detalles || '', fechaInicioStr, fechaFinStr, usuario_id]
+    );
+
+    // Registrar auditoría
+    registrarAccion({
+      usuario_id,
+      colegio_id,
+      tipo_usuario: 'ADMINISTRADOR',
+      accion: 'CREAR',
+      modulo: 'ACTIVIDADES',
+      entidad: 'actividad',
+      entidad_id: result.insertId,
+      descripcion: `Creó actividad: ${descripcion}`,
+      url: req.originalUrl,
+      metodo_http: 'POST',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      datos_nuevos: JSON.stringify({ descripcion, lugar, detalles, fecha_inicio, fecha_fin }),
+      resultado: 'EXITOSO'
+    }).catch(err => console.error('Error registrando actividad:', err));
+
+    req.skipAudit = true;
+
+    res.json({
+      success: true,
+      message: 'Actividad creada correctamente',
+      actividad: {
+        id: result.insertId,
+        descripcion,
+        lugar,
+        detalles,
+        fecha_inicio: fechaInicioStr,
+        fecha_fin: fechaFinStr
+      }
+    });
+  } catch (error) {
+    console.error('Error creando actividad:', error);
+    res.status(500).json({ error: 'Error al crear actividad' });
   }
 });
 
