@@ -1,4 +1,6 @@
-require('dotenv').config();
+// Cargar variables de entorno desde .env en el directorio backend
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 // Configurar zona horaria a Lima, Perú (UTC-5)
 process.env.TZ = 'America/Lima';
 
