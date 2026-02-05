@@ -1,14 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
+import Swal from 'sweetalert2';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import './AlumnoCursos.css';
 import './DocenteCursos.css';
+import './DocenteGrupos.css';
 
 function AlumnoCursos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [cursos, setCursos] = useState([]);
+  
+  // Estados para modal de mensaje al docente
+  const [mostrarModalMensaje, setMostrarModalMensaje] = useState(false);
+  const [docenteParaMensaje, setDocenteParaMensaje] = useState(null);
+  const [asuntoMensaje, setAsuntoMensaje] = useState('');
+  const [contenidoMensaje, setContenidoMensaje] = useState('');
+  const [archivosAdjuntos, setArchivosAdjuntos] = useState([]);
+  const [enviandoMensaje, setEnviandoMensaje] = useState(false);
+  const quillRefMensaje = useRef(null);
 
   useEffect(() => {
     cargarCursos();
@@ -31,9 +45,134 @@ function AlumnoCursos() {
   };
 
   const handleEnviarMensaje = (curso) => {
-    // Navegar a mensajes con el docente pre-seleccionado
-    navigate(`/alumno/mensajes?docente_id=${curso.docente_id}&curso=${encodeURIComponent(curso.curso_nombre)}`);
+    // Abrir modal de mensaje con el docente pre-seleccionado
+    // curso.docente_usuario_id es el usuario_id del docente (necesario para enviar mensaje)
+    setDocenteParaMensaje({
+      id: curso.docente_usuario_id || curso.docente_id, // Usar usuario_id si está disponible, sino personal_id
+      nombre: curso.docente_nombre,
+      curso_nombre: curso.curso_nombre
+    });
+    setMostrarModalMensaje(true);
   };
+  
+  // Manejar cambio de archivos adjuntos
+  const handleArchivoChange = (e) => {
+    const archivos = Array.from(e.target.files);
+    setArchivosAdjuntos([...archivosAdjuntos, ...archivos]);
+    e.target.value = ''; // Limpiar input para permitir seleccionar el mismo archivo de nuevo
+  };
+  
+  // Eliminar archivo adjunto
+  const eliminarArchivo = (index) => {
+    setArchivosAdjuntos(archivosAdjuntos.filter((_, i) => i !== index));
+  };
+  
+  // Enviar mensaje al docente
+  const enviarMensajeAlDocente = async () => {
+    if (!docenteParaMensaje) {
+      Swal.fire('Error', 'No se ha seleccionado un docente', 'error');
+      return;
+    }
+
+    if (!asuntoMensaje.trim()) {
+      Swal.fire('Error', 'El asunto es requerido', 'error');
+      return;
+    }
+
+    // Verificar que el contenido no esté vacío (sin HTML vacío)
+    const contenidoLimpio = contenidoMensaje.replace(/<[^>]*>/g, '').trim();
+    if (!contenidoLimpio) {
+      Swal.fire('Error', 'El mensaje es requerido', 'error');
+      return;
+    }
+
+    // Prevenir doble envío
+    if (enviandoMensaje) {
+      return;
+    }
+
+    setEnviandoMensaje(true);
+
+    try {
+      // docenteParaMensaje.id es el usuario_id del docente (ya viene en la respuesta de cursos)
+      // Crear FormData para enviar archivos
+      const formData = new FormData();
+      formData.append('destinatarios', JSON.stringify([docenteParaMensaje.id]));
+      formData.append('asunto', asuntoMensaje.trim());
+      formData.append('mensaje', contenidoMensaje);
+
+      // Agregar archivos
+      archivosAdjuntos.forEach((archivo) => {
+        formData.append('archivos', archivo);
+      });
+
+      const response = await api.post('/alumno/mensajes/enviar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      Swal.fire({
+        title: '¡Mensaje Enviado!',
+        text: response.data.message || 'Mensaje enviado correctamente',
+        icon: 'success',
+        confirmButtonText: 'Aceptar'
+      });
+      
+      // Limpiar formulario
+      setAsuntoMensaje('');
+      setContenidoMensaje('');
+      setArchivosAdjuntos([]);
+      setMostrarModalMensaje(false);
+      setDocenteParaMensaje(null);
+    } catch (error) {
+      console.error('Error enviando mensaje:', error);
+      Swal.fire('Error', error.response?.data?.error || 'Error al enviar el mensaje', 'error');
+    } finally {
+      setEnviandoMensaje(false);
+    }
+  };
+  
+  // Configurar ReactQuill para subir imágenes
+  useEffect(() => {
+    if (mostrarModalMensaje && quillRefMensaje.current) {
+      const quill = quillRefMensaje.current.getEditor();
+      const toolbar = quill.getModule('toolbar');
+      
+      toolbar.addHandler('image', () => {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+        
+        input.onchange = async () => {
+          const file = input.files[0];
+          if (!file) return;
+          
+          try {
+            const formData = new FormData();
+            formData.append('imagen', file);
+            
+            const response = await api.post('/alumno/mensajes/subir-imagen', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+
+            const imagenUrl = response.data.url;
+            
+            // Insertar la imagen en el editor
+            const range = quill.getSelection(true);
+            quill.insertEmbed(range.index, 'image', imagenUrl);
+            quill.setSelection(range.index + 1);
+          } catch (error) {
+            console.error('Error subiendo imagen:', error);
+            Swal.fire('Error', 'No se pudo subir la imagen', 'error');
+          }
+        };
+      });
+    }
+  }, [mostrarModalMensaje]);
 
   if (loading) {
     return (

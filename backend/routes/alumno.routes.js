@@ -383,10 +383,12 @@ router.get('/cursos', async (req, res) => {
               CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
               p.id as docente_id,
               p.foto as docente_foto,
+              u.id as docente_usuario_id,
               a.aula_virtual as link_aula_virtual
        FROM asignaturas a
        INNER JOIN cursos c ON c.id = a.curso_id
        INNER JOIN personal p ON p.id = a.personal_id
+       INNER JOIN usuarios u ON u.personal_id = p.id AND u.estado = 'ACTIVO'
        WHERE a.grupo_id = ? AND a.colegio_id = ?
        ORDER BY c.orden ASC, c.nombre ASC`,
       [grupoId, colegio_id]
