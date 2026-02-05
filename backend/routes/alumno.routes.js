@@ -332,6 +332,91 @@ router.get('/dashboard', async (req, res) => {
 });
 
 /**
+ * GET /api/alumno/cursos
+ * Obtener cursos (asignaturas) del alumno
+ */
+router.get('/cursos', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo } = req.user;
+    
+    // Obtener datos del alumno
+    const alumno = await query(
+      `SELECT a.*, u.tipo as tipo_usuario
+       FROM alumnos a
+       INNER JOIN usuarios u ON u.alumno_id = a.id
+       WHERE u.id = ? AND u.colegio_id = ? AND u.estado = 'ACTIVO'`,
+      [usuario_id, colegio_id]
+    );
+
+    if (alumno.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    const alumnoData = alumno[0];
+
+    // Obtener matrícula actual del alumno
+    const matricula = await query(
+      `SELECT m.*, m.grupo_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ? 
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumnoData.id, colegio_id, anio_activo]
+    );
+
+    const matriculaData = matricula.length > 0 ? matricula[0] : null;
+    const grupoId = matriculaData ? matriculaData.grupo_id : null;
+
+    if (!grupoId) {
+      return res.json({ cursos: [] });
+    }
+
+    // Obtener asignaturas (cursos) del alumno
+    const cursos = await query(
+      `SELECT a.id as asignatura_id,
+              c.id as curso_id,
+              c.nombre as curso_nombre,
+              c.imagen as curso_imagen,
+              CONCAT(p.nombres, ' ', p.apellidos) as docente_nombre,
+              p.id as docente_id,
+              a.link_aula_virtual
+       FROM asignaturas a
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN cursos c ON c.id = a.curso_id
+       INNER JOIN personal p ON p.id = a.personal_id
+       WHERE a.grupo_id = ? AND a.colegio_id = ? AND g.anio = ?
+       ORDER BY c.nombre ASC`,
+      [grupoId, colegio_id, anio_activo]
+    );
+
+    // Construir URLs de imágenes
+    const cursosConImagenes = cursos.map(curso => {
+      let cursoImagenUrl = null;
+      if (curso.curso_imagen && curso.curso_imagen !== '') {
+        const phpSystemUrl = process.env.PHP_SYSTEM_URL || 'https://nuevo.vanguardschools.edu.pe';
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (isProduction) {
+          cursoImagenUrl = `${phpSystemUrl}/Static/Image/Cursos/${curso.curso_imagen}`;
+        } else {
+          cursoImagenUrl = `http://localhost:5000/Static/Image/Cursos/${curso.curso_imagen}`;
+        }
+      }
+      
+      return {
+        ...curso,
+        curso_imagen_url: cursoImagenUrl
+      };
+    });
+
+    res.json({ cursos: cursosConImagenes });
+  } catch (error) {
+    console.error('Error obteniendo cursos del alumno:', error);
+    res.status(500).json({ error: 'Error al obtener cursos' });
+  }
+});
+
+/**
  * GET /api/alumno/notificaciones
  * Obtener notificaciones del alumno
  */

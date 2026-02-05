@@ -525,8 +525,8 @@ function AlumnoPerfil() {
           {perfil && (
             <div className="perfil-section mundo-card">
               <h2 className="section-title">Información del Sistema</h2>
-              <div className="info-grid">
-                <div className="info-item">
+              <div className="info-grid" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="info-item" style={{ textAlign: 'center' }}>
                   <span className="info-label">DNI:</span>
                   <span className="info-value">{perfil.dni || 'N/A'}</span>
                 </div>
