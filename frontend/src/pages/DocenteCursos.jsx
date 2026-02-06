@@ -1700,10 +1700,15 @@ function DocenteCursos() {
       );
     } else {
       // Si no hay indicadores, usar la nota directa
-      const notaDirecta = notasEditadas[matriculaId]?.[criterioId]?.directa;
-      if (notaDirecta && notaDirecta !== '') {
-        const nota = parseFloat(notaDirecta);
-        return !isNaN(nota) ? Math.round(nota) : null;
+      // Si hay una entrada en notasEditadas (incluso vacía), usar solo esa
+      if (notasEditadas[matriculaId]?.[criterioId]?.hasOwnProperty('directa')) {
+        const notaDirecta = notasEditadas[matriculaId][criterioId].directa;
+        if (notaDirecta && notaDirecta !== '') {
+          const nota = parseFloat(notaDirecta);
+          return !isNaN(nota) ? Math.round(nota) : null;
+        }
+        // Si está vacía, retornar null (no buscar en datos originales)
+        return null;
       }
       // Si no hay en notasEditadas, buscar en los datos originales
       const alumno = datosNotas?.alumnos?.find(a => a.matricula_id === matriculaId);
@@ -1775,10 +1780,18 @@ function DocenteCursos() {
 
         // Agregar examen mensual si aplica
         if (datosNotas.curso.examen_mensual) {
-          const examen1 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[1] || 
-                                     datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[1] || 0);
-          const examen2 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[2] || 
-                                     datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[2] || 0);
+          // Si hay notas editadas para examen mensual, usar solo esas (incluso si están vacías)
+          let examen1, examen2;
+          if (notasEditadas[matriculaId]?.examen_mensual?.hasOwnProperty('1')) {
+            examen1 = parseFloat(notasEditadas[matriculaId].examen_mensual[1] || 0);
+          } else {
+            examen1 = parseFloat(datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[1] || 0);
+          }
+          if (notasEditadas[matriculaId]?.examen_mensual?.hasOwnProperty('2')) {
+            examen2 = parseFloat(notasEditadas[matriculaId].examen_mensual[2] || 0);
+          } else {
+            examen2 = parseFloat(datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[2] || 0);
+          }
           
           if (!isNaN(examen1) && !isNaN(examen2) && examen1 > 0 && examen2 > 0) {
             const promedioExamen = Math.round((examen1 + examen2) / 2);
@@ -4270,7 +4283,15 @@ function DocenteCursos() {
                                   const promedioFinal = calcularPromedioFinal(alumno.matricula_id);
                                   return promedioFinal !== null && promedioFinal < datosNotas.curso.nivel.nota_aprobatoria ? 'below-min' : '';
                                 })()}`}>
-                                  {calcularPromedioFinal(alumno.matricula_id) || alumno.promedio_final || ''}
+                                  {(() => {
+                                    const promedioFinal = calcularPromedioFinal(alumno.matricula_id);
+                                    // Si hay notas editadas, usar solo el promedio calculado (no buscar en datos originales)
+                                    if (notasEditadas[alumno.matricula_id]) {
+                                      return promedioFinal !== null ? promedioFinal : '';
+                                    }
+                                    // Si no hay notas editadas, usar el promedio del backend o el calculado
+                                    return promedioFinal !== null ? promedioFinal : (alumno.promedio_final || '');
+                                  })()}
                                 </div>
                               </td>
                             </tr>
