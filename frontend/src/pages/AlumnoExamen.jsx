@@ -74,6 +74,21 @@ function AlumnoExamen() {
         preguntasOrdenadas = [...preguntasOrdenadas].sort(() => Math.random() - 0.5);
       }
       
+      // Aplicar límite de preguntas a mostrar (preguntas_max)
+      if (examenRes.data.preguntas_max && examenRes.data.preguntas_max > 0) {
+        preguntasOrdenadas = preguntasOrdenadas.slice(0, examenRes.data.preguntas_max);
+      }
+      
+      // Aleatorizar alternativas si el orden es ALEATORIO
+      if (examenRes.data.orden_preguntas === 'ALEATORIO') {
+        preguntasOrdenadas = preguntasOrdenadas.map(pregunta => ({
+          ...pregunta,
+          alternativas: pregunta.alternativas 
+            ? [...pregunta.alternativas].sort(() => Math.random() - 0.5)
+            : []
+        }));
+      }
+      
       setPreguntas(preguntasOrdenadas);
       setLoading(false);
     } catch (error) {

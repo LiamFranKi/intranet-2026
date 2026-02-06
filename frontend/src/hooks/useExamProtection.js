@@ -11,9 +11,20 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
   const fullscreenEnabled = useRef(false);
 
   useEffect(() => {
-    // 1. Intentar entrar en pantalla completa
+    // 1. Intentar entrar en pantalla completa (solo en desktop, no en móviles/tablets)
     const enableFullscreen = async () => {
       try {
+        // Detectar si es móvil o tablet
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isTablet = /iPad|Android/i.test(navigator.userAgent) && window.innerWidth <= 1024;
+        
+        // En móviles/tablets, no forzar pantalla completa pero sí bloquear otras acciones
+        if (isMobile || isTablet) {
+          console.log('Dispositivo móvil/tablet detectado - bloqueo de pantalla adaptado');
+          return;
+        }
+        
+        // En desktop, activar pantalla completa
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen();
           fullscreenEnabled.current = true;
@@ -85,7 +96,7 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
       return e.returnValue;
     };
 
-    // 5. Detectar teclas de atajo
+    // 5. Detectar teclas de atajo (desktop) y gestos táctiles (móviles/tablets)
     const handleKeyDown = (e) => {
       // Bloquear F11 (salir de pantalla completa)
       if (e.key === 'F11') {
@@ -111,6 +122,33 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
       // Bloquear Ctrl+Shift+T (reabrir pestaña)
       if (e.ctrlKey && e.shiftKey && e.key === 'T') {
         e.preventDefault();
+      }
+    };
+
+    // Bloquear gestos táctiles en móviles/tablets (swipe para cambiar app, etc.)
+    const handleTouchStart = (e) => {
+      // Permitir toques normales pero detectar gestos de navegación
+      if (e.touches.length > 1) {
+        // Multi-touch podría ser un gesto de navegación
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      // Detectar swipe desde los bordes (gesto de navegación del sistema)
+      const touch = e.touches[0];
+      if (touch.clientX <= 10 || touch.clientX >= window.innerWidth - 10) {
+        // Swipe desde el borde - podría ser navegación del sistema
+        violationCountRef.current += 1;
+        setViolations(violationCountRef.current);
+        
+        if (onViolation) {
+          onViolation({
+            type: 'EDGE_SWIPE',
+            count: violationCountRef.current,
+            timestamp: new Date()
+          });
+        }
       }
     };
 
@@ -146,6 +184,10 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    
+    // Event listeners para móviles/tablets
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     // Bloquear clic derecho
     const handleContextMenu = (e) => {
@@ -187,6 +229,8 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
       document.removeEventListener('selectstart', handleSelectStart);
       document.removeEventListener('copy', handleCopy);
       document.removeEventListener('paste', handlePaste);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
 
       // Salir de pantalla completa al desmontar
       if (fullscreenEnabled.current) {
