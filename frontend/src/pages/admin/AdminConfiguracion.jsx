@@ -1052,6 +1052,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* FACTURACIÓN */}
