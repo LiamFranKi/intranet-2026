@@ -6245,10 +6245,24 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                             }));
                         }
                         
-                        // Obtener respuestas correctas (solo el texto, sin HTML)
+                        // Obtener respuestas correctas para COMPLETAR
+                        // Las alternativas correctas deben estar ordenadas por su posición en la pregunta
+                        // Extraer el texto de la descripción (sin HTML) y mantener el orden
                         const respuestasCorrectasCompletar = pregunta.alternativas
                           ?.filter(alt => alt.correcta === 'SI')
-                          .map(alt => alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase()) || [];
+                          .sort((a, b) => {
+                            // Ordenar por orden_posicion si existe, sino por id
+                            if (a.orden_posicion !== null && b.orden_posicion !== null) {
+                              return a.orden_posicion - b.orden_posicion;
+                            }
+                            return (a.id || 0) - (b.id || 0);
+                          })
+                          .map(alt => {
+                            // Extraer solo el texto, sin HTML, y limpiar espacios
+                            const texto = alt.descripcion ? alt.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                            return texto;
+                          })
+                          .filter(texto => texto !== '') || [];
                         
                         // Verificar si es correcta (comparar cada respuesta)
                         let esCorrectaCompletar = false;
