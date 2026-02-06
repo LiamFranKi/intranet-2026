@@ -299,8 +299,22 @@ router.put('/configuracion', uploadConfig.fields([
     if (body.inicio_pensiones !== undefined) {
       console.log('=== DEBUG GUARDAR inicio_pensiones ===');
       console.log('Valor recibido en body:', body.inicio_pensiones, 'tipo:', typeof body.inicio_pensiones);
-      const finalValue = updateValues[updateFields.findIndex(f => f.includes('inicio_pensiones'))];
-      console.log('Valor final que se guardará:', finalValue, 'tipo:', typeof finalValue);
+      const fieldIndex = updateFields.findIndex(f => f.includes('inicio_pensiones'));
+      if (fieldIndex >= 0) {
+        const finalValue = updateValues[fieldIndex];
+        console.log('Valor final que se guardará:', finalValue, 'tipo:', typeof finalValue);
+        console.log('Mes correspondiente:', ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][finalValue - 1] || 'INVÁLIDO');
+      }
+    }
+    if (body.inicio_notas !== undefined) {
+      console.log('=== DEBUG GUARDAR inicio_notas ===');
+      console.log('Valor recibido en body:', body.inicio_notas, 'tipo:', typeof body.inicio_notas);
+      const fieldIndex = updateFields.findIndex(f => f.includes('inicio_notas'));
+      if (fieldIndex >= 0) {
+        const finalValue = updateValues[fieldIndex];
+        console.log('Valor final que se guardará:', finalValue, 'tipo:', typeof finalValue);
+        console.log('Mes correspondiente:', ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][finalValue - 1] || 'INVÁLIDO');
+      }
     }
 
     // Serializar rangos_ciclos_notas (PHP serialize, no JSON)
