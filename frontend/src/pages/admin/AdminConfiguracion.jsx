@@ -378,8 +378,9 @@ function AdminConfiguracion() {
 
         <form onSubmit={handleSubmit} className="config-form">
           {/* INFORMACIÓN GENERAL */}
-          <div className="config-section">
-            <h2 className="section-title">📋 INFORMACIÓN GENERAL</h2>
+          <div className="config-card config-card-1">
+            <div className="config-section">
+              <h2 className="section-title">📋 INFORMACIÓN GENERAL</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Título / Nombre del Colegio</label>
@@ -443,11 +444,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* INFORMACIÓN RECAUDO */}
-          <div className="config-section">
-            <h2 className="section-title">💰 INFORMACIÓN RECAUDO</h2>
+          <div className="config-card config-card-2">
+            <div className="config-section">
+              <h2 className="section-title">💰 INFORMACIÓN RECAUDO</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>N° de Sucursal</label>
@@ -477,11 +480,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* DATOS UGEL/DRE */}
-          <div className="config-section">
-            <h2 className="section-title">🏛️ DATOS - UGEL / DRE</h2>
+          <div className="config-card config-card-3">
+            <div className="config-section">
+              <h2 className="section-title">🏛️ DATOS - UGEL / DRE</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Código (UGEL - DRE)</label>
@@ -502,11 +507,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* DISEÑO LIBRETA DE NOTAS */}
-          <div className="config-section">
-            <h2 className="section-title">📓 DISEÑO LIBRETA DE NOTAS</h2>
+          <div className="config-card config-card-4">
+            <div className="config-section">
+              <h2 className="section-title">📓 DISEÑO LIBRETA DE NOTAS</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Logo</label>
@@ -539,11 +546,13 @@ function AdminConfiguracion() {
                 <small>Solo archivos .jpg</small>
               </div>
             </div>
+            </div>
           </div>
 
           {/* AÑO ACADÉMICO */}
-          <div className="config-section">
-            <h2 className="section-title">📅 AÑO ACADÉMICO</h2>
+          <div className="config-card config-card-5">
+            <div className="config-section">
+              <h2 className="section-title">📅 AÑO ACADÉMICO</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Año Activo</label>
@@ -564,11 +573,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* PAGOS */}
-          <div className="config-section">
-            <h2 className="section-title">💳 PAGOS</h2>
+          <div className="config-card config-card-6">
+            <div className="config-section">
+              <h2 className="section-title">💳 PAGOS</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Ciclo de Pensiones</label>
@@ -638,11 +649,13 @@ function AdminConfiguracion() {
                 </select>
               </div>
             </div>
+            </div>
           </div>
 
           {/* NOTAS */}
-          <div className="config-section">
-            <h2 className="section-title">📝 NOTAS</h2>
+          <div className="config-card config-card-7">
+            <div className="config-section">
+              <h2 className="section-title">📝 NOTAS</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Ciclo de Notas</label>
@@ -720,11 +733,13 @@ function AdminConfiguracion() {
                 </table>
               </div>
             )}
+            </div>
           </div>
 
           {/* APRECIACIONES */}
-          <div className="config-section">
-            <h2 className="section-title">⭐ APRECIACIONES</h2>
+          <div className="config-card config-card-8">
+            <div className="config-section">
+              <h2 className="section-title">⭐ APRECIACIONES</h2>
             <button type="button" onClick={agregarRangoMensaje} className="btn-add">
               ➕ Agregar Nuevo
             </button>
@@ -770,11 +785,13 @@ function AdminConfiguracion() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* CONVERSIÓN A NOTAS A LETRAS - PRIMARIA */}
-          <div className="config-section">
-            <h2 className="section-title">🔤 CONVERSIÓN A NOTAS A LETRAS - PRIMARIA</h2>
+          <div className="config-card config-card-9">
+            <div className="config-section">
+              <h2 className="section-title">🔤 CONVERSIÓN A NOTAS A LETRAS - PRIMARIA</h2>
             <button type="button" onClick={agregarRangoLetraPrimaria} className="btn-add">
               ➕ Agregar Nuevo
             </button>
@@ -820,11 +837,13 @@ function AdminConfiguracion() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* VENCIMIENTO DE PENSIONES */}
-          <div className="config-section">
-            <h2 className="section-title">📆 VENCIMIENTO DE PENSIONES</h2>
+          <div className="config-card config-card-10">
+            <div className="config-section">
+              <h2 className="section-title">📆 VENCIMIENTO DE PENSIONES</h2>
             <table className="rangos-table">
               <tbody>
                 <tr>
@@ -866,11 +885,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* COMISIÓN PAGO CON TARJETA */}
-          <div className="config-section">
-            <h2 className="section-title">💳 COMISIÓN PAGO CON TARJETA</h2>
+          <div className="config-card config-card-11">
+            <div className="config-section">
+              <h2 className="section-title">💳 COMISIÓN PAGO CON TARJETA</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Tarjeta de Débito %</label>
@@ -893,11 +914,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* EXÁMENES BLOQUES */}
-          <div className="config-section">
-            <h2 className="section-title">🔒 EXÁMENES BLOQUES</h2>
+          <div className="config-card config-card-12">
+            <div className="config-section">
+              <h2 className="section-title">🔒 EXÁMENES BLOQUES</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Contraseña</label>
@@ -909,11 +932,13 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* FACTURACIÓN */}
-          <div className="config-section">
-            <h2 className="section-title">🧾 FACTURACIÓN</h2>
+          <div className="config-card config-card-13">
+            <div className="config-section">
+              <h2 className="section-title">🧾 FACTURACIÓN</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>RUC</label>
@@ -967,11 +992,13 @@ function AdminConfiguracion() {
                 <small>Solo archivos .jpg</small>
               </div>
             </div>
+            </div>
           </div>
 
           {/* MATRÍCULA ONLINE */}
-          <div className="config-section">
-            <h2 className="section-title">📝 MATRÍCULA ONLINE</h2>
+          <div className="config-card config-card-14">
+            <div className="config-section">
+              <h2 className="section-title">📝 MATRÍCULA ONLINE</h2>
             <div className="form-grid">
               <div className="form-group full-width">
                 <label>Correos Notificación</label>
@@ -1012,11 +1039,13 @@ function AdminConfiguracion() {
                 </select>
               </div>
             </div>
+            </div>
           </div>
 
           {/* OTROS */}
-          <div className="config-section">
-            <h2 className="section-title">⚙️ OTROS</h2>
+          <div className="config-card config-card-15">
+            <div className="config-section">
+              <h2 className="section-title">⚙️ OTROS</h2>
             <div className="form-grid">
               <div className="form-group">
                 <label>Mostrar Ventana Cumpleaños</label>
@@ -1030,11 +1059,13 @@ function AdminConfiguracion() {
                 </select>
               </div>
             </div>
+            </div>
           </div>
 
           {/* REINICIAR ACCESOS */}
-          <div className="config-section">
-            <h2 className="section-title">🔄 REINICIAR ACCESOS</h2>
+          <div className="config-card config-card-16">
+            <div className="config-section">
+              <h2 className="section-title">🔄 REINICIAR ACCESOS</h2>
             <div className="form-grid">
               <div className="form-group full-width">
                 <button
@@ -1045,6 +1076,7 @@ function AdminConfiguracion() {
                   Reiniciar Datos de Acceso
                 </button>
               </div>
+            </div>
             </div>
           </div>
 
