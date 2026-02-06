@@ -5966,7 +5966,7 @@ function ResultadosExamenModal({ examen, resultados, cargandoResultados, onClose
                       <tr key={uniqueKey} style={{ borderBottom: '1px solid #e5e7eb' }}>
                         <td style={{ padding: '0.75rem', textAlign: 'center' }}>{index + 1}</td>
                         <td style={{ padding: '0.75rem' }}>{resultado.nombre_completo}</td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600' }}>{tieneResultado ? resultado.puntaje : '-'}</td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: '600' }}>{tieneResultado ? Math.round(resultado.puntaje || 0) : '-'}</td>
                         <td style={{ padding: '0.75rem', textAlign: 'center', color: tieneResultado ? '#10b981' : '#6b7280', fontWeight: '600' }}>{tieneResultado ? resultado.correctas : '-'}</td>
                         <td style={{ padding: '0.75rem', textAlign: 'center', color: tieneResultado ? '#ef4444' : '#6b7280', fontWeight: '600' }}>{tieneResultado ? resultado.incorrectas : '-'}</td>
                         <td style={{ padding: '0.75rem', textAlign: 'center' }}>
@@ -6114,7 +6114,7 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                     </tr>
                     <tr>
                       <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', fontSize: '0.9rem' }}>PUNTAJE:</td>
-                      <td style={{ padding: '0.4rem 0.5rem', color: '#1f2937', fontWeight: '700', fontSize: '1rem' }}>{resultadoInfo.puntaje}</td>
+                      <td style={{ padding: '0.4rem 0.5rem', color: '#1f2937', fontWeight: '700', fontSize: '1rem' }}>{Math.round(resultadoInfo.puntaje || 0)}</td>
                     </tr>
                     <tr>
                       <td style={{ padding: '0.4rem 0.5rem', fontWeight: '600', color: '#2e7d32', fontSize: '0.9rem' }}>CORRECTAS:</td>
@@ -6163,7 +6163,6 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                   const renderizarPregunta = () => {
                     switch (pregunta.tipo) {
                       case 'ALTERNATIVAS':
-                      case 'VERDADERO_FALSO':
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {pregunta.alternativas && pregunta.alternativas.map((alternativa) => {
@@ -6237,42 +6236,26 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
 
                       case 'COMPLETAR':
                         // Para COMPLETAR, la respuesta es un objeto con índices: {0: "lima", 1: "otro"}
-                        let respuestaCompletarAlumno = '';
-                        let respuestaCompletarTexto = '';
+                        let respuestasCompletarAlumno = [];
                         if (respuestaAlumno && typeof respuestaAlumno === 'object') {
-                          // Construir el texto completo con las respuestas del alumno
-                          const texto = pregunta.descripcion || '';
-                          let textoCompleto = texto;
-                          const respuestasObj = respuestaAlumno;
-                          Object.keys(respuestasObj).forEach(index => {
-                            const valor = respuestasObj[index] || '___';
-                            textoCompleto = textoCompleto.replace(/\[\[.*?\]\]/, `[${valor}]`);
-                          });
-                          respuestaCompletarTexto = textoCompleto;
-                          respuestaCompletarAlumno = Object.values(respuestasObj).join(', ');
-                        } else {
-                          respuestaCompletarAlumno = '(sin respuesta)';
+                          respuestasCompletarAlumno = Object.entries(respuestaAlumno)
+                            .map(([index, valor]) => ({
+                              num: parseInt(index) + 1,
+                              valor: String(valor || '___').trim()
+                            }));
                         }
                         
-                        // Obtener respuestas correctas
+                        // Obtener respuestas correctas (solo el texto, sin HTML)
                         const respuestasCorrectasCompletar = pregunta.alternativas
                           ?.filter(alt => alt.correcta === 'SI')
                           .map(alt => alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase()) || [];
                         
-                        // Construir texto con respuestas correctas
-                        let textoCorrectoCompletar = pregunta.descripcion || '';
-                        if (respuestasCorrectasCompletar.length > 0) {
-                          respuestasCorrectasCompletar.forEach(respCorrecta => {
-                            textoCorrectoCompletar = textoCorrectoCompletar.replace(/\[\[.*?\]\]/, `[${respCorrecta}]`);
-                          });
-                        }
-                        
                         // Verificar si es correcta (comparar cada respuesta)
                         let esCorrectaCompletar = false;
-                        if (respuestaAlumno && typeof respuestaAlumno === 'object') {
-                          const respuestasAlumnoArray = Object.values(respuestaAlumno).map(r => String(r).trim().toLowerCase()).filter(r => r);
+                        if (respuestasCompletarAlumno.length > 0) {
+                          const respuestasAlumnoArray = respuestasCompletarAlumno.map(r => r.valor.toLowerCase());
                           if (respuestasAlumnoArray.length === respuestasCorrectasCompletar.length) {
-                            esCorrectaCompletar = respuestasAlumnoArray.every((resp, idx) => 
+                            esCorrectaCompletar = respuestasAlumnoArray.every((resp) => 
                               respuestasCorrectasCompletar.includes(resp)
                             );
                           }
@@ -6289,10 +6272,17 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Respuesta del alumno:
                               </div>
-                              <div 
-                                style={{ fontSize: '0.95rem', color: '#1f2937' }}
-                                dangerouslySetInnerHTML={{ __html: respuestaCompletarTexto || respuestaCompletarAlumno }}
-                              />
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>
+                                {respuestasCompletarAlumno.length > 0 ? (
+                                  respuestasCompletarAlumno.map((r, idx) => (
+                                    <span key={idx} style={{ background: '#e0f2fe', padding: '0.25rem 0.5rem', borderRadius: '4px', margin: '0.25rem', display: 'inline-block', border: '1px solid #0ea5e9' }}>
+                                      {r.num}. {r.valor}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ color: '#6b7280', fontStyle: 'italic' }}>(sin respuesta)</span>
+                                )}
+                              </div>
                             </div>
                             <div style={{ 
                               padding: '0.75rem', 
@@ -6303,10 +6293,17 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Respuesta correcta:
                               </div>
-                              <div 
-                                style={{ fontSize: '0.95rem', color: '#1f2937' }}
-                                dangerouslySetInnerHTML={{ __html: textoCorrectoCompletar }}
-                              />
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>
+                                {respuestasCorrectasCompletar.length > 0 ? (
+                                  respuestasCorrectasCompletar.map((resp, idx) => (
+                                    <span key={idx} style={{ background: '#dbeafe', padding: '0.25rem 0.5rem', borderRadius: '4px', margin: '0.25rem', display: 'inline-block', border: '1px solid #3b82f6' }}>
+                                      {idx + 1}. {resp}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ color: '#6b7280' }}>No definida</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -6429,35 +6426,67 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                         );
 
                       case 'EMPAREJAR':
-                        // Para EMPAREJAR, la respuesta es el ID de la alternativa seleccionada
-                        const alternativaEmparejarAlumno = pregunta.alternativas && pregunta.alternativas.find(alt => alt.id === respuestaAlumnoNum);
-                        const alternativaCorrectaEmparejar = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                        // Verificar si el emparejamiento es correcto (par_id debe coincidir)
-                        const emparejarEsCorrecto = alternativaEmparejarAlumno && alternativaCorrectaEmparejar && 
-                          (alternativaEmparejarAlumno.par_id === alternativaCorrectaEmparejar.id || 
-                           alternativaCorrectaEmparejar.par_id === alternativaEmparejarAlumno.id);
+                        // Para EMPAREJAR, la respuesta es un objeto: {altId1: parId1, altId2: parId2}
+                        let paresAlumno = [];
+                        let todosParesCorrectos = true;
+                        
+                        if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
+                          paresAlumno = Object.entries(respuestaAlumno).map(([altId, parId]) => {
+                            const origen = pregunta.alternativas?.find(alt => alt.id === parseInt(altId));
+                            const destino = pregunta.alternativas?.find(alt => alt.id === parseInt(parId));
+                            const origenText = origen?.descripcion?.replace(/<[^>]*>/g, '') || '?';
+                            const destinoText = destino?.descripcion?.replace(/<[^>]*>/g, '') || '?';
+                            
+                            // Verificar si el par es correcto
+                            const parEsCorrecto = origen && destino && origen.par_id === parseInt(parId);
+                            if (!parEsCorrecto) todosParesCorrectos = false;
+                            
+                            return { origenText, destinoText, parEsCorrecto };
+                          });
+                        }
+                        
+                        // Obtener pares correctos
+                        const paresCorrectos = pregunta.alternativas
+                          ?.filter(alt => alt.par_id !== null && alt.par_id !== undefined)
+                          .map(alt => {
+                            const destino = pregunta.alternativas?.find(a => a.id === alt.par_id);
+                            return {
+                              origenText: alt.descripcion?.replace(/<[^>]*>/g, '') || '?',
+                              destinoText: destino?.descripcion?.replace(/<[^>]*>/g, '') || '?'
+                            };
+                          }) || [];
                         
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div style={{ 
                               padding: '0.75rem', 
                               borderRadius: '8px',
-                              background: emparejarEsCorrecto ? '#d1fae5' : '#fee2e2',
-                              border: `2px solid ${emparejarEsCorrecto ? '#10b981' : '#ef4444'}`
+                              background: todosParesCorrectos && paresAlumno.length > 0 ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${todosParesCorrectos && paresAlumno.length > 0 ? '#10b981' : '#ef4444'}`
                             }}>
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Emparejamiento seleccionado por el alumno:
                               </div>
-                              {alternativaEmparejarAlumno ? (
-                                <div 
-                                  style={{ 
-                                    fontSize: '0.95rem',
-                                    color: '#1f2937'
-                                  }}
-                                  dangerouslySetInnerHTML={{ __html: alternativaEmparejarAlumno.descripcion }}
-                                />
+                              {paresAlumno.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {paresAlumno.map((par, idx) => (
+                                    <div key={idx} style={{ 
+                                      background: par.parEsCorrecto ? '#d1fae5' : '#fee2e2',
+                                      padding: '0.5rem',
+                                      borderRadius: '6px',
+                                      borderLeft: `3px solid ${par.parEsCorrecto ? '#10b981' : '#ef4444'}`,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.5rem'
+                                    }}>
+                                      <span style={{ fontWeight: '600', color: '#1e40af' }}>{par.origenText}</span>
+                                      <span style={{ color: par.parEsCorrecto ? '#10b981' : '#ef4444', fontSize: '1.2rem' }}>→</span>
+                                      <span style={{ color: par.parEsCorrecto ? '#059669' : '#dc2626' }}>{par.destinoText}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
-                                <div style={{ fontSize: '0.95rem', color: '#6b7280' }}>(sin respuesta)</div>
+                                <div style={{ fontSize: '0.95rem', color: '#6b7280', fontStyle: 'italic' }}>(sin respuesta)</div>
                               )}
                             </div>
                             <div style={{ 
@@ -6469,16 +6498,26 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Emparejamiento correcto:
                               </div>
-                              {alternativaCorrectaEmparejar ? (
-                                <div 
-                                  style={{ 
-                                    fontSize: '0.95rem',
-                                    color: '#1f2937'
-                                  }}
-                                  dangerouslySetInnerHTML={{ __html: alternativaCorrectaEmparejar.descripcion }}
-                                />
+                              {paresCorrectos.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {paresCorrectos.map((par, idx) => (
+                                    <div key={idx} style={{ 
+                                      background: '#dbeafe',
+                                      padding: '0.5rem',
+                                      borderRadius: '6px',
+                                      borderLeft: '3px solid #3b82f6',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.5rem'
+                                    }}>
+                                      <span style={{ fontWeight: '600', color: '#1e40af' }}>{par.origenText}</span>
+                                      <span style={{ color: '#3b82f6', fontSize: '1.2rem' }}>→</span>
+                                      <span style={{ color: '#059669' }}>{par.destinoText}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
-                                <div style={{ fontSize: '0.95rem', color: '#6b7280' }}>No definida</div>
+                                <div style={{ fontSize: '0.95rem', color: '#6b7280' }}>No definido</div>
                               )}
                             </div>
                           </div>

@@ -2465,9 +2465,9 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
     // Limitar puntaje mínimo a 0
     if (puntosObtenidos < 0) puntosObtenidos = 0;
 
-    // Calcular nota (0-20)
+    // Calcular nota (0-20) y redondear a entero
     const nota = puntosTotal > 0 
-      ? Math.max(0, Math.min(20, (puntosObtenidos / puntosTotal) * 20))
+      ? Math.round(Math.max(0, Math.min(20, (puntosObtenidos / puntosTotal) * 20)))
       : 0;
 
     // Actualizar prueba con puntaje, correctas e incorrectas
