@@ -135,15 +135,22 @@ router.get('/configuracion', async (req, res) => {
         const buffer = Buffer.from(base64String, 'base64');
         const deserialized = phpSerialize.unserialize(buffer);
         
+        // PHP puede deserializar arrays asociativos como objetos en JavaScript
+        // Necesitamos convertir el objeto a array si es necesario
         if (Array.isArray(deserialized)) {
           rangosLetrasPrimaria = deserialized;
-          console.log('✅ rangos_letras_primaria deserializado exitosamente');
-          console.log('Cantidad de rangos:', rangosLetrasPrimaria.length);
-          console.log('Datos:', JSON.stringify(rangosLetrasPrimaria, null, 2));
+        } else if (typeof deserialized === 'object' && deserialized !== null) {
+          // Convertir objeto a array (puede tener claves numéricas)
+          rangosLetrasPrimaria = Object.values(deserialized);
+          console.log('⚠️ Convertido de objeto a array');
         } else {
-          console.warn('⚠️ rangos_letras_primaria deserializado pero no es un array:', typeof deserialized);
+          console.warn('⚠️ rangos_letras_primaria deserializado pero no es array ni objeto:', typeof deserialized);
           rangosLetrasPrimaria = [];
         }
+        
+        console.log('✅ rangos_letras_primaria deserializado exitosamente');
+        console.log('Cantidad de rangos:', rangosLetrasPrimaria.length);
+        console.log('Datos:', JSON.stringify(rangosLetrasPrimaria, null, 2));
       } catch (e) {
         console.error('❌ Error deserializando rangos_letras_primaria:', e.message);
         console.error('Stack:', e.stack);
