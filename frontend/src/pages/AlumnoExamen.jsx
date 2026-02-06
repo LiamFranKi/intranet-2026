@@ -561,7 +561,12 @@ function AlumnoExamen() {
           <div className="resumen-preguntas">
             {preguntas.map((p, index) => {
               const respuesta = respuestas[p.id];
-              const tieneRespuesta = respuesta !== null && respuesta !== undefined && respuesta !== '';
+              // Verificar si hay respuesta (incluyendo strings no vacíos y arrays/objetos)
+              const tieneRespuesta = respuesta !== null && 
+                                    respuesta !== undefined && 
+                                    respuesta !== '' &&
+                                    !(typeof respuesta === 'object' && Object.keys(respuesta).length === 0) &&
+                                    !(Array.isArray(respuesta) && respuesta.length === 0);
               const respuestaFormateada = formatearRespuesta(p, respuesta);
               
               return (
@@ -570,7 +575,16 @@ function AlumnoExamen() {
                   <div className="resumen-pregunta-info">
                     <div className="resumen-pregunta-titulo" dangerouslySetInnerHTML={{ __html: p.descripcion || 'Pregunta sin título' }} />
                     <div className="resumen-pregunta-respuesta">
-                      <strong>Tu respuesta:</strong> {respuestaFormateada}
+                      <strong>Tu respuesta:</strong>{' '}
+                      {respuestaFormateada ? (
+                        respuestaFormateada.tipo === 'html' ? (
+                          <span dangerouslySetInnerHTML={{ __html: respuestaFormateada.html }} />
+                        ) : (
+                          <span>{respuestaFormateada.html}</span>
+                        )
+                      ) : (
+                        <span style={{ color: '#ef4444', fontStyle: 'italic' }}>Sin responder</span>
+                      )}
                     </div>
                     <div className="resumen-pregunta-estado">
                       {tieneRespuesta ? '✓ Respondida' : '⚠️ Sin responder'}
