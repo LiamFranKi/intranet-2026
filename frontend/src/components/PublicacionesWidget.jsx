@@ -151,8 +151,8 @@ function PublicacionesWidget() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
     // Detectar tablets específicamente (Android tablets, iPad, etc.)
     const isTablet = /iPad|Android/i.test(userAgent) && !window.MSStream && 
-                     (screen.width >= 768 || screen.height >= 768 || 
-                      (screen.width >= 600 && screen.height >= 600));
+                     (window.screen.width >= 768 || window.screen.height >= 768 || 
+                      (window.screen.width >= 600 && window.screen.height >= 600));
     // Detectar si es un dispositivo táctil
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     
@@ -429,8 +429,8 @@ function PublicacionesWidget() {
               const userAgent = navigator.userAgent || navigator.vendor || window.opera;
               const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
               const isTablet = /iPad|Android/i.test(userAgent) && !window.MSStream && 
-                               (screen.width >= 768 || screen.height >= 768 || 
-                                (screen.width >= 600 && screen.height >= 600));
+                               (window.screen.width >= 768 || window.screen.height >= 768 || 
+                                (window.screen.width >= 600 && window.screen.height >= 600));
               const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
               
               return (isMobile || isTablet || isTouchDevice) ? (
