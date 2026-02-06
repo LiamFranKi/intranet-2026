@@ -2283,16 +2283,7 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       [nota, prueba[0].id]
     );
 
-    // Guardar nota en la tabla de notas
-    const matricula = await query(
-      `SELECT m.id as matricula_id
-       FROM matriculas m
-       INNER JOIN grupos g ON g.id = m.grupo_id
-       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
-       AND (m.estado = 0 OR m.estado = 4)
-       LIMIT 1`,
-      [alumno_id, colegio_id, anio_activo]
-    );
+    // Guardar nota en la tabla de notas (matricula ya está declarada arriba)
 
     if (matricula.length > 0) {
       // Verificar si ya existe nota
