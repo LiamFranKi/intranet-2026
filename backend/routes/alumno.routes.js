@@ -1858,36 +1858,21 @@ router.get('/aula-virtual/examenes', async (req, res) => {
       let intentos_usados = 0;
       
       if (matricula.length > 0) {
-        // Verificar si tiene nota (manejar caso donde la tabla no existe)
+        // Verificar si tiene nota en la tabla de pruebas (la tabla asignaturas_examenes_notas no existe)
+        // La tabla asignaturas_examenes_pruebas usa matricula_id y puntaje
         try {
-          const notaData = await query(
-            `SELECT nota FROM asignaturas_examenes_notas
-             WHERE examen_id = ? AND matricula_id = ? AND nota IS NOT NULL`,
+          const pruebaConNota = await query(
+            `SELECT puntaje FROM asignaturas_examenes_pruebas
+             WHERE examen_id = ? AND matricula_id = ? AND estado = 'FINALIZADA' AND puntaje IS NOT NULL
+             ORDER BY fecha_hora DESC
+             LIMIT 1`,
             [examen.id, matricula[0].matricula_id]
           );
           
-          tiene_nota = notaData.length > 0 && notaData[0].nota !== null;
-        } catch (error) {
-          // Si la tabla no existe, verificar en la tabla de pruebas
-          if (error.code === 'ER_NO_SUCH_TABLE') {
-            console.log('⚠️ Tabla asignaturas_examenes_notas no existe, verificando en pruebas');
-            try {
-              // La tabla asignaturas_examenes_pruebas usa matricula_id (no alumno_id) y puntaje (no nota)
-              const pruebaConNota = await query(
-                `SELECT puntaje FROM asignaturas_examenes_pruebas
-                 WHERE examen_id = ? AND matricula_id = ? AND estado = 'FINALIZADA' AND puntaje IS NOT NULL
-                 ORDER BY fecha_hora DESC
-                 LIMIT 1`,
-                [examen.id, matricula[0].matricula_id]
-              );
-              
-              tiene_nota = pruebaConNota.length > 0 && pruebaConNota[0].puntaje !== null;
-            } catch (err) {
-              console.error('Error verificando nota en pruebas:', err);
-            }
-          } else {
-            console.error('Error verificando nota:', error);
-          }
+          tiene_nota = pruebaConNota.length > 0 && pruebaConNota[0].puntaje !== null;
+        } catch (err) {
+          console.error('Error verificando nota en pruebas:', err);
+          tiene_nota = false;
         }
         
         // Contar intentos usados
@@ -2217,7 +2202,7 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       `SELECT p.*, 
               (SELECT GROUP_CONCAT(
                 CONCAT(a.id, ':', a.correcta)
-                ORDER BY a.orden SEPARATOR '|'
+                ORDER BY a.id SEPARATOR '|'
               ) FROM asignaturas_examenes_preguntas_alternativas a 
               WHERE a.pregunta_id = p.id) as alternativas_data
        FROM asignaturas_examenes_preguntas p
@@ -2288,31 +2273,8 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       [nota, prueba[0].id]
     );
 
-    // Guardar nota en la tabla de notas (matricula ya está declarada arriba)
-
-    if (matricula.length > 0) {
-      // Verificar si ya existe nota
-      const notaExistente = await query(
-        `SELECT id FROM asignaturas_examenes_notas
-         WHERE examen_id = ? AND matricula_id = ?`,
-        [examenId, matricula[0].matricula_id]
-      );
-
-      if (notaExistente.length > 0) {
-        await execute(
-          `UPDATE asignaturas_examenes_notas
-           SET nota = ?, fecha = NOW()
-           WHERE id = ?`,
-          [nota, notaExistente[0].id]
-        );
-      } else {
-        await execute(
-          `INSERT INTO asignaturas_examenes_notas (examen_id, matricula_id, nota, fecha)
-           VALUES (?, ?, ?, NOW())`,
-          [examenId, matricula[0].matricula_id, nota]
-        );
-      }
-    }
+    // La nota ya se guardó en la tabla asignaturas_examenes_pruebas con el UPDATE anterior
+    // No es necesario guardar en otra tabla porque asignaturas_examenes_notas no existe
 
     res.json({
       success: true,
