@@ -2212,10 +2212,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
     const respuestas = prueba[0].respuestas ? JSON.parse(prueba[0].respuestas) : {};
     
     // Obtener todas las preguntas con alternativas
+    // Nota: La tabla alternativas NO tiene columna puntos, solo correcta (SI/NO)
     const preguntas = await query(
       `SELECT p.*, 
               (SELECT GROUP_CONCAT(
-                CONCAT(a.id, ':', a.es_correcta, ':', COALESCE(a.puntos, 0))
+                CONCAT(a.id, ':', a.correcta)
                 ORDER BY a.orden SEPARATOR '|'
               ) FROM asignaturas_examenes_preguntas_alternativas a 
               WHERE a.pregunta_id = p.id) as alternativas_data
@@ -2242,17 +2243,21 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
 
       if (pregunta.alternativas_data) {
         const alternativas = pregunta.alternativas_data.split('|').map(alt => {
-          const [id, esCorrecta, puntos] = alt.split(':');
-          return { id: parseInt(id), esCorrecta: esCorrecta === '1', puntos: parseFloat(puntos) };
+          const [id, correcta] = alt.split(':');
+          return { 
+            id: parseInt(id), 
+            esCorrecta: correcta === 'SI'
+          };
         });
 
         if (pregunta.tipo === 'ALTERNATIVAS' || pregunta.tipo === 'VERDADERO_FALSO') {
           const alternativaCorrecta = alternativas.find(a => a.esCorrecta);
           if (respuestaAlumno === alternativaCorrecta?.id) {
             esCorrecta = true;
+            // Los puntos vienen de la pregunta o del examen según tipo_puntaje
             puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
               ? (examen[0].puntos_correcta || 0)
-              : (alternativaCorrecta.puntos || pregunta.puntos || 0);
+              : (pregunta.puntos || 0);
           } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno) {
             puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
           }
