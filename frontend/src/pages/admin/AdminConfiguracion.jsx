@@ -140,6 +140,10 @@ function AdminConfiguracion() {
           }
         }
       }
+      
+      // Debug: verificar qué se está recibiendo
+      console.log('rangos_letras_primaria recibido:', data.rangos_letras_primaria);
+      console.log('rangos_letras_primaria procesado:', rangosLetrasPrimaria);
 
       setConfig({
         ...data,

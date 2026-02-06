@@ -116,13 +116,17 @@ router.get('/configuracion', async (req, res) => {
     }
 
     let rangosLetrasPrimaria = [];
-    if (colegioData.rangos_letras_primaria) {
+    if (colegioData.rangos_letras_primaria && colegioData.rangos_letras_primaria !== '') {
       try {
         const deserialized = phpSerialize.unserialize(Buffer.from(colegioData.rangos_letras_primaria, 'base64'));
         rangosLetrasPrimaria = Array.isArray(deserialized) ? deserialized : [];
+        console.log('rangos_letras_primaria deserializado:', rangosLetrasPrimaria);
       } catch (e) {
         console.warn('Error deserializando rangos_letras_primaria:', e);
+        console.log('Valor original:', colegioData.rangos_letras_primaria);
       }
+    } else {
+      console.log('rangos_letras_primaria está vacío o null');
     }
 
     let rangosCiclosNotas = {};
