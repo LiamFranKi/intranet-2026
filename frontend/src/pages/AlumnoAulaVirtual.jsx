@@ -143,9 +143,12 @@ function AlumnoAulaVirtual() {
       const response = await api.get('/alumno/aula-virtual/examenes', {
         params: { asignatura_id: asignaturaId, ciclo: ciclo || bimestreGlobal }
       });
+      console.log('📝 Exámenes recibidos del backend:', response.data.examenes);
+      console.log('📝 Ciclo filtrado:', ciclo || bimestreGlobal);
       setExamenes(response.data.examenes || []);
     } catch (error) {
       console.error('Error cargando exámenes:', error);
+      setExamenes([]);
     }
   }, [asignaturaId, bimestreGlobal]);
 
@@ -393,7 +396,16 @@ function AlumnoAulaVirtual() {
   };
 
   const renderExamenesContent = () => {
-    const examenesFiltrados = examenes.filter(examen => examen.ciclo === bimestreGlobal);
+    // Asegurar comparación correcta de ciclo (puede ser número o cadena)
+    const examenesFiltrados = examenes.filter(examen => {
+      const examenCiclo = parseInt(examen.ciclo) || examen.ciclo;
+      const cicloActual = parseInt(bimestreGlobal) || bimestreGlobal;
+      return examenCiclo === cicloActual;
+    });
+    
+    console.log('📝 Todos los exámenes:', examenes);
+    console.log('📝 Bimestre actual:', bimestreGlobal, typeof bimestreGlobal);
+    console.log('📝 Exámenes filtrados:', examenesFiltrados);
 
     return (
       <div className="card-content-expanded">

@@ -182,10 +182,22 @@ sudo systemctl restart nginx
 
 ### Solo actualizar código (sin reinstalar):
 ```bash
-cd /home/vanguard/intranet2026 && \
+cd ~/intranet2026 && \
 git pull origin main && \
-cd backend && pm2 restart intranet2026-backend && \
-cd ../frontend && npm run build
+cd frontend && npm run build && \
+cd ../backend && pm2 restart intranet2026-backend && \
+sudo systemctl reload nginx
+```
+
+**NOTA:** Si ya estás en `~/intranet2026/backend`, usa estos comandos:
+```bash
+cd ~/intranet2026
+git pull origin main
+cd frontend
+npm run build
+cd ../backend
+pm2 restart intranet2026-backend
+sudo systemctl reload nginx
 ```
 
 ---

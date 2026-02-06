@@ -1829,6 +1829,7 @@ router.get('/aula-virtual/examenes', async (req, res) => {
     }
 
     // Obtener exámenes de la asignatura filtrados por ciclo
+    // IMPORTANTE: Mostrar TODOS los exámenes, independientemente de si tienen preguntas o no
     const examenes = await query(
       `SELECT ae.*,
               (SELECT COUNT(*) FROM asignaturas_examenes_preguntas WHERE examen_id = ae.id) as total_preguntas
@@ -1837,6 +1838,8 @@ router.get('/aula-virtual/examenes', async (req, res) => {
        ORDER BY ae.id ASC`,
       [asignatura_id, cicloFiltro]
     );
+    
+    console.log(`📝 Exámenes encontrados para asignatura ${asignatura_id}, ciclo ${cicloFiltro}:`, examenes.length);
 
     // Obtener matrícula del alumno
     const matricula = await query(
