@@ -372,7 +372,22 @@ function AdminConfiguracion() {
           // Campos de texto/objetos
           const value = config[field];
           if (value !== undefined && value !== null) {
-            if (typeof value === 'object' && !Array.isArray(value)) {
+            // Campos numéricos que deben enviarse como números (no strings)
+            const numericFields = ['inicio_pensiones', 'inicio_notas', 'total_pensiones', 'total_notas', 
+                                  'ciclo_pensiones', 'ciclo_notas', 'monto_adicional', 'dias_tolerancia',
+                                  'comision_tarjeta_debito', 'comision_tarjeta_credito', 'anio_activo', 'anio_matriculas'];
+            
+            if (numericFields.includes(field)) {
+              // Enviar como número explícitamente
+              const numValue = Number(value);
+              if (!isNaN(numValue)) {
+                formData.append(field, numValue);
+                console.log(`📤 Enviando campo numérico ${field}:`, numValue, 'tipo:', typeof numValue);
+              } else {
+                formData.append(field, value);
+                console.warn(`⚠️ Campo numérico ${field} no es válido, enviando valor original:`, value);
+              }
+            } else if (typeof value === 'object' && !Array.isArray(value)) {
               formData.append(field, JSON.stringify(value));
             } else if (Array.isArray(value)) {
               formData.append(field, JSON.stringify(value));

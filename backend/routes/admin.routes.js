@@ -272,10 +272,36 @@ router.put('/configuracion', uploadConfig.fields([
 
     colegioFields.forEach(field => {
       if (body[field] !== undefined) {
+        let value = body[field];
+        
+        // Campos numéricos que deben ser números
+        const numericFields = ['inicio_pensiones', 'inicio_notas', 'total_pensiones', 'total_notas', 
+                              'ciclo_pensiones', 'ciclo_notas', 'monto_adicional', 'dias_tolerancia',
+                              'comision_tarjeta_debito', 'comision_tarjeta_credito', 'anio_activo', 'anio_matriculas'];
+        
+        if (numericFields.includes(field)) {
+          // Convertir a número explícitamente
+          const numValue = Number(value);
+          if (!isNaN(numValue)) {
+            value = numValue;
+            console.log(`🔧 Campo numérico ${field}: valor recibido "${body[field]}", convertido a ${value} (tipo: ${typeof value})`);
+          } else {
+            console.warn(`⚠️ Campo numérico ${field}: valor "${body[field]}" no es un número válido, usando valor original`);
+          }
+        }
+        
         updateFields.push(`${field} = ?`);
-        updateValues.push(body[field]);
+        updateValues.push(value);
       }
     });
+    
+    // Debug: verificar valores de inicio_pensiones e inicio_notas antes de guardar
+    if (body.inicio_pensiones !== undefined) {
+      console.log('=== DEBUG GUARDAR inicio_pensiones ===');
+      console.log('Valor recibido en body:', body.inicio_pensiones, 'tipo:', typeof body.inicio_pensiones);
+      const finalValue = updateValues[updateFields.findIndex(f => f.includes('inicio_pensiones'))];
+      console.log('Valor final que se guardará:', finalValue, 'tipo:', typeof finalValue);
+    }
 
     // Serializar rangos_ciclos_notas (PHP serialize, no JSON)
     if (body.rangos_ciclos_notas) {
