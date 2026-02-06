@@ -4663,12 +4663,21 @@ function PreguntasAlternativasModal({ examen, preguntas, setPreguntas, cargandoP
 
   const verVistaPrevia = async (pregunta) => {
     try {
-      const response = await api.get(`/docente/aula-virtual/preguntas/${pregunta.id}/alternativas`);
-      setPreguntaVistaPrevia({
-        ...pregunta,
-        alternativas: response.data.alternativas || []
-      });
-      setMostrarVistaPrevia(true);
+      // Para COMPLETAR y RESPUESTA_CORTA no hay alternativas, no intentar cargarlas
+      if (pregunta.tipo === 'COMPLETAR' || pregunta.tipo === 'RESPUESTA_CORTA') {
+        setPreguntaVistaPrevia({
+          ...pregunta,
+          alternativas: []
+        });
+        setMostrarVistaPrevia(true);
+      } else {
+        const response = await api.get(`/docente/aula-virtual/preguntas/${pregunta.id}/alternativas`);
+        setPreguntaVistaPrevia({
+          ...pregunta,
+          alternativas: response.data.alternativas || []
+        });
+        setMostrarVistaPrevia(true);
+      }
     } catch (error) {
       console.error('Error cargando alternativas para vista previa:', error);
       setPreguntaVistaPrevia({ ...pregunta, alternativas: [] });
