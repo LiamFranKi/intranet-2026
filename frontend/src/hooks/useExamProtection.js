@@ -235,16 +235,20 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
 
-      // Salir de pantalla completa al desmontar
+      // Salir de pantalla completa al desmontar (solo si está activa)
       if (fullscreenEnabled.current) {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+            document.webkitExitFullscreen().catch(() => {});
+          } else if (document.mozFullScreenElement && document.mozCancelFullScreen) {
+            document.mozCancelFullScreen().catch(() => {});
+          } else if (document.msFullscreenElement && document.msExitFullscreen) {
+            document.msExitFullscreen().catch(() => {});
+          }
+        } catch (error) {
+          // Ignorar errores al salir de fullscreen
         }
       }
     };

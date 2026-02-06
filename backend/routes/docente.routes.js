@@ -7566,18 +7566,32 @@ router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) =>
     const examenId = resultadoInfo.examen_id;
 
     // IMPORTANTE: Obtener solo las preguntas que realmente vio el alumno
-    // El campo 'preguntas' contiene un array serializado (base64) con los IDs de las preguntas mostradas
+    // El campo 'preguntas' puede estar en formato PHP serialize (base64) o JSON
     let preguntaIds = [];
     try {
       if (resultadoInfo.preguntas && resultadoInfo.preguntas.trim() !== '') {
-        const phpSerialize = require('php-serialize');
-        // Decodificar base64 primero (formato PHP: base64_encode(serialize(array)))
-        const decoded = Buffer.from(resultadoInfo.preguntas, 'base64').toString('utf-8');
-        // Deserializar el array PHP
-        preguntaIds = phpSerialize.unserialize(decoded) || [];
-        // Asegurar que sea un array
-        if (!Array.isArray(preguntaIds)) {
-          preguntaIds = [];
+        // Intentar primero como JSON (formato nuevo)
+        try {
+          preguntaIds = JSON.parse(resultadoInfo.preguntas);
+          if (!Array.isArray(preguntaIds)) {
+            preguntaIds = [];
+          }
+        } catch (jsonError) {
+          // Si falla JSON, intentar como PHP serialize (formato antiguo)
+          try {
+            const phpSerialize = require('php-serialize');
+            // Decodificar base64 primero (formato PHP: base64_encode(serialize(array)))
+            const decoded = Buffer.from(resultadoInfo.preguntas, 'base64').toString('utf-8');
+            // Deserializar el array PHP
+            preguntaIds = phpSerialize.unserialize(decoded) || [];
+            // Asegurar que sea un array
+            if (!Array.isArray(preguntaIds)) {
+              preguntaIds = [];
+            }
+          } catch (phpError) {
+            console.warn('Error deserializando preguntas (ni JSON ni PHP serialize):', phpError);
+            preguntaIds = [];
+          }
         }
       }
     } catch (error) {
@@ -7649,18 +7663,28 @@ router.get('/aula-virtual/resultados/:resultadoId/detalles', async (req, res) =>
       };
     });
 
-    // Parsear respuestas del alumno (formato PHP: base64_encode(serialize(array)))
-    // El formato es: [pregunta_id => alternativa_id, pregunta_id => alternativa_id, ...]
+    // Parsear respuestas del alumno
+    // El sistema nuevo usa JSON, pero el antiguo usaba PHP serialize (base64)
+    // Intentar primero JSON, luego PHP serialize para compatibilidad
     let respuestasAlumno = {};
     try {
       if (resultadoInfo.respuestas && resultadoInfo.respuestas.trim() !== '') {
-        const phpSerialize = require('php-serialize');
-        
-        // Decodificar base64 primero
-        const decoded = Buffer.from(resultadoInfo.respuestas, 'base64').toString('utf-8');
-        
-        // Deserializar el array PHP
-        respuestasAlumno = phpSerialize.unserialize(decoded) || {};
+        // Intentar primero como JSON (formato nuevo)
+        try {
+          respuestasAlumno = JSON.parse(resultadoInfo.respuestas);
+        } catch (jsonError) {
+          // Si falla JSON, intentar como PHP serialize (formato antiguo)
+          try {
+            const phpSerialize = require('php-serialize');
+            // Decodificar base64 primero
+            const decoded = Buffer.from(resultadoInfo.respuestas, 'base64').toString('utf-8');
+            // Deserializar el array PHP
+            respuestasAlumno = phpSerialize.unserialize(decoded) || {};
+          } catch (phpError) {
+            console.warn('Error parseando respuestas (ni JSON ni PHP serialize):', phpError);
+            respuestasAlumno = {};
+          }
+        }
         
         // Asegurar que las claves sean strings para comparación consistente
         const respuestasNormalizadas = {};

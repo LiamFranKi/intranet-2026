@@ -2022,8 +2022,8 @@ router.post('/examenes/:examenId/iniciar', async (req, res) => {
 
     const resultado = await execute(
       `INSERT INTO asignaturas_examenes_pruebas 
-       (examen_id, matricula_id, fecha_hora, expiracion, estado, respuestas)
-       VALUES (?, ?, ?, ?, 'ACTIVO', '{}')`,
+       (examen_id, matricula_id, fecha_hora, expiracion, estado, respuestas, preguntas)
+       VALUES (?, ?, ?, ?, 'ACTIVO', '{}', '')`,
       [examenId, matricula[0].matricula_id, fechaInicio, fechaExpiracion]
     );
 
