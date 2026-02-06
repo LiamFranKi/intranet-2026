@@ -145,8 +145,11 @@ function AdminConfiguracion() {
       console.log('rangos_letras_primaria recibido:', data.rangos_letras_primaria);
       console.log('rangos_letras_primaria procesado:', rangosLetrasPrimaria);
 
+      // Separar data para evitar que sobrescriba rangos_letras_primaria
+      const { rangos_letras_primaria: _, ...restData } = data;
+      
       setConfig({
-        ...data,
+        ...restData,
         inicio_pensiones: inicioPensiones,
         rangos_letras_primaria: rangosLetrasPrimaria,
         login_fondo: null,
