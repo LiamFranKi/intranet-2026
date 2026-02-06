@@ -723,7 +723,7 @@ function AdminConfiguracion() {
                   <label>Inicio de Cobros</label>
                   <select
                     name="inicio_pensiones"
-                    value={String(config.inicio_pensiones || 1)}
+                    value={String(Number(config.inicio_pensiones) || 1)}
                     onChange={handleInputChange}
                   >
                     {MESES.map(mes => (
