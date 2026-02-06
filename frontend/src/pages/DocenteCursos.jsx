@@ -1744,10 +1744,18 @@ function DocenteCursos() {
 
       // Agregar examen mensual si aplica
       if (datosNotas.curso.examen_mensual) {
-        const examen1 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[1] || 
-                                   datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[1] || 0);
-        const examen2 = parseFloat(notasEditadas[matriculaId]?.examen_mensual?.[2] || 
-                                   datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[2] || 0);
+        // Si hay notas editadas para examen mensual, usar solo esas (incluso si están vacías)
+        let examen1, examen2;
+        if (notasEditadas[matriculaId]?.examen_mensual?.hasOwnProperty('1')) {
+          examen1 = parseFloat(notasEditadas[matriculaId].examen_mensual[1] || 0);
+        } else {
+          examen1 = parseFloat(datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[1] || 0);
+        }
+        if (notasEditadas[matriculaId]?.examen_mensual?.hasOwnProperty('2')) {
+          examen2 = parseFloat(notasEditadas[matriculaId].examen_mensual[2] || 0);
+        } else {
+          examen2 = parseFloat(datosNotas.alumnos.find(a => a.matricula_id === matriculaId)?.examenes_mensuales?.[2] || 0);
+        }
         
         if (!isNaN(examen1) && !isNaN(examen2) && examen1 > 0 && examen2 > 0) {
           const promedioExamen = Math.round((examen1 + examen2) / 2);
