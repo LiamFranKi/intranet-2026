@@ -145,11 +145,19 @@ function PublicacionesWidget() {
   };
 
   const iniciarCamara = async () => {
-    // Detectar si es móvil o desktop
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Detectar si es móvil, tablet o desktop
+    // Mejorar detección para incluir tablets Android y otros dispositivos táctiles
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    // Detectar tablets específicamente (Android tablets, iPad, etc.)
+    const isTablet = /iPad|Android/i.test(userAgent) && !window.MSStream && 
+                     (screen.width >= 768 || screen.height >= 768 || 
+                      (screen.width >= 600 && screen.height >= 600));
+    // Detectar si es un dispositivo táctil
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     
-    // En móviles, usar el atributo capture que es más confiable
-    if (isMobile) {
+    // En móviles, tablets o dispositivos táctiles, usar el atributo capture que es más confiable
+    if (isMobile || isTablet || isTouchDevice) {
       // Crear o usar input file con capture para abrir cámara directamente
       if (cameraInputRef.current) {
         cameraInputRef.current.click();
@@ -157,7 +165,7 @@ function PublicacionesWidget() {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.capture = 'environment'; // Cámara trasera en móvil
+        input.capture = 'environment'; // Cámara trasera en móvil/tablet
         input.onchange = (e) => {
           const file = e.target.files[0];
           if (file) {
@@ -416,31 +424,40 @@ function PublicacionesWidget() {
               />
             </label>
             
-            {/* En móviles, usar input con capture directamente */}
-            {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? (
-              <label className="icon-btn" title="Tomar foto">
-                <span className="icon-text">📸</span>
-                <span className="icon-label">Tomar foto</span>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImagenChange}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            ) : (
-              <button 
-                type="button" 
-                className="icon-btn" 
-                onClick={mostrarCamara ? detenerCamara : iniciarCamara}
-                title="Tomar foto"
-              >
-                <span className="icon-text">📸</span>
-                <span className="icon-label">Tomar foto</span>
-              </button>
-            )}
+            {/* En móviles, tablets o dispositivos táctiles, usar input con capture directamente */}
+            {(() => {
+              const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+              const isTablet = /iPad|Android/i.test(userAgent) && !window.MSStream && 
+                               (screen.width >= 768 || screen.height >= 768 || 
+                                (screen.width >= 600 && screen.height >= 600));
+              const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+              
+              return (isMobile || isTablet || isTouchDevice) ? (
+                <label className="icon-btn" title="Tomar foto">
+                  <span className="icon-text">📸</span>
+                  <span className="icon-label">Tomar foto</span>
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleImagenChange}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              ) : (
+                <button 
+                  type="button" 
+                  className="icon-btn" 
+                  onClick={mostrarCamara ? detenerCamara : iniciarCamara}
+                  title="Tomar foto"
+                >
+                  <span className="icon-text">📸</span>
+                  <span className="icon-label">Tomar foto</span>
+                </button>
+              );
+            })()}
             
             <label className="icon-btn" title="Agregar archivo">
               <span className="icon-text">📎</span>
