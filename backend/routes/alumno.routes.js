@@ -2252,6 +2252,12 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       return res.status(404).json({ error: 'Examen no encontrado' });
     }
 
+    // Asegurar que puntos_correcta sea un número
+    const puntosCorrecta = parseFloat(examen[0].puntos_correcta) || 0;
+    const tipoPuntaje = examen[0].tipo_puntaje;
+    
+    console.log(`📊 Calificando examen ${examenId}: tipo_puntaje=${tipoPuntaje}, puntos_correcta=${puntosCorrecta}`);
+
     const respuestas = prueba[0].respuestas ? JSON.parse(prueba[0].respuestas) : {};
     
     // Obtener todas las preguntas con alternativas completas
@@ -2281,9 +2287,9 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       let esCorrecta = false;
 
       // Calcular puntos totales de la pregunta
-      puntosTotal += examen[0].tipo_puntaje === 'GENERAL' 
-        ? (examen[0].puntos_correcta || 0)
-        : (pregunta.puntos || 0);
+      puntosTotal += tipoPuntaje === 'GENERAL' 
+        ? puntosCorrecta
+        : (parseFloat(pregunta.puntos) || 0);
 
       // Procesar alternativas
       let alternativas = [];
@@ -2310,11 +2316,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
             const alternativaMarcada = alternativas.find(alt => alt.id === parseInt(respuestaAlumno));
             if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
               esCorrecta = true;
-              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-                ? (examen[0].puntos_correcta || 0)
-                : (pregunta.puntos || 0);
+              puntosPregunta = tipoPuntaje === 'GENERAL' 
+                ? puntosCorrecta
+                : (parseFloat(pregunta.puntos) || 0);
             } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno) {
-              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+              puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
             }
           }
           break;
@@ -2344,11 +2350,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
             
             if (todasCorrectas) {
               esCorrecta = true;
-              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-                ? (examen[0].puntos_correcta || 0)
-                : (pregunta.puntos || 0);
+              puntosPregunta = tipoPuntaje === 'GENERAL' 
+                ? puntosCorrecta
+                : (parseFloat(pregunta.puntos) || 0);
             } else if (examen[0].penalizar_incorrecta === 'SI' && respuestasCompletar.length > 0) {
-              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+              puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
             }
           }
           break;
@@ -2369,11 +2375,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
             
             if (ordenCorrecto) {
               esCorrecta = true;
-              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-                ? (examen[0].puntos_correcta || 0)
-                : (pregunta.puntos || 0);
+              puntosPregunta = tipoPuntaje === 'GENERAL' 
+                ? puntosCorrecta
+                : (parseFloat(pregunta.puntos) || 0);
             } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno.length > 0) {
-              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+              puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
             }
           }
           break;
@@ -2393,11 +2399,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
             
             if (todosParesCorrectos) {
               esCorrecta = true;
-              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-                ? (examen[0].puntos_correcta || 0)
-                : (pregunta.puntos || 0);
+              puntosPregunta = tipoPuntaje === 'GENERAL' 
+                ? puntosCorrecta
+                : (parseFloat(pregunta.puntos) || 0);
             } else if (examen[0].penalizar_incorrecta === 'SI' && Object.keys(respuestaAlumno).length > 0) {
-              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+              puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
             }
           }
           break;
@@ -2418,11 +2424,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
             
             if (todasZonasCorrectas) {
               esCorrecta = true;
-              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-                ? (examen[0].puntos_correcta || 0)
-                : (pregunta.puntos || 0);
+              puntosPregunta = tipoPuntaje === 'GENERAL' 
+                ? puntosCorrecta
+                : (parseFloat(pregunta.puntos) || 0);
             } else if (examen[0].penalizar_incorrecta === 'SI' && Object.keys(respuestaAlumno).length > 0) {
-              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+              puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
             }
           }
           break;
@@ -2436,11 +2442,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
               const correctaNormalizada = alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
               if (respuestaNormalizada === correctaNormalizada) {
                 esCorrecta = true;
-                puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-                  ? (examen[0].puntos_correcta || 0)
-                  : (pregunta.puntos || 0);
+                puntosPregunta = tipoPuntaje === 'GENERAL' 
+                  ? puntosCorrecta
+                  : (parseFloat(pregunta.puntos) || 0);
               } else if (examen[0].penalizar_incorrecta === 'SI') {
-                puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+                puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
               }
             }
           }
