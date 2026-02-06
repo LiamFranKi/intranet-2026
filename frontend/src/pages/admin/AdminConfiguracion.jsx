@@ -744,6 +744,13 @@ function AdminConfiguracion() {
                       <option key={mes.value} value={String(mes.value)}>{mes.label}</option>
                     ))}
                   </select>
+                  {/* Debug en render */}
+                  {(() => {
+                    const currentValue = Number(config.inicio_pensiones) || 1;
+                    const stringValue = String(currentValue);
+                    console.log('🔍 Select inicio_pensiones render - config.inicio_pensiones:', config.inicio_pensiones, 'tipo:', typeof config.inicio_pensiones, 'currentValue:', currentValue, 'stringValue:', stringValue, 'mes correspondiente:', MESES.find(m => m.value === currentValue)?.label);
+                    return null;
+                  })()}
                 </div>
               )}
               <div className="form-group">
