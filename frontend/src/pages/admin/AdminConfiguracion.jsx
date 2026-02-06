@@ -123,7 +123,17 @@ function AdminConfiguracion() {
       const data = response.data;
       
       // Asegurar que inicio_pensiones sea un número
-      const inicioPensiones = data.inicio_pensiones ? parseInt(data.inicio_pensiones) : 1;
+      // El valor viene de la BD como número, pero puede venir como string
+      let inicioPensiones = 1;
+      if (data.inicio_pensiones !== undefined && data.inicio_pensiones !== null && data.inicio_pensiones !== '') {
+        inicioPensiones = parseInt(data.inicio_pensiones, 10);
+        // Validar que sea un número válido entre 1 y 12
+        if (isNaN(inicioPensiones) || inicioPensiones < 1 || inicioPensiones > 12) {
+          console.warn('inicio_pensiones inválido:', data.inicio_pensiones, 'usando valor por defecto 1');
+          inicioPensiones = 1;
+        }
+      }
+      console.log('inicio_pensiones cargado:', data.inicio_pensiones, '-> parseado:', inicioPensiones);
       
       // Asegurar que rangos_letras_primaria sea un array
       let rangosLetrasPrimaria = [];
@@ -179,9 +189,27 @@ function AdminConfiguracion() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    // Campos numéricos que deben manejarse como números
+    const numericFields = ['inicio_pensiones', 'inicio_notas', 'total_pensiones', 'total_notas', 
+                          'ciclo_pensiones', 'ciclo_notas', 'monto_adicional', 'dias_tolerancia',
+                          'comision_tarjeta_debito', 'comision_tarjeta_credito'];
+    
+    let processedValue = type === 'checkbox' ? checked : value;
+    
+    // Si es un campo numérico y viene de un select o input numérico, convertir a número
+    if (numericFields.includes(name) && type !== 'checkbox') {
+      if (value === '' || value === null || value === undefined) {
+        processedValue = name === 'inicio_pensiones' || name === 'inicio_notas' ? 1 : 0;
+      } else {
+        const numValue = parseInt(value, 10);
+        processedValue = isNaN(numValue) ? value : numValue;
+      }
+    }
+    
     setConfig(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: processedValue
     }));
   };
 
@@ -680,11 +708,11 @@ function AdminConfiguracion() {
                   <label>Inicio de Cobros</label>
                   <select
                     name="inicio_pensiones"
-                    value={config.inicio_pensiones}
+                    value={String(config.inicio_pensiones || 1)}
                     onChange={handleInputChange}
                   >
                     {MESES.map(mes => (
-                      <option key={mes.value} value={mes.value}>{mes.label}</option>
+                      <option key={mes.value} value={String(mes.value)}>{mes.label}</option>
                     ))}
                   </select>
                 </div>
@@ -769,11 +797,11 @@ function AdminConfiguracion() {
                   <label>Inicio de Registro</label>
                   <select
                     name="inicio_notas"
-                    value={config.inicio_notas}
+                    value={String(config.inicio_notas || 1)}
                     onChange={handleInputChange}
                   >
                     {MESES.map(mes => (
-                      <option key={mes.value} value={mes.value}>{mes.label}</option>
+                      <option key={mes.value} value={String(mes.value)}>{mes.label}</option>
                     ))}
                   </select>
                 </div>
