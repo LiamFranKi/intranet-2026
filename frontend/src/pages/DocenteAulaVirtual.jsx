@@ -6524,27 +6524,59 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                         );
 
                       case 'ARRASTRAR_Y_SOLTAR':
-                        // Para ARRASTRAR_Y_SOLTAR, la respuesta es un string (zona_drop) que se compara directamente
-                        const zonaDragAlumno = typeof respuestaAlumno === 'string' ? respuestaAlumno.trim() : String(respuestaAlumno || '').trim();
-                        const alternativaCorrectaDrag = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                        const zonaCorrectaDrag = alternativaCorrectaDrag && alternativaCorrectaDrag.zona_drop ? alternativaCorrectaDrag.zona_drop.trim() : '';
-                        // Verificar si la zona_drop es correcta
-                        const dragEsCorrecto = zonaDragAlumno.toLowerCase() === zonaCorrectaDrag.toLowerCase();
+                        // Para ARRASTRAR_Y_SOLTAR, la respuesta es un objeto: {altId: {zona: "Zona1"}} o {altId: "Zona1"}
+                        let elementosArrastrados = [];
+                        let todosCorrectos = true;
+                        
+                        if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
+                          elementosArrastrados = Object.entries(respuestaAlumno).map(([altId, valor]) => {
+                            const alt = pregunta.alternativas?.find(a => a.id === parseInt(altId));
+                            const altText = alt?.descripcion?.replace(/<[^>]*>/g, '') || '?';
+                            // La respuesta puede ser { zona: "Zona1" } o directamente "Zona1"
+                            const zonaNombre = typeof valor === 'object' && valor.zona ? valor.zona : String(valor || '');
+                            
+                            // Verificar si la zona es correcta
+                            const zonaCorrecta = alt?.zona_drop?.trim().toLowerCase() || '';
+                            const esCorrecto = zonaNombre.trim().toLowerCase() === zonaCorrecta;
+                            if (!esCorrecto) todosCorrectos = false;
+                            
+                            return { altText, zonaNombre, esCorrecto, zonaCorrecta };
+                          });
+                        }
                         
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div style={{ 
                               padding: '0.75rem', 
                               borderRadius: '8px',
-                              background: dragEsCorrecto ? '#d1fae5' : '#fee2e2',
-                              border: `2px solid ${dragEsCorrecto ? '#10b981' : '#ef4444'}`
+                              background: todosCorrectos && elementosArrastrados.length > 0 ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${todosCorrectos && elementosArrastrados.length > 0 ? '#10b981' : '#ef4444'}`
                             }}>
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Zona donde soltó el alumno:
                               </div>
-                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
-                                {zonaDragAlumno || '(sin respuesta)'}
-                              </div>
+                              {elementosArrastrados.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {elementosArrastrados.map((elem, idx) => (
+                                    <div key={idx} style={{ 
+                                      background: elem.esCorrecto ? '#d1fae5' : '#fee2e2',
+                                      padding: '0.5rem',
+                                      borderRadius: '6px',
+                                      borderLeft: `3px solid ${elem.esCorrecto ? '#10b981' : '#ef4444'}`,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.5rem'
+                                    }}>
+                                      <span style={{ background: elem.esCorrecto ? '#10b981' : '#ef4444', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
+                                        Zona {elem.zonaNombre}
+                                      </span>
+                                      <span style={{ color: elem.esCorrecto ? '#059669' : '#dc2626' }}>{elem.altText}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.95rem', color: '#6b7280', fontStyle: 'italic' }}>(sin respuesta)</div>
+                              )}
                             </div>
                             <div style={{ 
                               padding: '0.75rem', 
@@ -6555,18 +6587,29 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Zona correcta:
                               </div>
-                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
-                                {zonaCorrectaDrag || 'No definida'}
-                              </div>
-                              {alternativaCorrectaDrag && (
-                                <div 
-                                  style={{ 
-                                    fontSize: '0.85rem',
-                                    color: '#6b7280',
-                                    marginTop: '0.5rem'
-                                  }}
-                                  dangerouslySetInnerHTML={{ __html: `Elemento: ${alternativaCorrectaDrag.descripcion}` }}
-                                />
+                              {pregunta.alternativas && pregunta.alternativas.filter(alt => alt.zona_drop).length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {pregunta.alternativas
+                                    .filter(alt => alt.zona_drop)
+                                    .map((alt, idx) => (
+                                      <div key={idx} style={{ 
+                                        background: '#dbeafe',
+                                        padding: '0.5rem',
+                                        borderRadius: '6px',
+                                        borderLeft: '3px solid #3b82f6',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem'
+                                      }}>
+                                        <span style={{ background: '#3b82f6', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
+                                          Zona {alt.zona_drop}
+                                        </span>
+                                        <span style={{ color: '#059669' }}>{alt.descripcion?.replace(/<[^>]*>/g, '') || '?'}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.95rem', color: '#6b7280' }}>No definida</div>
                               )}
                             </div>
                           </div>
