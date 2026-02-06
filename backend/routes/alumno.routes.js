@@ -2465,10 +2465,8 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
     // Limitar puntaje mínimo a 0
     if (puntosObtenidos < 0) puntosObtenidos = 0;
 
-    // Calcular nota (0-20) y redondear a entero
-    const nota = puntosTotal > 0 
-      ? Math.round(Math.max(0, Math.min(20, (puntosObtenidos / puntosTotal) * 20)))
-      : 0;
+    // Redondear puntos obtenidos a entero (el puntaje es la suma directa de puntos, no una conversión a escala 0-20)
+    const puntajeFinal = Math.round(puntosObtenidos);
 
     // Actualizar prueba con puntaje, correctas e incorrectas
     await execute(
@@ -2478,17 +2476,16 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
            correctas = ?,
            incorrectas = ?
        WHERE id = ?`,
-      [nota, correctas, incorrectas, prueba[0].id]
+      [puntajeFinal, correctas, incorrectas, prueba[0].id]
     );
-
-    // La nota ya se guardó en la tabla asignaturas_examenes_pruebas con el UPDATE anterior
-    // No es necesario guardar en otra tabla porque asignaturas_examenes_notas no existe
 
     res.json({
       success: true,
-      nota: nota.toFixed(2),
+      puntaje: puntajeFinal,
       puntos_obtenidos: puntosObtenidos,
-      puntos_total: puntosTotal
+      puntos_total: puntosTotal,
+      correctas: correctas,
+      incorrectas: incorrectas
     });
   } catch (error) {
     console.error('Error finalizando examen:', error);
