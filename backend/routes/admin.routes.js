@@ -94,9 +94,19 @@ router.get('/configuracion', async (req, res) => {
 
     const colegioData = colegio[0];
 
+    // Debug: verificar qué se está recibiendo de la base de datos
+    console.log('=== DEBUG rangos_letras_primaria ===');
+    console.log('Tipo de dato:', typeof colegioData.rangos_letras_primaria);
+    console.log('Valor raw:', colegioData.rangos_letras_primaria);
+    console.log('Es null?', colegioData.rangos_letras_primaria === null);
+    console.log('Es undefined?', colegioData.rangos_letras_primaria === undefined);
+    console.log('Es string vacío?', colegioData.rangos_letras_primaria === '');
+    console.log('Longitud:', colegioData.rangos_letras_primaria ? colegioData.rangos_letras_primaria.length : 'N/A');
+
     // Obtener configuraciones adicionales de la tabla config
     const configs = await query(
-      `SELECT clave, valor FROM config`
+      `SELECT clave, valor FROM config WHERE colegio_id = ?`,
+      [colegio_id]
     );
 
     const configMap = {};
@@ -116,17 +126,34 @@ router.get('/configuracion', async (req, res) => {
     }
 
     let rangosLetrasPrimaria = [];
-    if (colegioData.rangos_letras_primaria && colegioData.rangos_letras_primaria !== '') {
+    if (colegioData.rangos_letras_primaria && colegioData.rangos_letras_primaria !== '' && colegioData.rangos_letras_primaria !== null) {
       try {
-        const deserialized = phpSerialize.unserialize(Buffer.from(colegioData.rangos_letras_primaria, 'base64'));
-        rangosLetrasPrimaria = Array.isArray(deserialized) ? deserialized : [];
-        console.log('rangos_letras_primaria deserializado:', rangosLetrasPrimaria);
+        // El campo es TEXT en MySQL, así que viene como string
+        // El sistema PHP guarda como base64_encode(serialize(...))
+        // Necesitamos decodificar base64 y luego deserializar
+        const base64String = colegioData.rangos_letras_primaria;
+        const buffer = Buffer.from(base64String, 'base64');
+        const deserialized = phpSerialize.unserialize(buffer);
+        
+        if (Array.isArray(deserialized)) {
+          rangosLetrasPrimaria = deserialized;
+          console.log('✅ rangos_letras_primaria deserializado exitosamente');
+          console.log('Cantidad de rangos:', rangosLetrasPrimaria.length);
+          console.log('Datos:', JSON.stringify(rangosLetrasPrimaria, null, 2));
+        } else {
+          console.warn('⚠️ rangos_letras_primaria deserializado pero no es un array:', typeof deserialized);
+          rangosLetrasPrimaria = [];
+        }
       } catch (e) {
-        console.warn('Error deserializando rangos_letras_primaria:', e);
-        console.log('Valor original:', colegioData.rangos_letras_primaria);
+        console.error('❌ Error deserializando rangos_letras_primaria:', e.message);
+        console.error('Stack:', e.stack);
+        console.log('Valor original (primeros 200 chars):', 
+          typeof colegioData.rangos_letras_primaria === 'string' 
+            ? colegioData.rangos_letras_primaria.substring(0, 200) 
+            : 'No es string');
       }
     } else {
-      console.log('rangos_letras_primaria está vacío o null');
+      console.log('⚠️ rangos_letras_primaria está vacío, null o undefined');
     }
 
     let rangosCiclosNotas = {};
