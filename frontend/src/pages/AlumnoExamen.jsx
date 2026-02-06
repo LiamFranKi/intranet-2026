@@ -797,7 +797,15 @@ function RenderizarPregunta({ pregunta, respuesta, onRespuestaChange }) {
   };
 
   try {
-    switch (pregunta.tipo) {
+    // Normalizar el tipo de pregunta (trim y uppercase para evitar problemas de formato)
+    const tipoPregunta = pregunta.tipo ? String(pregunta.tipo).trim().toUpperCase() : '';
+    
+    // Debug: solo en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Renderizando pregunta tipo:', tipoPregunta, 'ID:', pregunta.id);
+    }
+    
+    switch (tipoPregunta) {
       case 'ALTERNATIVAS':
         return <PreguntaAlternativas {...props} />;
       case 'COMPLETAR':
@@ -813,6 +821,7 @@ function RenderizarPregunta({ pregunta, respuesta, onRespuestaChange }) {
       case 'ARRASTRAR_Y_SOLTAR':
         return <PreguntaArrastrarSoltar {...props} />;
       default:
+        console.warn('⚠️ Tipo de pregunta no reconocido:', tipoPregunta, 'Original:', pregunta.tipo);
         return (
           <div className="pregunta-container">
             <div 
@@ -820,7 +829,10 @@ function RenderizarPregunta({ pregunta, respuesta, onRespuestaChange }) {
               dangerouslySetInnerHTML={{ __html: pregunta.descripcion || 'Sin descripción' }}
             />
             <p style={{ color: '#ef4444', marginTop: '1rem' }}>
-              ⚠️ Tipo de pregunta no soportado: {pregunta.tipo}
+              ⚠️ Tipo de pregunta no soportado: {pregunta.tipo || 'Desconocido'}
+            </p>
+            <p style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>
+              Tipo normalizado: {tipoPregunta || 'N/A'}
             </p>
           </div>
         );
