@@ -156,7 +156,7 @@ function AdminConfiguracion() {
       console.log('rangos_letras_primaria procesado:', rangosLetrasPrimaria);
 
       // Separar data para evitar que sobrescriba rangos_letras_primaria e inicio_pensiones
-      const { rangos_letras_primaria: _, inicio_pensiones: __, ...restData } = data;
+      const { rangos_letras_primaria: _, inicio_pensiones: __, inicio_notas: ___, ...restData } = data;
       
       // Asegurar que inicio_notas también sea un número
       let inicioNotas = 1;
@@ -169,19 +169,33 @@ function AdminConfiguracion() {
       }
       console.log('inicio_notas cargado:', data.inicio_notas, '-> parseado:', inicioNotas);
       
-      setConfig({
+      // Verificar que restData no contenga inicio_pensiones
+      if (restData.inicio_pensiones !== undefined) {
+        console.warn('⚠️ restData todavía contiene inicio_pensiones:', restData.inicio_pensiones);
+        delete restData.inicio_pensiones;
+      }
+      if (restData.inicio_notas !== undefined) {
+        console.warn('⚠️ restData todavía contiene inicio_notas:', restData.inicio_notas);
+        delete restData.inicio_notas;
+      }
+      
+      // Crear el objeto de configuración con los valores parseados explícitamente
+      const configData = {
         ...restData,
-        inicio_pensiones: inicioPensiones,
-        inicio_notas: inicioNotas,
+        inicio_pensiones: Number(inicioPensiones), // Forzar a número
+        inicio_notas: Number(inicioNotas), // Forzar a número
         rangos_letras_primaria: rangosLetrasPrimaria,
         login_fondo: null,
         libreta_logo: null,
         libreta_fondo: null,
         boleta_logo: null
-      });
+      };
       
       // Debug final: verificar qué se estableció en el estado
-      console.log('Estado config establecido - inicio_pensiones:', inicioPensiones, 'tipo:', typeof inicioPensiones);
+      console.log('Estado config establecido - inicio_pensiones:', configData.inicio_pensiones, 'tipo:', typeof configData.inicio_pensiones);
+      console.log('Estado config establecido - inicio_notas:', configData.inicio_notas, 'tipo:', typeof configData.inicio_notas);
+      
+      setConfig(configData);
 
       // Cargar previews de archivos existentes
       setArchivosPreview({
