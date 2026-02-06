@@ -35,10 +35,14 @@ function AlumnoExamen() {
   // Función para cargar examen
   const cargarExamen = useCallback(async () => {
     try {
+      console.log('📝 Iniciando carga de examen:', examenId);
       setLoading(true);
+      setError(null);
       
       // Iniciar examen (crear prueba)
+      console.log('📝 Llamando a /alumno/examenes/' + examenId + '/iniciar');
       const iniciarRes = await api.post(`/alumno/examenes/${examenId}/iniciar`);
+      console.log('📝 Respuesta iniciar:', iniciarRes.data);
       const fechaInicio = new Date(iniciarRes.data.fecha_inicio);
       tiempoInicio.current = fechaInicio;
       
@@ -47,11 +51,14 @@ function AlumnoExamen() {
       }
       
       // Cargar datos del examen y preguntas
+      console.log('📝 Cargando datos del examen y preguntas');
       const [examenRes, preguntasRes] = await Promise.all([
         api.get(`/alumno/examenes/${examenId}`),
         api.get(`/alumno/examenes/${examenId}/preguntas`)
       ]);
 
+      console.log('📝 Examen cargado:', examenRes.data);
+      console.log('📝 Preguntas cargadas:', preguntasRes.data.preguntas?.length || 0);
       setExamen(examenRes.data);
       
       // Cargar respuestas guardadas si existen
@@ -82,6 +89,7 @@ function AlumnoExamen() {
       }
       
       setPreguntas(preguntasOrdenadas);
+      console.log('📝 Preguntas ordenadas:', preguntasOrdenadas.length);
       setLoading(false);
       setError(null);
     } catch (error) {
@@ -129,7 +137,8 @@ function AlumnoExamen() {
     });
   }, [examenId]);
 
-  useExamProtection(handleViolation, false);
+  // Protección de examen (siempre activa, pero solo funciona cuando hay examen)
+  useExamProtection(examen && !loading ? handleViolation : null, false);
 
   // Función para finalizar examen automáticamente
   const finalizarExamenAutomatico = useCallback(async () => {
