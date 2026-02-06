@@ -192,8 +192,16 @@ function AdminConfiguracion() {
       };
       
       // Debug final: verificar qué se estableció en el estado
+      console.log('=== DEBUG FINAL FRONTEND ===');
       console.log('Estado config establecido - inicio_pensiones:', configData.inicio_pensiones, 'tipo:', typeof configData.inicio_pensiones);
       console.log('Estado config establecido - inicio_notas:', configData.inicio_notas, 'tipo:', typeof configData.inicio_notas);
+      console.log('Mes correspondiente a inicio_pensiones:', MESES.find(m => m.value === configData.inicio_pensiones)?.label || 'NO ENCONTRADO');
+      console.log('Todos los valores de data.inicio_pensiones:', {
+        raw: data.inicio_pensiones,
+        tipo: typeof data.inicio_pensiones,
+        parseado: inicioPensiones,
+        final: configData.inicio_pensiones
+      });
       
       setConfig(configData);
 
