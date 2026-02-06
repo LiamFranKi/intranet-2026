@@ -5,10 +5,27 @@ function PreguntaEmparejar({ pregunta, respuesta, onRespuestaChange }) {
   const emparejamientos = respuesta || {};
   const [seleccionadoIzquierda, setSeleccionadoIzquierda] = useState(null);
 
-  // Dividir en dos columnas (izquierda y derecha)
-  const mitad = Math.ceil(alternativas.length / 2);
-  const columnaIzquierda = alternativas.slice(0, mitad);
-  const columnaDerecha = alternativas.slice(mitad);
+  // Dividir en dos columnas usando par_id
+  // Columna izquierda: alternativas que tienen par_id (son el origen, se emparejan con otras)
+  // Columna derecha: alternativas que son referenciadas por par_id de otras (son el destino)
+  const columnaIzquierda = alternativas.filter(alt => {
+    // Si tiene par_id, va a la izquierda (es el origen)
+    return alt.par_id !== null && alt.par_id !== undefined;
+  });
+  
+  // Columna derecha: todas las alternativas que son referenciadas por par_id
+  const idsDerecha = new Set(columnaIzquierda.map(alt => alt.par_id).filter(Boolean));
+  const columnaDerecha = alternativas.filter(alt => idsDerecha.has(alt.id));
+  
+  // Si no hay par_id definido, usar división por mitad como fallback
+  let colIzqFinal = columnaIzquierda;
+  let colDerFinal = columnaDerecha;
+  
+  if (colIzqFinal.length === 0 || colDerFinal.length === 0) {
+    const mitad = Math.ceil(alternativas.length / 2);
+    colIzqFinal = alternativas.slice(0, mitad);
+    colDerFinal = alternativas.slice(mitad);
+  }
 
   const handleEmparejar = (izquierdaId, derechaId) => {
     const nuevoEmparejamiento = { ...emparejamientos };
@@ -45,7 +62,7 @@ function PreguntaEmparejar({ pregunta, respuesta, onRespuestaChange }) {
       <div className="emparejar-container">
         <div className="emparejar-columna izquierda">
           <h3>Columna A</h3>
-          {columnaIzquierda.map((alt) => (
+          {colIzqFinal.map((alt) => (
             <div
               key={alt.id}
               className={`emparejar-item izquierda ${seleccionadoIzquierda === alt.id ? 'seleccionado' : ''} ${emparejamientos[alt.id] ? 'emparejado' : ''}`}
@@ -60,7 +77,7 @@ function PreguntaEmparejar({ pregunta, respuesta, onRespuestaChange }) {
 
         <div className="emparejar-columna derecha">
           <h3>Columna B</h3>
-          {columnaDerecha.map((alt) => (
+          {colDerFinal.map((alt) => (
             <div
               key={alt.id}
               className={`emparejar-item derecha ${Object.values(emparejamientos).includes(alt.id) ? 'emparejado' : ''} ${seleccionadoIzquierda && emparejamientos[seleccionadoIzquierda] === alt.id ? 'conectado' : ''}`}

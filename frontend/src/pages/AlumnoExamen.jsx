@@ -608,11 +608,17 @@ function AlumnoExamen() {
                                     !(Array.isArray(respuesta) && respuesta.length === 0);
               const respuestaFormateada = formatearRespuesta(p, respuesta);
               
+              // Para COMPLETAR, limpiar la descripción removiendo los placeholders [[...]]
+              let descripcionLimpia = p.descripcion || 'Pregunta sin título';
+              if (p.tipo === 'COMPLETAR') {
+                descripcionLimpia = descripcionLimpia.replace(/\[\[.*?\]\]/g, '[...]');
+              }
+              
               return (
                 <div key={p.id} className={`resumen-pregunta-item ${tieneRespuesta ? 'respondida' : 'sin-responder'}`}>
                   <div className="resumen-pregunta-numero">{index + 1}</div>
                   <div className="resumen-pregunta-info">
-                    <div className="resumen-pregunta-titulo" dangerouslySetInnerHTML={{ __html: p.descripcion || 'Pregunta sin título' }} />
+                    <div className="resumen-pregunta-titulo" dangerouslySetInnerHTML={{ __html: descripcionLimpia }} />
                     <div className="resumen-pregunta-respuesta">
                       <strong>Tu respuesta:</strong>{' '}
                       {respuestaFormateada ? (
