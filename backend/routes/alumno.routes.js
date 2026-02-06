@@ -2196,13 +2196,12 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
 
     const respuestas = prueba[0].respuestas ? JSON.parse(prueba[0].respuestas) : {};
     
-    // Obtener todas las preguntas con alternativas
-    // Nota: La tabla alternativas NO tiene columna puntos, solo correcta (SI/NO)
+    // Obtener todas las preguntas con alternativas completas
     const preguntas = await query(
       `SELECT p.*, 
               (SELECT GROUP_CONCAT(
-                CONCAT(a.id, ':', a.correcta)
-                ORDER BY a.id SEPARATOR '|'
+                CONCAT(a.id, ':', a.descripcion, ':', a.correcta, ':', COALESCE(a.orden_posicion, ''), ':', COALESCE(a.par_id, ''), ':', COALESCE(a.zona_drop, ''))
+                ORDER BY a.id ASC SEPARATOR '||'
               ) FROM asignaturas_examenes_preguntas_alternativas a 
               WHERE a.pregunta_id = p.id) as alternativas_data
        FROM asignaturas_examenes_preguntas p
@@ -2214,10 +2213,12 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
     // Calificar examen
     let puntosTotal = 0;
     let puntosObtenidos = 0;
+    let correctas = 0;
+    let incorrectas = 0;
     const detalles = [];
 
     for (const pregunta of preguntas) {
-      const respuestaAlumno = respuestas[pregunta.id];
+      const respuestaAlumno = respuestas[pregunta.id.toString()] || respuestas[pregunta.id];
       let puntosPregunta = 0;
       let esCorrecta = false;
 
@@ -2226,31 +2227,175 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
         ? (examen[0].puntos_correcta || 0)
         : (pregunta.puntos || 0);
 
+      // Procesar alternativas
+      let alternativas = [];
       if (pregunta.alternativas_data) {
-        const alternativas = pregunta.alternativas_data.split('|').map(alt => {
-          const [id, correcta] = alt.split(':');
-          return { 
-            id: parseInt(id), 
-            esCorrecta: correcta === 'SI'
+        alternativas = pregunta.alternativas_data.split('||').map(alt => {
+          // Formato: id:descripcion:correcta:orden_posicion:par_id:zona_drop
+          const parts = alt.split(':');
+          return {
+            id: parseInt(parts[0]) || 0,
+            descripcion: parts[1] || '',
+            correcta: parts[2] || 'NO',
+            orden_posicion: parts[3] ? parseInt(parts[3]) : null,
+            par_id: parts[4] ? parseInt(parts[4]) : null,
+            zona_drop: parts[5] || null
           };
         });
+      }
 
-        if (pregunta.tipo === 'ALTERNATIVAS' || pregunta.tipo === 'VERDADERO_FALSO') {
-          const alternativaCorrecta = alternativas.find(a => a.esCorrecta);
-          if (respuestaAlumno === alternativaCorrecta?.id) {
-            esCorrecta = true;
-            // Los puntos vienen de la pregunta o del examen según tipo_puntaje
-            puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
-              ? (examen[0].puntos_correcta || 0)
-              : (pregunta.puntos || 0);
-          } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno) {
-            puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+      // Evaluar según el tipo de pregunta
+      switch (pregunta.tipo) {
+        case 'ALTERNATIVAS':
+        case 'VERDADERO_FALSO':
+          if (respuestaAlumno) {
+            const alternativaMarcada = alternativas.find(alt => alt.id === parseInt(respuestaAlumno));
+            if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
+              esCorrecta = true;
+              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
+                ? (examen[0].puntos_correcta || 0)
+                : (pregunta.puntos || 0);
+            } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno) {
+              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+            }
           }
-        }
-        // Aquí se pueden agregar más lógicas para otros tipos de preguntas
+          break;
+
+        case 'COMPLETAR':
+          // La respuesta es un objeto con índices: {0: "lima", 1: "otro"}
+          if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+            // Obtener todas las respuestas del alumno
+            const respuestasCompletar = Object.values(respuestaAlumno).map(r => String(r).trim().toLowerCase()).filter(r => r);
+            // Obtener todas las respuestas correctas de las alternativas
+            const respuestasCorrectas = alternativas
+              .filter(alt => alt.correcta === 'SI')
+              .map(alt => alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase());
+            
+            // Comparar cada respuesta del alumno con las correctas
+            let todasCorrectas = true;
+            if (respuestasCompletar.length === respuestasCorrectas.length) {
+              for (let i = 0; i < respuestasCompletar.length; i++) {
+                if (!respuestasCorrectas.includes(respuestasCompletar[i])) {
+                  todasCorrectas = false;
+                  break;
+                }
+              }
+            } else {
+              todasCorrectas = false;
+            }
+            
+            if (todasCorrectas) {
+              esCorrecta = true;
+              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
+                ? (examen[0].puntos_correcta || 0)
+                : (pregunta.puntos || 0);
+            } else if (examen[0].penalizar_incorrecta === 'SI' && respuestasCompletar.length > 0) {
+              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+            }
+          }
+          break;
+
+        case 'ORDENAR':
+          // La respuesta es un array de IDs: [id1, id2, id3, ...]
+          if (respuestaAlumno && Array.isArray(respuestaAlumno)) {
+            // Verificar que el orden sea correcto comparando con orden_posicion
+            let ordenCorrecto = true;
+            for (let i = 0; i < respuestaAlumno.length; i++) {
+              const altId = parseInt(respuestaAlumno[i]);
+              const alternativa = alternativas.find(alt => alt.id === altId);
+              if (!alternativa || alternativa.orden_posicion !== (i + 1)) {
+                ordenCorrecto = false;
+                break;
+              }
+            }
+            
+            if (ordenCorrecto) {
+              esCorrecta = true;
+              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
+                ? (examen[0].puntos_correcta || 0)
+                : (pregunta.puntos || 0);
+            } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno.length > 0) {
+              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+            }
+          }
+          break;
+
+        case 'EMPAREJAR':
+          // La respuesta es un objeto con pares: {altId1: parId1, altId2: parId2}
+          if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+            let todosParesCorrectos = true;
+            for (const [altId, parId] of Object.entries(respuestaAlumno)) {
+              const alternativa = alternativas.find(alt => alt.id === parseInt(altId));
+              const parEsperado = alternativa?.par_id;
+              if (!parEsperado || parseInt(parId) !== parEsperado) {
+                todosParesCorrectos = false;
+                break;
+              }
+            }
+            
+            if (todosParesCorrectos) {
+              esCorrecta = true;
+              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
+                ? (examen[0].puntos_correcta || 0)
+                : (pregunta.puntos || 0);
+            } else if (examen[0].penalizar_incorrecta === 'SI' && Object.keys(respuestaAlumno).length > 0) {
+              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+            }
+          }
+          break;
+
+        case 'ARRASTRAR_Y_SOLTAR':
+          // La respuesta es un objeto con zonas: {altId: zona}
+          if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+            let todasZonasCorrectas = true;
+            for (const [altId, zona] of Object.entries(respuestaAlumno)) {
+              const alternativa = alternativas.find(alt => alt.id === parseInt(altId));
+              const zonaEsperada = alternativa?.zona_drop?.trim().toLowerCase();
+              const zonaAlumno = String(zona).trim().toLowerCase();
+              if (!zonaEsperada || zonaAlumno !== zonaEsperada) {
+                todasZonasCorrectas = false;
+                break;
+              }
+            }
+            
+            if (todasZonasCorrectas) {
+              esCorrecta = true;
+              puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
+                ? (examen[0].puntos_correcta || 0)
+                : (pregunta.puntos || 0);
+            } else if (examen[0].penalizar_incorrecta === 'SI' && Object.keys(respuestaAlumno).length > 0) {
+              puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+            }
+          }
+          break;
+
+        case 'RESPUESTA_CORTA':
+          // La respuesta es un string
+          if (respuestaAlumno) {
+            const respuestaNormalizada = String(respuestaAlumno).trim().toLowerCase();
+            const alternativaCorrecta = alternativas.find(alt => alt.correcta === 'SI');
+            if (alternativaCorrecta) {
+              const correctaNormalizada = alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
+              if (respuestaNormalizada === correctaNormalizada) {
+                esCorrecta = true;
+                puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
+                  ? (examen[0].puntos_correcta || 0)
+                  : (pregunta.puntos || 0);
+              } else if (examen[0].penalizar_incorrecta === 'SI') {
+                puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
+              }
+            }
+          }
+          break;
       }
 
       puntosObtenidos += puntosPregunta;
+      
+      if (esCorrecta) {
+        correctas++;
+      } else if (respuestaAlumno !== null && respuestaAlumno !== undefined && respuestaAlumno !== '') {
+        incorrectas++;
+      }
 
       detalles.push({
         pregunta_id: pregunta.id,
@@ -2259,18 +2404,23 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       });
     }
 
+    // Limitar puntaje mínimo a 0
+    if (puntosObtenidos < 0) puntosObtenidos = 0;
+
     // Calcular nota (0-20)
     const nota = puntosTotal > 0 
       ? Math.max(0, Math.min(20, (puntosObtenidos / puntosTotal) * 20))
       : 0;
 
-    // Actualizar prueba (la tabla usa puntaje, no nota, y no tiene fecha_fin ni detalles)
+    // Actualizar prueba con puntaje, correctas e incorrectas
     await execute(
       `UPDATE asignaturas_examenes_pruebas
        SET estado = 'FINALIZADA',
-           puntaje = ?
+           puntaje = ?,
+           correctas = ?,
+           incorrectas = ?
        WHERE id = ?`,
-      [nota, prueba[0].id]
+      [nota, correctas, incorrectas, prueba[0].id]
     );
 
     // La nota ya se guardó en la tabla asignaturas_examenes_pruebas con el UPDATE anterior

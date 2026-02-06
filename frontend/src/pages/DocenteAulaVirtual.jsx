@@ -6236,11 +6236,47 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                         );
 
                       case 'COMPLETAR':
-                        // Para COMPLETAR, la respuesta es un string que se compara con la descripción de la alternativa correcta
-                        const respuestaCompletarAlumno = typeof respuestaAlumno === 'string' ? respuestaAlumno : String(respuestaAlumno || '');
-                        const alternativaCorrectaCompletar = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                        const respuestaCorrectaCompletar = alternativaCorrectaCompletar ? alternativaCorrectaCompletar.descripcion.replace(/<[^>]*>/g, '').trim() : '';
-                        const esCorrectaCompletar = respuestaCompletarAlumno.toLowerCase().trim() === respuestaCorrectaCompletar.toLowerCase().trim();
+                        // Para COMPLETAR, la respuesta es un objeto con índices: {0: "lima", 1: "otro"}
+                        let respuestaCompletarAlumno = '';
+                        let respuestaCompletarTexto = '';
+                        if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+                          // Construir el texto completo con las respuestas del alumno
+                          const texto = pregunta.descripcion || '';
+                          let textoCompleto = texto;
+                          const respuestasObj = respuestaAlumno;
+                          Object.keys(respuestasObj).forEach(index => {
+                            const valor = respuestasObj[index] || '___';
+                            textoCompleto = textoCompleto.replace(/\[\[.*?\]\]/, `[${valor}]`);
+                          });
+                          respuestaCompletarTexto = textoCompleto;
+                          respuestaCompletarAlumno = Object.values(respuestasObj).join(', ');
+                        } else {
+                          respuestaCompletarAlumno = '(sin respuesta)';
+                        }
+                        
+                        // Obtener respuestas correctas
+                        const respuestasCorrectasCompletar = pregunta.alternativas
+                          ?.filter(alt => alt.correcta === 'SI')
+                          .map(alt => alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase()) || [];
+                        
+                        // Construir texto con respuestas correctas
+                        let textoCorrectoCompletar = pregunta.descripcion || '';
+                        if (respuestasCorrectasCompletar.length > 0) {
+                          respuestasCorrectasCompletar.forEach(respCorrecta => {
+                            textoCorrectoCompletar = textoCorrectoCompletar.replace(/\[\[.*?\]\]/, `[${respCorrecta}]`);
+                          });
+                        }
+                        
+                        // Verificar si es correcta (comparar cada respuesta)
+                        let esCorrectaCompletar = false;
+                        if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+                          const respuestasAlumnoArray = Object.values(respuestaAlumno).map(r => String(r).trim().toLowerCase()).filter(r => r);
+                          if (respuestasAlumnoArray.length === respuestasCorrectasCompletar.length) {
+                            esCorrectaCompletar = respuestasAlumnoArray.every((resp, idx) => 
+                              respuestasCorrectasCompletar.includes(resp)
+                            );
+                          }
+                        }
                         
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -6253,9 +6289,10 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Respuesta del alumno:
                               </div>
-                              <div style={{ fontSize: '0.95rem', color: '#1f2937' }}>
-                                {respuestaCompletarAlumno || '(sin respuesta)'}
-                              </div>
+                              <div 
+                                style={{ fontSize: '0.95rem', color: '#1f2937' }}
+                                dangerouslySetInnerHTML={{ __html: respuestaCompletarTexto || respuestaCompletarAlumno }}
+                              />
                             </div>
                             <div style={{ 
                               padding: '0.75rem', 
@@ -6267,11 +6304,8 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                                 Respuesta correcta:
                               </div>
                               <div 
-                                style={{ 
-                                  fontSize: '0.95rem',
-                                  color: '#1f2937'
-                                }}
-                                dangerouslySetInnerHTML={{ __html: alternativaCorrectaCompletar ? alternativaCorrectaCompletar.descripcion : 'No definida' }}
+                                style={{ fontSize: '0.95rem', color: '#1f2937' }}
+                                dangerouslySetInnerHTML={{ __html: textoCorrectoCompletar }}
                               />
                             </div>
                           </div>
@@ -6320,12 +6354,38 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                         );
 
                       case 'ORDENAR':
-                        // Para ORDENAR, la respuesta es el orden_posicion de la alternativa seleccionada
-                        const alternativaOrdenAlumno = pregunta.alternativas && pregunta.alternativas.find(alt => alt.orden_posicion === respuestaAlumnoNum);
-                        const alternativaCorrectaOrden = pregunta.alternativas && pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                        const ordenCorrecto = alternativaCorrectaOrden ? alternativaCorrectaOrden.orden_posicion : null;
-                        const ordenAlumno = alternativaOrdenAlumno ? alternativaOrdenAlumno.orden_posicion : null;
-                        const ordenEsCorrecto = ordenAlumno === ordenCorrecto;
+                        // Para ORDENAR, la respuesta es un array de IDs: [id1, id2, id3, ...]
+                        let ordenAlumnoArray = [];
+                        let ordenAlumnoTexto = '';
+                        if (respuestaAlumno && Array.isArray(respuestaAlumno)) {
+                          ordenAlumnoArray = respuestaAlumno.map(id => parseInt(id));
+                          // Obtener las alternativas en el orden del alumno
+                          const alternativasOrdenadas = ordenAlumnoArray
+                            .map(id => pregunta.alternativas?.find(alt => alt.id === id))
+                            .filter(Boolean);
+                          ordenAlumnoTexto = alternativasOrdenadas
+                            .map((alt, idx) => `${idx + 1}. ${alt.descripcion}`)
+                            .join('\n');
+                        } else {
+                          ordenAlumnoTexto = '(sin respuesta)';
+                        }
+                        
+                        // Obtener orden correcto (ordenar por orden_posicion)
+                        const alternativasCorrectas = pregunta.alternativas
+                          ?.filter(alt => alt.orden_posicion !== null && alt.orden_posicion !== undefined)
+                          .sort((a, b) => (a.orden_posicion || 0) - (b.orden_posicion || 0)) || [];
+                        const ordenCorrectoTexto = alternativasCorrectas
+                          .map((alt, idx) => `${idx + 1}. ${alt.descripcion}`)
+                          .join('\n');
+                        
+                        // Verificar si el orden es correcto
+                        let ordenEsCorrecto = false;
+                        if (ordenAlumnoArray.length === alternativasCorrectas.length) {
+                          ordenEsCorrecto = ordenAlumnoArray.every((altId, idx) => {
+                            const alt = alternativasCorrectas[idx];
+                            return alt && alt.id === altId;
+                          });
+                        }
                         
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -6338,19 +6398,14 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Orden seleccionado por el alumno:
                               </div>
-                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
-                                Posición: {ordenAlumno !== null ? ordenAlumno : '(sin respuesta)'}
-                              </div>
-                              {alternativaOrdenAlumno && (
-                                <div 
-                                  style={{ 
-                                    fontSize: '0.9rem',
-                                    color: '#6b7280',
-                                    marginTop: '0.5rem'
-                                  }}
-                                  dangerouslySetInnerHTML={{ __html: alternativaOrdenAlumno.descripcion }}
-                                />
-                              )}
+                              <div 
+                                style={{ 
+                                  fontSize: '0.95rem', 
+                                  color: '#1f2937',
+                                  whiteSpace: 'pre-line'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: ordenAlumnoTexto.replace(/\n/g, '<br>') }}
+                              />
                             </div>
                             <div style={{ 
                               padding: '0.75rem', 
@@ -6361,19 +6416,14 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                               <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
                                 Orden correcto:
                               </div>
-                              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>
-                                Posición: {ordenCorrecto !== null ? ordenCorrecto : 'No definida'}
-                              </div>
-                              {alternativaCorrectaOrden && (
-                                <div 
-                                  style={{ 
-                                    fontSize: '0.9rem',
-                                    color: '#6b7280',
-                                    marginTop: '0.5rem'
-                                  }}
-                                  dangerouslySetInnerHTML={{ __html: alternativaCorrectaOrden.descripcion }}
-                                />
-                              )}
+                              <div 
+                                style={{ 
+                                  fontSize: '0.95rem', 
+                                  color: '#1f2937',
+                                  whiteSpace: 'pre-line'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: ordenCorrectoTexto.replace(/\n/g, '<br>') || 'No definido' }}
+                              />
                             </div>
                           </div>
                         );
