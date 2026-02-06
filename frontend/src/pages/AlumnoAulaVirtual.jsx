@@ -368,6 +368,30 @@ function AlumnoAulaVirtual() {
     );
   };
 
+  const handleIniciarExamen = async (examen) => {
+    const result = await Swal.fire({
+      title: '¿Iniciar examen?',
+      html: `
+        <div style="text-align: left; margin-top: 1rem;">
+          <p><strong>${examen.titulo}</strong></p>
+          <p style="margin-top: 0.5rem;">Tiempo: ${examen.tiempo > 0 ? `${examen.tiempo} minutos` : 'Ilimitado'}</p>
+          <p>Preguntas: ${examen.total_preguntas || 0}</p>
+          <p style="margin-top: 0.75rem; color: #dc2626;"><strong>⚠️ Una vez iniciado, no podrás salir del examen.</strong></p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, iniciar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      navigate(`/alumno/examen/${examen.id}`);
+    }
+  };
+
   const renderExamenesContent = () => {
     const examenesFiltrados = examenes.filter(examen => examen.ciclo === bimestreGlobal);
 
@@ -381,19 +405,78 @@ function AlumnoAulaVirtual() {
           <table className="tabla-aula-virtual">
             <thead>
               <tr>
-                <th>TÍTULO</th>
-                <th>TIPO</th>
+                <th>EXAMEN</th>
+                <th>TIEMPO (MIN.)</th>
+                <th>PREGUNTAS</th>
                 <th>ESTADO</th>
+                <th className="text-center">ACCIÓN</th>
               </tr>
             </thead>
             <tbody>
-              {examenesFiltrados.map((examen) => (
-                <tr key={examen.id}>
-                  <td>{examen.titulo}</td>
-                  <td className="text-center">{examen.tipo || '-'}</td>
-                  <td className="text-center">{examen.estado || '-'}</td>
-                </tr>
-              ))}
+              {examenesFiltrados.map((examen) => {
+                const puedeIniciar = examen.estado === 'ACTIVO' && !examen.tiene_nota;
+                return (
+                  <tr key={examen.id}>
+                    <td>{examen.titulo}</td>
+                    <td className="text-center">{examen.tiempo > 0 ? examen.tiempo : 'ILIMITADO'}</td>
+                    <td className="text-center">{examen.total_preguntas || 0}</td>
+                    <td className="text-center">
+                      <span 
+                        style={{
+                          padding: '0.375rem 0.75rem',
+                          borderRadius: '20px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: examen.estado === 'ACTIVO' 
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
+                            : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+                          color: 'white',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {examen.estado || 'INACTIVO'}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      {puedeIniciar ? (
+                        <button
+                          onClick={() => handleIniciarExamen(examen)}
+                          style={{
+                            padding: '0.5rem 1.25rem',
+                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.05)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)';
+                          }}
+                        >
+                          ▶️ Iniciar Prueba
+                        </button>
+                      ) : examen.tiene_nota ? (
+                        <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                          ✓ Ya realizado
+                        </span>
+                      ) : (
+                        <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
+                          No disponible
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (

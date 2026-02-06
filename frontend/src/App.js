@@ -25,6 +25,7 @@ import AlumnoComunicados from './pages/AlumnoComunicados';
 import AlumnoActividades from './pages/AlumnoActividades';
 import AlumnoMensajes from './pages/AlumnoMensajes';
 import AlumnoCursos from './pages/AlumnoCursos';
+import AlumnoExamen from './pages/AlumnoExamen';
 import './App.css';
 
 // Configurar React Router para evitar warnings
@@ -205,6 +206,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <AlumnoAulaVirtual />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alumno/examen/:examenId"
+        element={
+          <PrivateRoute>
+            <AlumnoExamen />
           </PrivateRoute>
         }
       />
