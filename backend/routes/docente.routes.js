@@ -6800,7 +6800,14 @@ router.get('/aula-virtual/examenes', async (req, res) => {
           if (typeof examen.fecha_desde === 'string') {
             fechaDesdeStr = examen.fecha_desde;
           } else if (examen.fecha_desde instanceof Date) {
-            fechaDesdeStr = examen.fecha_desde.toISOString().split('T')[0];
+            // Verificar que la fecha sea válida antes de convertir
+            if (!isNaN(examen.fecha_desde.getTime())) {
+              fechaDesdeStr = examen.fecha_desde.toISOString().split('T')[0];
+            } else {
+              // Si la fecha es inválida, intentar usar el string directamente o saltar
+              console.warn(`Fecha inválida para examen ${examen.id}:`, examen.fecha_desde);
+              fechaDesdeStr = '';
+            }
           } else {
             // Intentar convertir a string
             fechaDesdeStr = String(examen.fecha_desde);
@@ -6838,7 +6845,14 @@ router.get('/aula-virtual/examenes', async (req, res) => {
             if (typeof examen.fecha_hasta === 'string') {
               fechaHastaStr = examen.fecha_hasta;
             } else if (examen.fecha_hasta instanceof Date) {
-              fechaHastaStr = examen.fecha_hasta.toISOString().split('T')[0];
+              // Verificar que la fecha sea válida antes de convertir
+              if (!isNaN(examen.fecha_hasta.getTime())) {
+                fechaHastaStr = examen.fecha_hasta.toISOString().split('T')[0];
+              } else {
+                // Si la fecha es inválida, intentar usar el string directamente o saltar
+                console.warn(`Fecha hasta inválida para examen ${examen.id}:`, examen.fecha_hasta);
+                fechaHastaStr = '';
+              }
             } else {
               fechaHastaStr = String(examen.fecha_hasta);
             }
