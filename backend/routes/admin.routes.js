@@ -104,9 +104,9 @@ router.get('/configuracion', async (req, res) => {
     console.log('Longitud:', colegioData.rangos_letras_primaria ? colegioData.rangos_letras_primaria.length : 'N/A');
 
     // Obtener configuraciones adicionales de la tabla config
+    // Nota: La tabla config no tiene colegio_id, es global
     const configs = await query(
-      `SELECT clave, valor FROM config WHERE colegio_id = ?`,
-      [colegio_id]
+      `SELECT clave, valor FROM config`
     );
 
     const configMap = {};
