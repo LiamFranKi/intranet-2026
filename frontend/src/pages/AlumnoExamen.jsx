@@ -576,10 +576,12 @@ function AlumnoExamen() {
       
       case 'ARRASTRAR_Y_SOLTAR':
         if (typeof respuesta === 'object' && Object.keys(respuesta).length > 0) {
-          const zonas = Object.entries(respuesta).map(([altId, zona]) => {
+          const zonas = Object.entries(respuesta).map(([altId, valor]) => {
             const alt = pregunta.alternativas?.find(a => a.id === parseInt(altId));
             const altText = alt?.descripcion?.replace(/<[^>]*>/g, '') || '?';
-            return `<div style="background: #fef3c7; padding: 0.5rem; margin: 0.25rem 0; border-radius: 6px; border-left: 3px solid #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span style="background: #fbbf24; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.85rem;">Zona ${zona}</span><span style="color: #92400e;">${altText}</span></div>`;
+            // La respuesta puede ser { zona: "Zona1" } o directamente "Zona1"
+            const zonaNombre = typeof valor === 'object' && valor.zona ? valor.zona : valor;
+            return `<div style="background: #fef3c7; padding: 0.5rem; margin: 0.25rem 0; border-radius: 6px; border-left: 3px solid #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span style="background: #fbbf24; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.85rem;">Zona ${zonaNombre}</span><span style="color: #92400e;">${altText}</span></div>`;
           }).join('');
           return { html: zonas, tipo: 'html' };
         }
