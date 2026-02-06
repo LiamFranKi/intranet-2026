@@ -512,44 +512,77 @@ function AlumnoExamen() {
 
   // Función para formatear la respuesta según el tipo de pregunta
   const formatearRespuesta = (pregunta, respuesta) => {
-    if (!respuesta || respuesta === '') return 'Sin responder';
+    // Verificar si hay respuesta (incluyendo strings no vacíos y arrays/objetos)
+    const tieneRespuesta = respuesta !== null && 
+                          respuesta !== undefined && 
+                          respuesta !== '' &&
+                          !(typeof respuesta === 'object' && Object.keys(respuesta).length === 0) &&
+                          !(Array.isArray(respuesta) && respuesta.length === 0);
+    
+    if (!tieneRespuesta) return null; // Retornar null para indicar que no hay respuesta
     
     switch (pregunta.tipo) {
       case 'ALTERNATIVAS':
-      case 'VERDADERO_FALSO':
         const alternativa = pregunta.alternativas?.find(alt => alt.id === respuesta);
-        return alternativa ? alternativa.descripcion : 'Sin responder';
+        return alternativa ? { html: alternativa.descripcion, tipo: 'html' } : null;
+      
+      case 'VERDADERO_FALSO':
+        // La respuesta es 'VERDADERO' o 'FALSO' (strings), no un ID de alternativa
+        if (respuesta === 'VERDADERO') {
+          return { html: '✅ Verdadero', tipo: 'text' };
+        } else if (respuesta === 'FALSO') {
+          return { html: '❌ Falso', tipo: 'text' };
+        }
+        return null;
       
       case 'ORDENAR':
-        if (Array.isArray(respuesta)) {
+        if (Array.isArray(respuesta) && respuesta.length > 0) {
           const ordenadas = respuesta
             .map(id => pregunta.alternativas?.find(alt => alt.id === id))
             .filter(Boolean);
-          return ordenadas.map((alt, idx) => `${idx + 1}. ${alt.descripcion}`).join(' | ');
+          const texto = ordenadas.map((alt, idx) => `${idx + 1}. ${alt.descripcion}`).join(' | ');
+          return { html: texto, tipo: 'html' };
         }
-        return 'Sin responder';
+        return null;
       
       case 'COMPLETAR':
-        if (typeof respuesta === 'object') {
+        if (typeof respuesta === 'object' && Object.keys(respuesta).length > 0) {
           const texto = pregunta.descripcion || '';
           let textoCompleto = texto;
           Object.keys(respuesta).forEach(index => {
             const valor = respuesta[index] || '___';
             textoCompleto = textoCompleto.replace(/\[\[.*?\]\]/, `[${valor}]`);
           });
-          return textoCompleto;
+          return { html: textoCompleto, tipo: 'html' };
         }
-        return 'Sin responder';
+        return null;
       
       case 'RESPUESTA_CORTA':
-        return respuesta || 'Sin responder';
+        return respuesta ? { html: respuesta, tipo: 'text' } : null;
       
       case 'EMPAREJAR':
+        if (typeof respuesta === 'object' && Object.keys(respuesta).length > 0) {
+          const pares = Object.entries(respuesta).map(([idOrigen, idDestino]) => {
+            const origen = pregunta.alternativas?.find(alt => alt.id === parseInt(idOrigen));
+            const destino = pregunta.alternativas?.find(alt => alt.id === parseInt(idDestino));
+            return `${origen?.descripcion || '?'} → ${destino?.descripcion || '?'}`;
+          }).join('<br>');
+          return { html: pares, tipo: 'html' };
+        }
+        return null;
+      
       case 'ARRASTRAR_Y_SOLTAR':
-        return typeof respuesta === 'object' ? JSON.stringify(respuesta) : respuesta || 'Sin responder';
+        if (typeof respuesta === 'object' && Object.keys(respuesta).length > 0) {
+          const zonas = Object.entries(respuesta).map(([altId, zona]) => {
+            const alt = pregunta.alternativas?.find(a => a.id === parseInt(altId));
+            return `Zona ${zona}: ${alt?.descripcion || '?'}`;
+          }).join('<br>');
+          return { html: zonas, tipo: 'html' };
+        }
+        return null;
       
       default:
-        return respuesta || 'Sin responder';
+        return respuesta ? { html: String(respuesta), tipo: 'text' } : null;
     }
   };
 
