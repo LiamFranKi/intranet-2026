@@ -149,6 +149,23 @@ function AlumnoExamen() {
   // Protección de examen - el hook debe estar siempre presente
   useExamProtection(safeHandleViolation, false);
 
+  // Función para guardar respuestas (debe estar antes de las funciones que la usan)
+  const guardarRespuestas = useCallback(async () => {
+    if (guardando) return;
+    
+    setGuardando(true);
+    try {
+      // Usar respuestasRef para obtener el valor más actualizado
+      await api.post(`/alumno/examenes/${examenId}/respuestas`, {
+        respuestas: respuestasRef.current
+      });
+    } catch (error) {
+      console.error('Error guardando respuestas:', error);
+    } finally {
+      setGuardando(false);
+    }
+  }, [examenId, guardando]);
+
   // Función para finalizar examen automáticamente
   const finalizarExamenAutomatico = useCallback(async () => {
     await guardarRespuestas();
@@ -167,7 +184,7 @@ function AlumnoExamen() {
     } catch (error) {
       console.error('Error finalizando examen:', error);
     }
-  }, [examenId, navigate]);
+  }, [examenId, navigate, guardarRespuestas]);
 
   // Temporizador
   useEffect(() => {
@@ -248,23 +265,6 @@ function AlumnoExamen() {
       }
     };
   }, [guardarRespuestas]);
-
-
-  const guardarRespuestas = useCallback(async () => {
-    if (guardando) return;
-    
-    setGuardando(true);
-    try {
-      // Usar respuestasRef para obtener el valor más actualizado
-      await api.post(`/alumno/examenes/${examenId}/respuestas`, {
-        respuestas: respuestasRef.current
-      });
-    } catch (error) {
-      console.error('Error guardando respuestas:', error);
-    } finally {
-      setGuardando(false);
-    }
-  }, [examenId, guardando]);
 
   const handleFinalizarExamen = async () => {
     // Mostrar resumen primero
