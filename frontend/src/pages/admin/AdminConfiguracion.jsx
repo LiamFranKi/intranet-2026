@@ -471,6 +471,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* INFORMACIÓN RECAUDO */}
@@ -518,6 +519,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* DATOS UGEL/DRE */}
@@ -555,6 +557,7 @@ function AdminConfiguracion() {
               >
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
+            </div>
             </div>
           </div>
 
@@ -606,6 +609,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* AÑO ACADÉMICO */}
@@ -643,6 +647,7 @@ function AdminConfiguracion() {
               >
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
+            </div>
             </div>
           </div>
 
@@ -731,6 +736,7 @@ function AdminConfiguracion() {
               >
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
+            </div>
             </div>
           </div>
 
