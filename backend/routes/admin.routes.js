@@ -237,21 +237,48 @@ router.put('/configuracion', uploadConfig.fields([
 
     // Serializar rangos_mensajes
     if (body.rangos_mensajes) {
-      const serialized = phpSerialize.serialize(body.rangos_mensajes);
+      let rangosMensajesData = body.rangos_mensajes;
+      // Si viene como string JSON, parsearlo primero
+      if (typeof rangosMensajesData === 'string') {
+        try {
+          rangosMensajesData = JSON.parse(rangosMensajesData);
+        } catch (e) {
+          console.warn('Error parseando rangos_mensajes del body:', e);
+        }
+      }
+      const serialized = phpSerialize.serialize(rangosMensajesData);
       updateFields.push('rangos_mensajes = ?');
       updateValues.push(Buffer.from(serialized).toString('base64'));
     }
 
     // Serializar rangos_letras_primaria
     if (body.rangos_letras_primaria) {
-      const serialized = phpSerialize.serialize(body.rangos_letras_primaria);
+      let rangosLetrasData = body.rangos_letras_primaria;
+      // Si viene como string JSON, parsearlo primero
+      if (typeof rangosLetrasData === 'string') {
+        try {
+          rangosLetrasData = JSON.parse(rangosLetrasData);
+        } catch (e) {
+          console.warn('Error parseando rangos_letras_primaria del body:', e);
+        }
+      }
+      const serialized = phpSerialize.serialize(rangosLetrasData);
       updateFields.push('rangos_letras_primaria = ?');
       updateValues.push(Buffer.from(serialized).toString('base64'));
     }
 
     // Serializar pensiones_vencimiento
     if (body.pensiones_vencimiento) {
-      const serialized = phpSerialize.serialize(body.pensiones_vencimiento);
+      let pensionesData = body.pensiones_vencimiento;
+      // Si viene como string JSON, parsearlo primero
+      if (typeof pensionesData === 'string') {
+        try {
+          pensionesData = JSON.parse(pensionesData);
+        } catch (e) {
+          console.warn('Error parseando pensiones_vencimiento del body:', e);
+        }
+      }
+      const serialized = phpSerialize.serialize(pensionesData);
       updateFields.push('pensiones_vencimiento = ?');
       updateValues.push(Buffer.from(serialized).toString('base64'));
     }

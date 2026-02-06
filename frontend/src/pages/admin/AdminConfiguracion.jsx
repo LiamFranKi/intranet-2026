@@ -122,8 +122,29 @@ function AdminConfiguracion() {
       const response = await api.get('/admin/configuracion');
       const data = response.data;
       
+      // Asegurar que inicio_pensiones sea un número
+      const inicioPensiones = data.inicio_pensiones ? parseInt(data.inicio_pensiones) : 1;
+      
+      // Asegurar que rangos_letras_primaria sea un array
+      let rangosLetrasPrimaria = [];
+      if (data.rangos_letras_primaria) {
+        if (Array.isArray(data.rangos_letras_primaria)) {
+          rangosLetrasPrimaria = data.rangos_letras_primaria;
+        } else if (typeof data.rangos_letras_primaria === 'string') {
+          try {
+            const parsed = JSON.parse(data.rangos_letras_primaria);
+            rangosLetrasPrimaria = Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            console.warn('Error parseando rangos_letras_primaria:', e);
+            rangosLetrasPrimaria = [];
+          }
+        }
+      }
+
       setConfig({
         ...data,
+        inicio_pensiones: inicioPensiones,
+        rangos_letras_primaria: rangosLetrasPrimaria,
         login_fondo: null,
         libreta_logo: null,
         libreta_fondo: null,
@@ -261,40 +282,34 @@ function AdminConfiguracion() {
     generarRangosCiclosNotas();
   }, [generarRangosCiclosNotas]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  // Función genérica para guardar una sección específica
+  const handleSaveSection = async (fields, sectionName) => {
     try {
       setSaving(true);
       
       const formData = new FormData();
       
-      // Agregar todos los campos de texto
-      Object.keys(config).forEach(key => {
-        if (key !== 'login_fondo' && key !== 'libreta_logo' && key !== 'libreta_fondo' && key !== 'boleta_logo') {
-          if (typeof config[key] === 'object' && !Array.isArray(config[key])) {
-            formData.append(key, JSON.stringify(config[key]));
-          } else if (Array.isArray(config[key])) {
-            formData.append(key, JSON.stringify(config[key]));
-          } else {
-            formData.append(key, config[key]);
+      // Agregar solo los campos especificados
+      fields.forEach(field => {
+        if (field === 'login_fondo' || field === 'libreta_logo' || field === 'libreta_fondo' || field === 'boleta_logo') {
+          // Archivos - solo agregar si hay un archivo nuevo seleccionado
+          if (config[field] && config[field] instanceof File) {
+            formData.append(field, config[field]);
+          }
+        } else {
+          // Campos de texto/objetos
+          const value = config[field];
+          if (value !== undefined && value !== null) {
+            if (typeof value === 'object' && !Array.isArray(value)) {
+              formData.append(field, JSON.stringify(value));
+            } else if (Array.isArray(value)) {
+              formData.append(field, JSON.stringify(value));
+            } else {
+              formData.append(field, value);
+            }
           }
         }
       });
-      
-      // Agregar archivos
-      if (config.login_fondo) {
-        formData.append('login_fondo', config.login_fondo);
-      }
-      if (config.libreta_logo) {
-        formData.append('libreta_logo', config.libreta_logo);
-      }
-      if (config.libreta_fondo) {
-        formData.append('libreta_fondo', config.libreta_fondo);
-      }
-      if (config.boleta_logo) {
-        formData.append('boleta_logo', config.boleta_logo);
-      }
 
       await api.put('/admin/configuracion', formData, {
         headers: {
@@ -305,7 +320,7 @@ function AdminConfiguracion() {
       Swal.fire({
         icon: 'success',
         title: 'Éxito',
-        text: 'Configuración guardada correctamente'
+        text: `${sectionName} guardado correctamente`
       });
 
       // Recargar configuración para obtener URLs actualizadas
@@ -315,7 +330,7 @@ function AdminConfiguracion() {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'No se pudo guardar la configuración'
+        text: error.response?.data?.error || `No se pudo guardar ${sectionName}`
       });
     } finally {
       setSaving(false);
@@ -375,7 +390,7 @@ function AdminConfiguracion() {
           <p>Administra la configuración general del sistema</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="config-form">
+        <div className="config-form">
           {/* INFORMACIÓN GENERAL */}
           <div className="config-card config-card-1">
             <div className="config-section">
@@ -443,6 +458,18 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'titulo_intranet', 'codigo_modular', 'resolucion_creacion', 
+                  'texto_intranet', 'titulo_formulario_matricula', 'login_fondo'
+                ], 'Información General')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -479,6 +506,17 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'recaudo_nro_sucursal', 'recaudo_nro_cuenta', 'recaudo_razon_social'
+                ], 'Información Recaudo')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -506,6 +544,17 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'ugel_codigo', 'ugel_nombre'
+                ], 'Datos UGEL/DRE')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -545,6 +594,17 @@ function AdminConfiguracion() {
                 <small>Solo archivos .jpg</small>
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'libreta_logo', 'libreta_fondo'
+                ], 'Diseño Libreta de Notas')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -572,6 +632,17 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'anio_activo', 'anio_matriculas'
+                ], 'Año Académico')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -648,6 +719,18 @@ function AdminConfiguracion() {
                 </select>
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'ciclo_pensiones', 'inicio_pensiones', 'total_pensiones',
+                  'moneda', 'monto_adicional', 'bloquear_deudores'
+                ], 'Pagos')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -732,6 +815,17 @@ function AdminConfiguracion() {
                 </table>
               </div>
             )}
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'ciclo_notas', 'inicio_notas', 'total_notas', 'rangos_ciclos_notas'
+                ], 'Notas')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -784,6 +878,17 @@ function AdminConfiguracion() {
                 ))}
               </tbody>
             </table>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'rangos_mensajes'
+                ], 'Apreciaciones')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -836,6 +941,17 @@ function AdminConfiguracion() {
                 ))}
               </tbody>
             </table>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'rangos_letras_primaria'
+                ], 'Conversión a Notas a Letras - Primaria')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -884,6 +1000,17 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'pensiones_vencimiento', 'dias_tolerancia'
+                ], 'Vencimiento de Pensiones')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -913,24 +1040,17 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
-            </div>
-          </div>
-
-          {/* EXÁMENES BLOQUES */}
-          <div className="config-card config-card-12">
-            <div className="config-section">
-              <h2 className="section-title">🔒 EXÁMENES BLOQUES</h2>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Contraseña</label>
-                <input
-                  type="text"
-                  name="clave_bloques"
-                  value={config.clave_bloques}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'comision_tarjeta_debito', 'comision_tarjeta_credito'
+                ], 'Comisión Pago con Tarjeta')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -991,6 +1111,17 @@ function AdminConfiguracion() {
                 <small>Solo archivos .jpg</small>
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'ruc', 'razon_social', 'direccion', 'link_consulta_facturas', 'boleta_logo'
+                ], 'Facturación')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -1038,6 +1169,18 @@ function AdminConfiguracion() {
                 </select>
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'email_notificacion_matricula_online', 'remitente_emails',
+                  'email_matricula_apoderado', 'enable_enrollment_form'
+                ], 'Matrícula Online')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -1058,6 +1201,17 @@ function AdminConfiguracion() {
                 </select>
               </div>
             </div>
+            <div className="card-actions">
+              <button 
+                type="button" 
+                onClick={() => handleSaveSection([
+                  'show_birthday_window'
+                ], 'Otros')}
+                disabled={saving}
+                className="btn-submit-card"
+              >
+                {saving ? 'Guardando...' : '💾 Guardar'}
+              </button>
             </div>
           </div>
 
@@ -1079,16 +1233,7 @@ function AdminConfiguracion() {
             </div>
           </div>
 
-          {/* BOTONES DE ACCIÓN */}
-          <div className="form-actions">
-            <button type="button" onClick={() => window.history.back()} className="btn-cancel">
-              Cancelar
-            </button>
-            <button type="submit" disabled={saving} className="btn-submit">
-              {saving ? 'Guardando...' : 'Guardar Datos'}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </DashboardLayout>
   );
