@@ -3,6 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useExamProtection } from '../hooks/useExamProtection';
 import api from '../services/api';
 import Swal from 'sweetalert2';
+import PreguntaAlternativas from '../components/examen/PreguntaAlternativas';
+import PreguntaCompletar from '../components/examen/PreguntaCompletar';
+import PreguntaVerdaderoFalso from '../components/examen/PreguntaVerdaderoFalso';
+import PreguntaRespuestaCorta from '../components/examen/PreguntaRespuestaCorta';
+import PreguntaOrdenar from '../components/examen/PreguntaOrdenar';
+import PreguntaEmparejar from '../components/examen/PreguntaEmparejar';
+import PreguntaArrastrarSoltar from '../components/examen/PreguntaArrastrarSoltar';
 import './AlumnoExamen.css';
 
 function AlumnoExamen() {
@@ -21,6 +28,8 @@ function AlumnoExamen() {
   const intervaloGuardado = useRef(null);
   const intervaloReloj = useRef(null);
   const tiempoInicio = useRef(null);
+  const tiempoExpiracion = useRef(null);
+  const respuestasRef = useRef({});
 
   // Cargar examen y preguntas
   useEffect(() => {
@@ -30,6 +39,63 @@ function AlumnoExamen() {
       if (intervaloReloj.current) clearInterval(intervaloReloj.current);
     };
   }, [examenId]);
+
+  // Función para cargar examen
+  const cargarExamen = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Iniciar examen (crear prueba)
+      const iniciarRes = await api.post(`/alumno/examenes/${examenId}/iniciar`);
+      const fechaInicio = new Date(iniciarRes.data.fecha_inicio);
+      tiempoInicio.current = fechaInicio;
+      
+      if (iniciarRes.data.fecha_expiracion) {
+        tiempoExpiracion.current = new Date(iniciarRes.data.fecha_expiracion);
+      }
+      
+      // Cargar datos del examen y preguntas
+      const [examenRes, preguntasRes] = await Promise.all([
+        api.get(`/alumno/examenes/${examenId}`),
+        api.get(`/alumno/examenes/${examenId}/preguntas`)
+      ]);
+
+      setExamen(examenRes.data);
+      
+      // Cargar respuestas guardadas si existen
+      if (iniciarRes.data.respuestas) {
+        setRespuestas(iniciarRes.data.respuestas);
+        respuestasRef.current = iniciarRes.data.respuestas;
+      }
+      
+      // Ordenar preguntas según configuración del examen
+      let preguntasOrdenadas = preguntasRes.data.preguntas || [];
+      if (examenRes.data.orden_preguntas === 'ALEATORIO') {
+        preguntasOrdenadas = [...preguntasOrdenadas].sort(() => Math.random() - 0.5);
+      }
+      
+      setPreguntas(preguntasOrdenadas);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error cargando examen:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.response?.data?.error || 'No se pudo cargar el examen'
+      }).then(() => {
+        navigate(-1);
+      });
+    }
+  }, [examenId, navigate]);
+
+  // Cargar examen al montar
+  useEffect(() => {
+    cargarExamen();
+    return () => {
+      if (intervaloGuardado.current) clearInterval(intervaloGuardado.current);
+      if (intervaloReloj.current) clearInterval(intervaloReloj.current);
+    };
+  }, [cargarExamen]);
 
   // Protección de examen
   const handleViolation = useCallback((violation) => {
@@ -52,123 +118,8 @@ function AlumnoExamen() {
 
   useExamProtection(handleViolation, false);
 
-  // Temporizador
-  useEffect(() => {
-    if (examen && examen.tiempo > 0 && tiempoInicio.current) {
-      const calcularTiempoRestante = () => {
-        const ahora = new Date();
-        const diferencia = Math.max(0, Math.floor((tiempoInicio.current + (examen.tiempo * 60 * 1000) - ahora) / 1000));
-        setTiempoRestante(diferencia);
-        
-        if (diferencia <= 0) {
-          finalizarExamenAutomatico();
-        }
-      };
-
-      calcularTiempoRestante();
-      
-      intervaloReloj.current = setInterval(calcularTiempoRestante, 1000);
-
-      // Alerta cuando quedan 5 minutos
-      if (tiempoRestante <= 300 && tiempoRestante > 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: '⏰ 5 minutos restantes',
-          text: 'Te quedan 5 minutos para finalizar el examen',
-          timer: 5000,
-          showConfirmButton: false
-        });
-      }
-
-      // Alerta cuando quedan 1 minuto
-      if (tiempoRestante <= 60 && tiempoRestante > 0) {
-        Swal.fire({
-          icon: 'error',
-          title: '⏰ 1 minuto restante',
-          text: '¡Apúrate! Te queda 1 minuto',
-          timer: 3000,
-          showConfirmButton: false
-        });
-      }
-
-      return () => {
-        if (intervaloReloj.current) {
-          clearInterval(intervaloReloj.current);
-        }
-      };
-    }
-  }, [examen, tiempoRestante]);
-
-  // Guardado automático cada 30 segundos
-  useEffect(() => {
-    intervaloGuardado.current = setInterval(() => {
-      guardarRespuestas();
-    }, 30000); // Cada 30 segundos
-
-    return () => {
-      if (intervaloGuardado.current) {
-        clearInterval(intervaloGuardado.current);
-      }
-    };
-  }, [respuestas]);
-
-  const cargarExamen = async () => {
-    try {
-      setLoading(true);
-      
-      // Iniciar examen (crear prueba)
-      const iniciarRes = await api.post(`/alumno/examenes/${examenId}/iniciar`);
-      tiempoInicio.current = new Date(iniciarRes.data.fecha_inicio);
-      
-      // Cargar datos del examen y preguntas
-      const [examenRes, preguntasRes] = await Promise.all([
-        api.get(`/alumno/examenes/${examenId}`),
-        api.get(`/alumno/examenes/${examenId}/preguntas`)
-      ]);
-
-      setExamen(examenRes.data);
-      
-      // Cargar respuestas guardadas si existen
-      if (iniciarRes.data.respuestas) {
-        setRespuestas(iniciarRes.data.respuestas);
-      }
-      
-      // Ordenar preguntas según configuración del examen
-      let preguntasOrdenadas = preguntasRes.data.preguntas || [];
-      if (examenRes.data.orden_preguntas === 'ALEATORIO') {
-        preguntasOrdenadas = [...preguntasOrdenadas].sort(() => Math.random() - 0.5);
-      }
-      
-      setPreguntas(preguntasOrdenadas);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error cargando examen:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.response?.data?.error || 'No se pudo cargar el examen'
-      }).then(() => {
-        navigate(-1);
-      });
-    }
-  };
-
-  const guardarRespuestas = async () => {
-    if (guardando) return;
-    
-    setGuardando(true);
-    try {
-      await api.post(`/alumno/examenes/${examenId}/respuestas`, {
-        respuestas: respuestas
-      });
-    } catch (error) {
-      console.error('Error guardando respuestas:', error);
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  const finalizarExamenAutomatico = async () => {
+  // Función para finalizar examen automáticamente
+  const finalizarExamenAutomatico = useCallback(async () => {
     await guardarRespuestas();
     
     try {
@@ -185,7 +136,104 @@ function AlumnoExamen() {
     } catch (error) {
       console.error('Error finalizando examen:', error);
     }
-  };
+  }, [examenId, navigate]);
+
+  // Temporizador
+  useEffect(() => {
+    if (examen && examen.tiempo > 0 && (tiempoInicio.current || tiempoExpiracion.current)) {
+      const calcularTiempoRestante = () => {
+        const ahora = new Date();
+        let tiempoLimite;
+        
+        if (tiempoExpiracion.current) {
+          tiempoLimite = tiempoExpiracion.current;
+        } else if (tiempoInicio.current) {
+          tiempoLimite = new Date(tiempoInicio.current.getTime() + (examen.tiempo * 60 * 1000));
+        } else {
+          return;
+        }
+        
+        const diferencia = Math.max(0, Math.floor((tiempoLimite - ahora) / 1000));
+        setTiempoRestante(diferencia);
+        
+        if (diferencia <= 0) {
+          finalizarExamenAutomatico();
+        }
+      };
+
+      calcularTiempoRestante();
+      
+      intervaloReloj.current = setInterval(calcularTiempoRestante, 1000);
+
+      return () => {
+        if (intervaloReloj.current) {
+          clearInterval(intervaloReloj.current);
+        }
+      };
+    }
+  }, [examen, finalizarExamenAutomatico]);
+
+  // Alertas de tiempo
+  useEffect(() => {
+    if (examen && examen.tiempo > 0 && tiempoRestante > 0) {
+      // Alerta cuando quedan 5 minutos
+      if (tiempoRestante === 300) {
+        Swal.fire({
+          icon: 'warning',
+          title: '⏰ 5 minutos restantes',
+          text: 'Te quedan 5 minutos para finalizar el examen',
+          timer: 5000,
+          showConfirmButton: false
+        });
+      }
+
+      // Alerta cuando quedan 1 minuto
+      if (tiempoRestante === 60) {
+        Swal.fire({
+          icon: 'error',
+          title: '⏰ 1 minuto restante',
+          text: '¡Apúrate! Te queda 1 minuto',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      }
+    }
+  }, [tiempoRestante, examen]);
+
+  // Actualizar ref cuando cambian las respuestas
+  useEffect(() => {
+    respuestasRef.current = respuestas;
+  }, [respuestas]);
+
+  // Guardado automático cada 30 segundos
+  useEffect(() => {
+    intervaloGuardado.current = setInterval(() => {
+      guardarRespuestas();
+    }, 30000); // Cada 30 segundos
+
+    return () => {
+      if (intervaloGuardado.current) {
+        clearInterval(intervaloGuardado.current);
+      }
+    };
+  }, [guardarRespuestas]);
+
+
+  const guardarRespuestas = useCallback(async () => {
+    if (guardando) return;
+    
+    setGuardando(true);
+    try {
+      // Usar respuestasRef para obtener el valor más actualizado
+      await api.post(`/alumno/examenes/${examenId}/respuestas`, {
+        respuestas: respuestasRef.current
+      });
+    } catch (error) {
+      console.error('Error guardando respuestas:', error);
+    } finally {
+      setGuardando(false);
+    }
+  }, [examenId, guardando]);
 
   const handleFinalizarExamen = async () => {
     // Mostrar resumen primero
@@ -206,7 +254,26 @@ function AlumnoExamen() {
 
     if (result.isConfirmed) {
       await guardarRespuestas();
-      await finalizarExamenAutomatico();
+      
+      try {
+        const response = await api.post(`/alumno/examenes/${examenId}/finalizar`);
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Examen finalizado',
+          text: `Tu nota: ${response.data.nota}`,
+          confirmButtonText: 'Ver resultados'
+        }).then(() => {
+          navigate(`/alumno/examen/${examenId}/resultados`);
+        });
+      } catch (error) {
+        console.error('Error finalizando examen:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo finalizar el examen'
+        });
+      }
     }
   };
 
@@ -352,12 +419,19 @@ function AlumnoExamen() {
               pregunta={pregunta}
               respuesta={respuestas[pregunta.id] || null}
               onRespuestaChange={(respuesta) => {
-                setRespuestas(prev => ({
-                  ...prev,
-                  [pregunta.id]: respuesta
-                }));
-                // Guardar inmediatamente al cambiar respuesta
-                setTimeout(() => guardarRespuestas(), 500);
+                setRespuestas(prev => {
+                  const nuevasRespuestas = {
+                    ...prev,
+                    [pregunta.id]: respuesta
+                  };
+                  // Actualizar ref también
+                  respuestasRef.current = nuevasRespuestas;
+                  // Guardar inmediatamente al cambiar respuesta
+                  setTimeout(() => {
+                    guardarRespuestas();
+                  }, 500);
+                  return nuevasRespuestas;
+                });
               }}
             />
           )}
@@ -394,18 +468,40 @@ function AlumnoExamen() {
 
 // Componente para renderizar preguntas según su tipo
 function RenderizarPregunta({ pregunta, respuesta, onRespuestaChange }) {
-  // Por ahora, implementación básica - se expandirá después
-  return (
-    <div className="pregunta-container">
-      <div 
-        className="pregunta-descripcion"
-        dangerouslySetInnerHTML={{ __html: pregunta.descripcion }}
-      />
-      <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-        Tipo: {pregunta.tipo} - Implementación pendiente
-      </p>
-    </div>
-  );
+  const props = {
+    pregunta,
+    respuesta,
+    onRespuestaChange
+  };
+
+  switch (pregunta.tipo) {
+    case 'ALTERNATIVAS':
+      return <PreguntaAlternativas {...props} />;
+    case 'COMPLETAR':
+      return <PreguntaCompletar {...props} />;
+    case 'VERDADERO_FALSO':
+      return <PreguntaVerdaderoFalso {...props} />;
+    case 'RESPUESTA_CORTA':
+      return <PreguntaRespuestaCorta {...props} />;
+    case 'ORDENAR':
+      return <PreguntaOrdenar {...props} />;
+    case 'EMPAREJAR':
+      return <PreguntaEmparejar {...props} />;
+    case 'ARRASTRAR_Y_SOLTAR':
+      return <PreguntaArrastrarSoltar {...props} />;
+    default:
+      return (
+        <div className="pregunta-container">
+          <div 
+            className="pregunta-descripcion"
+            dangerouslySetInnerHTML={{ __html: pregunta.descripcion }}
+          />
+          <p style={{ color: '#ef4444', marginTop: '1rem' }}>
+            ⚠️ Tipo de pregunta no soportado: {pregunta.tipo}
+          </p>
+        </div>
+      );
+  }
 }
 
 export default AlumnoExamen;

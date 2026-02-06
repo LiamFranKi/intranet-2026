@@ -1830,16 +1830,451 @@ router.get('/aula-virtual/examenes', async (req, res) => {
 
     // Obtener exámenes de la asignatura filtrados por ciclo
     const examenes = await query(
-      `SELECT * FROM asignaturas_examenes
-       WHERE asignatura_id = ? AND ciclo = ?
-       ORDER BY id ASC`,
+      `SELECT ae.*,
+              (SELECT COUNT(*) FROM asignaturas_examenes_preguntas WHERE examen_id = ae.id) as total_preguntas
+       FROM asignaturas_examenes ae
+       WHERE ae.asignatura_id = ? AND ae.ciclo = ?
+       ORDER BY ae.id ASC`,
       [asignatura_id, cicloFiltro]
     );
 
-    res.json({ examenes: examenes || [] });
+    // Obtener matrícula del alumno
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    // Para cada examen, verificar si el alumno ya tiene nota
+    const examenesConInfo = await Promise.all(examenes.map(async (examen) => {
+      let tiene_nota = false;
+      let intentos_usados = 0;
+      
+      if (matricula.length > 0) {
+        // Verificar si tiene nota
+        const notaData = await query(
+          `SELECT nota FROM asignaturas_examenes_notas
+           WHERE examen_id = ? AND matricula_id = ? AND nota IS NOT NULL`,
+          [examen.id, matricula[0].matricula_id]
+        );
+        
+        tiene_nota = notaData.length > 0 && notaData[0].nota !== null;
+        
+        // Contar intentos usados
+        const intentosData = await query(
+          `SELECT COUNT(*) as total FROM asignaturas_examenes_pruebas
+           WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA'`,
+          [examen.id, alumno_id]
+        );
+        
+        intentos_usados = intentosData[0]?.total || 0;
+      }
+      
+      return {
+        ...examen,
+        tiene_nota,
+        intentos_usados,
+        puede_iniciar: examen.estado === 'ACTIVO' && !tiene_nota && (examen.intentos === 0 || intentos_usados < examen.intentos)
+      };
+    }));
+
+    res.json({ examenes: examenesConInfo || [] });
   } catch (error) {
     console.error('Error obteniendo exámenes:', error);
     res.status(500).json({ error: 'Error al obtener exámenes' });
+  }
+});
+
+/**
+ * GET /api/alumno/examenes/:examenId
+ * Obtener detalles de un examen
+ */
+router.get('/examenes/:examenId', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar acceso al examen
+    const examen = await query(
+      `SELECT ae.*, a.id as asignatura_id, g.id as grupo_id
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN matriculas m ON m.grupo_id = g.id
+       WHERE ae.id = ? AND m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [examenId, alumno_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin acceso' });
+    }
+
+    res.json(examen[0]);
+  } catch (error) {
+    console.error('Error obteniendo examen:', error);
+    res.status(500).json({ error: 'Error al obtener examen' });
+  }
+});
+
+/**
+ * POST /api/alumno/examenes/:examenId/iniciar
+ * Iniciar un examen (crear prueba)
+ */
+router.post('/examenes/:examenId/iniciar', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar acceso y que el examen esté activo
+    const examen = await query(
+      `SELECT ae.*, a.id as asignatura_id, g.id as grupo_id
+       FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN matriculas m ON m.grupo_id = g.id
+       WHERE ae.id = ? AND m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [examenId, alumno_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin acceso' });
+    }
+
+    if (examen[0].estado !== 'ACTIVO') {
+      return res.status(400).json({ error: 'El examen no está activo' });
+    }
+
+    // Verificar intentos
+    const intentosUsados = await query(
+      `SELECT COUNT(*) as total FROM asignaturas_examenes_pruebas
+       WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA'`,
+      [examenId, alumno_id]
+    );
+
+    if (examen[0].intentos > 0 && (intentosUsados[0]?.total || 0) >= examen[0].intentos) {
+      return res.status(400).json({ error: 'Has agotado todos los intentos disponibles' });
+    }
+
+    // Verificar si ya tiene una prueba en progreso
+    const pruebaEnProgreso = await query(
+      `SELECT * FROM asignaturas_examenes_pruebas
+       WHERE examen_id = ? AND alumno_id = ? AND estado = 'EN_PROGRESO'
+       ORDER BY fecha_inicio DESC
+       LIMIT 1`,
+      [examenId, alumno_id]
+    );
+
+    if (pruebaEnProgreso.length > 0) {
+      // Retornar la prueba existente
+      return res.json({
+        prueba_id: pruebaEnProgreso[0].id,
+        fecha_inicio: pruebaEnProgreso[0].fecha_inicio,
+        fecha_expiracion: pruebaEnProgreso[0].fecha_expiracion,
+        respuestas: pruebaEnProgreso[0].respuestas ? JSON.parse(pruebaEnProgreso[0].respuestas) : {}
+      });
+    }
+
+    // Crear nueva prueba
+    const fechaInicio = new Date();
+    const fechaExpiracion = examen[0].tiempo > 0 
+      ? new Date(fechaInicio.getTime() + (examen[0].tiempo * 60 * 1000))
+      : null;
+
+    const resultado = await execute(
+      `INSERT INTO asignaturas_examenes_pruebas 
+       (examen_id, alumno_id, fecha_inicio, fecha_expiracion, estado, respuestas)
+       VALUES (?, ?, ?, ?, 'EN_PROGRESO', '{}')`,
+      [examenId, alumno_id, fechaInicio, fechaExpiracion]
+    );
+
+    res.json({
+      prueba_id: resultado.insertId,
+      fecha_inicio: fechaInicio,
+      fecha_expiracion: fechaExpiracion,
+      respuestas: {}
+    });
+  } catch (error) {
+    console.error('Error iniciando examen:', error);
+    res.status(500).json({ error: 'Error al iniciar examen' });
+  }
+});
+
+/**
+ * GET /api/alumno/examenes/:examenId/preguntas
+ * Obtener preguntas del examen (con alternativas)
+ */
+router.get('/examenes/:examenId/preguntas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+
+    // Verificar acceso
+    const examen = await query(
+      `SELECT ae.* FROM asignaturas_examenes ae
+       INNER JOIN asignaturas a ON a.id = ae.asignatura_id
+       INNER JOIN grupos g ON g.id = a.grupo_id
+       INNER JOIN matriculas m ON m.grupo_id = g.id
+       WHERE ae.id = ? AND m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [examenId, alumno_id, colegio_id, anio_activo]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado o sin acceso' });
+    }
+
+    // Obtener preguntas
+    const preguntas = await query(
+      `SELECT * FROM asignaturas_examenes_preguntas
+       WHERE examen_id = ?
+       ORDER BY orden ASC`,
+      [examenId]
+    );
+
+    // Obtener alternativas para cada pregunta
+    const preguntasConAlternativas = await Promise.all(preguntas.map(async (pregunta) => {
+      const alternativas = await query(
+        `SELECT * FROM asignaturas_examenes_preguntas_alternativas
+         WHERE pregunta_id = ?
+         ORDER BY orden ASC`,
+        [pregunta.id]
+      );
+
+      return {
+        ...pregunta,
+        alternativas: alternativas || []
+      };
+    }));
+
+    res.json({ preguntas: preguntasConAlternativas });
+  } catch (error) {
+    console.error('Error obteniendo preguntas:', error);
+    res.status(500).json({ error: 'Error al obtener preguntas' });
+  }
+});
+
+/**
+ * POST /api/alumno/examenes/:examenId/respuestas
+ * Guardar respuestas del estudiante
+ */
+router.post('/examenes/:examenId/respuestas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+    const { respuestas } = req.body;
+
+    // Obtener prueba en progreso
+    const prueba = await query(
+      `SELECT * FROM asignaturas_examenes_pruebas
+       WHERE examen_id = ? AND alumno_id = ? AND estado = 'EN_PROGRESO'
+       ORDER BY fecha_inicio DESC
+       LIMIT 1`,
+      [examenId, alumno_id]
+    );
+
+    if (prueba.length === 0) {
+      return res.status(404).json({ error: 'No hay una prueba en progreso' });
+    }
+
+    // Actualizar respuestas
+    await execute(
+      `UPDATE asignaturas_examenes_pruebas
+       SET respuestas = ?
+       WHERE id = ?`,
+      [JSON.stringify(respuestas), prueba[0].id]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error guardando respuestas:', error);
+    res.status(500).json({ error: 'Error al guardar respuestas' });
+  }
+});
+
+/**
+ * POST /api/alumno/examenes/:examenId/finalizar
+ * Finalizar examen
+ */
+router.post('/examenes/:examenId/finalizar', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+
+    // Obtener prueba en progreso
+    const prueba = await query(
+      `SELECT * FROM asignaturas_examenes_pruebas
+       WHERE examen_id = ? AND alumno_id = ? AND estado = 'EN_PROGRESO'
+       ORDER BY fecha_inicio DESC
+       LIMIT 1`,
+      [examenId, alumno_id]
+    );
+
+    if (prueba.length === 0) {
+      return res.status(404).json({ error: 'No hay una prueba en progreso' });
+    }
+
+    // Obtener examen y preguntas
+    const examen = await query(
+      `SELECT * FROM asignaturas_examenes WHERE id = ?`,
+      [examenId]
+    );
+
+    if (examen.length === 0) {
+      return res.status(404).json({ error: 'Examen no encontrado' });
+    }
+
+    const respuestas = prueba[0].respuestas ? JSON.parse(prueba[0].respuestas) : {};
+    
+    // Obtener todas las preguntas con alternativas
+    const preguntas = await query(
+      `SELECT p.*, 
+              (SELECT GROUP_CONCAT(
+                CONCAT(a.id, ':', a.es_correcta, ':', COALESCE(a.puntos, 0))
+                ORDER BY a.orden SEPARATOR '|'
+              ) FROM asignaturas_examenes_preguntas_alternativas a 
+              WHERE a.pregunta_id = p.id) as alternativas_data
+       FROM asignaturas_examenes_preguntas p
+       WHERE p.examen_id = ?
+       ORDER BY p.orden ASC`,
+      [examenId]
+    );
+
+    // Calificar examen
+    let puntosTotal = 0;
+    let puntosObtenidos = 0;
+    const detalles = [];
+
+    for (const pregunta of preguntas) {
+      const respuestaAlumno = respuestas[pregunta.id];
+      let puntosPregunta = 0;
+      let esCorrecta = false;
+
+      if (pregunta.alternativas_data) {
+        const alternativas = pregunta.alternativas_data.split('|').map(alt => {
+          const [id, esCorrecta, puntos] = alt.split(':');
+          return { id: parseInt(id), esCorrecta: esCorrecta === '1', puntos: parseFloat(puntos) };
+        });
+
+        if (pregunta.tipo === 'ALTERNATIVAS' || pregunta.tipo === 'VERDADERO_FALSO') {
+          const alternativaCorrecta = alternativas.find(a => a.esCorrecta);
+          if (respuestaAlumno === alternativaCorrecta?.id) {
+            esCorrecta = true;
+            puntosPregunta = examen[0].tipo === 'GENERAL' 
+              ? (examen[0].puntos_correcta || 0)
+              : (alternativaCorrecta.puntos || 0);
+          } else if (examen[0].penalizar_incorrecta && respuestaAlumno) {
+            puntosPregunta = -(examen[0].puntos_incorrecta || 0);
+          }
+        }
+        // Aquí se pueden agregar más lógicas para otros tipos de preguntas
+      }
+
+      puntosTotal += examen[0].tipo === 'GENERAL' 
+        ? (examen[0].puntos_correcta || 0)
+        : (pregunta.puntos || 0);
+      puntosObtenidos += puntosPregunta;
+
+      detalles.push({
+        pregunta_id: pregunta.id,
+        es_correcta: esCorrecta,
+        puntos: puntosPregunta
+      });
+    }
+
+    // Calcular nota (0-20)
+    const nota = puntosTotal > 0 
+      ? Math.max(0, Math.min(20, (puntosObtenidos / puntosTotal) * 20))
+      : 0;
+
+    // Actualizar prueba
+    await execute(
+      `UPDATE asignaturas_examenes_pruebas
+       SET estado = 'FINALIZADA',
+           fecha_fin = NOW(),
+           nota = ?,
+           detalles = ?
+       WHERE id = ?`,
+      [nota, JSON.stringify(detalles), prueba[0].id]
+    );
+
+    // Guardar nota en la tabla de notas
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    if (matricula.length > 0) {
+      // Verificar si ya existe nota
+      const notaExistente = await query(
+        `SELECT id FROM asignaturas_examenes_notas
+         WHERE examen_id = ? AND matricula_id = ?`,
+        [examenId, matricula[0].matricula_id]
+      );
+
+      if (notaExistente.length > 0) {
+        await execute(
+          `UPDATE asignaturas_examenes_notas
+           SET nota = ?, fecha = NOW()
+           WHERE id = ?`,
+          [nota, notaExistente[0].id]
+        );
+      } else {
+        await execute(
+          `INSERT INTO asignaturas_examenes_notas (examen_id, matricula_id, nota, fecha)
+           VALUES (?, ?, ?, NOW())`,
+          [examenId, matricula[0].matricula_id, nota]
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      nota: nota.toFixed(2),
+      puntos_obtenidos: puntosObtenidos,
+      puntos_total: puntosTotal
+    });
+  } catch (error) {
+    console.error('Error finalizando examen:', error);
+    res.status(500).json({ error: 'Error al finalizar examen' });
+  }
+});
+
+/**
+ * POST /api/alumno/examenes/:examenId/violaciones
+ * Registrar violación (salir de ventana)
+ */
+router.post('/examenes/:examenId/violaciones', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+    const { tipo, timestamp } = req.body;
+
+    // Registrar en auditoría
+    await execute(
+      `INSERT INTO auditoria_logs 
+       (usuario_id, colegio_id, accion, modulo, entidad, detalles, fecha_hora)
+       VALUES (?, ?, 'VIOLACION_EXAMEN', 'EXAMENES', ?, ?, ?)`,
+      [usuario_id, colegio_id, examenId, JSON.stringify({ tipo, timestamp }), new Date()]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error registrando violación:', error);
+    res.status(500).json({ error: 'Error al registrar violación' });
   }
 });
 

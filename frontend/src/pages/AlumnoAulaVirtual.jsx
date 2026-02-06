@@ -414,7 +414,7 @@ function AlumnoAulaVirtual() {
             </thead>
             <tbody>
               {examenesFiltrados.map((examen) => {
-                const puedeIniciar = examen.estado === 'ACTIVO' && !examen.tiene_nota;
+                const puedeIniciar = examen.puede_iniciar || false;
                 return (
                   <tr key={examen.id}>
                     <td>{examen.titulo}</td>
