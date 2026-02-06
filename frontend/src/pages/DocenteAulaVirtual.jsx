@@ -4950,11 +4950,12 @@ function VistaPreviaPreguntaModal({ pregunta, examen, onClose }) {
             />
           </div>
 
-          {pregunta.alternativas && pregunta.alternativas.length > 0 && (
+          {/* Mostrar alternativas solo si NO es COMPLETAR ni RESPUESTA_CORTA */}
+          {pregunta.tipo !== 'COMPLETAR' && pregunta.tipo !== 'RESPUESTA_CORTA' && pregunta.alternativas && pregunta.alternativas.length > 0 && (
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', color: '#374151' }}>
                 ALTERNATIVAS:
-                        </label>
+              </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {pregunta.alternativas.map((alt, index) => (
                   <div
@@ -4983,7 +4984,7 @@ function VistaPreviaPreguntaModal({ pregunta, examen, onClose }) {
                       flexShrink: 0
                     }}>
                       {alt.correcta === 'SI' ? '✓' : index + 1}
-                      </div>
+                    </div>
                     <div 
                       style={{ flex: 1 }}
                       dangerouslySetInnerHTML={{ __html: alt.descripcion || '' }} 
@@ -5003,8 +5004,81 @@ function VistaPreviaPreguntaModal({ pregunta, examen, onClose }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Para COMPLETAR, mostrar respuestas correctas extraídas de los placeholders */}
+          {pregunta.tipo === 'COMPLETAR' && (
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', color: '#374151' }}>
+                RESPUESTAS CORRECTAS:
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {(() => {
+                  // Extraer respuestas correctas de los placeholders [[...]]
+                  const descripcionLimpia = pregunta.descripcion ? pregunta.descripcion.replace(/<[^>]*>/g, '') : '';
+                  const respuestasCorrectas = [];
+                  const regex = /\[\[([^\]]+)\]\]/g;
+                  let match;
+                  while ((match = regex.exec(descripcionLimpia)) !== null) {
+                    const respuesta = match[1].trim();
+                    if (respuesta) {
+                      respuestasCorrectas.push(respuesta);
+                    }
+                  }
+                  
+                  if (respuestasCorrectas.length === 0) {
+                    return (
+                      <div style={{ 
+                        padding: '0.875rem', 
+                        background: '#fef3c7', 
+                        border: '2px solid #fbbf24', 
+                        borderRadius: '8px',
+                        color: '#78350f',
+                        fontSize: '0.875rem'
+                      }}>
+                        ⚠️ No se encontraron respuestas correctas en los placeholders [[...]]
+                      </div>
+                    );
+                  }
+                  
+                  return respuestasCorrectas.map((respuesta, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: '0.875rem',
+                        background: '#d1fae5',
+                        border: '2px solid #10b981',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem'
+                      }}
+                    >
+                      <div style={{ 
+                        width: '24px', 
+                        height: '24px', 
+                        borderRadius: '50%', 
+                        background: '#10b981',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                        flexShrink: 0
+                      }}>
+                        ✓
+                      </div>
+                      <div style={{ flex: 1, fontWeight: '500', color: '#065f46' }}>
+                        {index + 1}. {respuesta}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
-            )}
+            </div>
+          )}
         </div>
 
         <div className="modal-tema-footer" style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end' }}>
