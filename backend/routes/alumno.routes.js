@@ -2077,7 +2077,7 @@ router.get('/examenes/:examenId/preguntas', async (req, res) => {
       const alternativas = await query(
         `SELECT * FROM asignaturas_examenes_preguntas_alternativas
          WHERE pregunta_id = ?
-         ORDER BY orden ASC`,
+         ORDER BY id ASC`,
         [pregunta.id]
       );
 
