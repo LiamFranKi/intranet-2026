@@ -89,6 +89,16 @@ function AlumnoExamen() {
         }));
       }
       
+      // Guardar los IDs de las preguntas que verá el alumno (para que el docente vea las mismas)
+      const preguntaIds = preguntasOrdenadas.map(p => p.id);
+      try {
+        await api.post(`/alumno/examenes/${examenId}/guardar-preguntas`, {
+          pregunta_ids: preguntaIds
+        });
+      } catch (error) {
+        console.warn('No se pudieron guardar las preguntas:', error);
+      }
+      
       setPreguntas(preguntasOrdenadas);
       console.log('📝 Preguntas ordenadas:', preguntasOrdenadas.length);
       setLoading(false);

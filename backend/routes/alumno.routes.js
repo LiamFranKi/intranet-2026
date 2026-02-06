@@ -2095,6 +2095,64 @@ router.get('/examenes/:examenId/preguntas', async (req, res) => {
 });
 
 /**
+ * POST /api/alumno/examenes/:examenId/guardar-preguntas
+ * Guardar los IDs de las preguntas que verá el alumno (para compatibilidad con sistema antiguo)
+ */
+router.post('/examenes/:examenId/guardar-preguntas', async (req, res) => {
+  try {
+    const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
+    const { examenId } = req.params;
+    const { pregunta_ids } = req.body;
+
+    // Obtener matrícula del alumno
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    if (matricula.length === 0) {
+      return res.status(404).json({ error: 'No se encontró la matrícula del alumno' });
+    }
+
+    // Obtener prueba en progreso
+    const prueba = await query(
+      `SELECT * FROM asignaturas_examenes_pruebas
+       WHERE examen_id = ? AND matricula_id = ? AND estado = 'ACTIVO'
+       ORDER BY fecha_hora DESC
+       LIMIT 1`,
+      [examenId, matricula[0].matricula_id]
+    );
+
+    if (prueba.length === 0) {
+      return res.status(404).json({ error: 'No hay una prueba en progreso' });
+    }
+
+    // Guardar preguntas en formato PHP serialize (base64) para compatibilidad con sistema antiguo
+    const phpSerialize = require('php-serialize');
+    const preguntasSerializadas = phpSerialize.serialize(pregunta_ids);
+    const preguntasBase64 = Buffer.from(preguntasSerializadas).toString('base64');
+
+    // Actualizar campo preguntas
+    await execute(
+      `UPDATE asignaturas_examenes_pruebas
+       SET preguntas = ?
+       WHERE id = ?`,
+      [preguntasBase64, prueba[0].id]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error guardando preguntas:', error);
+    res.status(500).json({ error: 'Error al guardar preguntas' });
+  }
+});
+
+/**
  * POST /api/alumno/examenes/:examenId/respuestas
  * Guardar respuestas del estudiante
  */
