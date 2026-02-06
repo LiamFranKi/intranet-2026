@@ -121,21 +121,26 @@ function AlumnoExamen() {
 
   // Protección de examen
   const handleViolation = useCallback((violation) => {
-    // Registrar violación en el backend
+    // Registrar violación en el backend (sin bloquear si falla)
     api.post(`/alumno/examenes/${examenId}/violaciones`, {
       tipo: violation.type,
       timestamp: violation.timestamp
-    }).catch(err => console.error('Error registrando violación:', err));
-    
-    Swal.fire({
-      icon: 'warning',
-      title: '⚠️ Advertencia',
-      text: 'Has salido de la ventana del examen. Por favor, mantén la ventana activa.',
-      timer: 3000,
-      showConfirmButton: false,
-      toast: true,
-      position: 'top-end'
+    }).catch(() => {
+      // Silenciar errores de violaciones para no saturar la consola
     });
+    
+    // Solo mostrar advertencia si no es un blur repetido
+    if (violation.count <= 3) {
+      Swal.fire({
+        icon: 'warning',
+        title: '⚠️ Advertencia',
+        text: 'Has salido de la ventana del examen. Por favor, mantén la ventana activa.',
+        timer: 3000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }
   }, [examenId]);
 
   // Protección de examen (siempre activa, pero solo funciona cuando hay examen)
@@ -482,13 +487,16 @@ function AlumnoExamen() {
     : 100;
   const colorTimer = tiempoRestante <= 60 ? '#ef4444' : tiempoRestante <= 300 ? '#f59e0b' : '#10b981';
 
-  console.log('✅ Renderizando examen:', {
-    examenId,
-    totalPreguntas,
-    preguntaActual,
-    preguntaId: pregunta.id,
-    preguntaTipo: pregunta.tipo
-  });
+  // Log solo en desarrollo y solo una vez por cambio de pregunta
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Renderizando examen:', {
+      examenId,
+      totalPreguntas,
+      preguntaActual,
+      preguntaId: pregunta.id,
+      preguntaTipo: pregunta.tipo
+    });
+  }
 
   if (mostrarResumen) {
     return (

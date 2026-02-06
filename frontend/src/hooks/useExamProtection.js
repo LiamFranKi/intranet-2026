@@ -75,19 +75,22 @@ export const useExamProtection = (onViolation, autoFinish = false) => {
       }
     };
 
-    // 3. Detectar pérdida de foco de la ventana
-    const handleBlur = () => {
-      violationCountRef.current += 1;
-      setViolations(violationCountRef.current);
-      
-      if (onViolation) {
-        onViolation({
-          type: 'WINDOW_BLUR',
-          count: violationCountRef.current,
-          timestamp: new Date()
-        });
-      }
-    };
+        // 3. Detectar pérdida de foco de la ventana (solo si está visible)
+        const handleBlur = () => {
+          // Solo registrar si la ventana está visible (no oculta)
+          if (!document.hidden) {
+            violationCountRef.current += 1;
+            setViolations(violationCountRef.current);
+            
+            if (onViolation) {
+              onViolation({
+                type: 'WINDOW_BLUR',
+                count: violationCountRef.current,
+                timestamp: new Date()
+              });
+            }
+          }
+        };
 
     // 4. Prevenir cierre accidental del navegador
     const handleBeforeUnload = (e) => {
