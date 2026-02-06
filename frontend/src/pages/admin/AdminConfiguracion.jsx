@@ -613,7 +613,8 @@ function AdminConfiguracion() {
             </div>
           </div>
 
-          {/* DATOS UGEL/DRE */}
+          {/* DATOS UGEL/DRE - OCULTO */}
+          {false && (
           <div className="config-card config-card-3">
             <div className="config-section">
               <h2 className="section-title">🏛️ DATOS - UGEL / DRE</h2>
@@ -651,6 +652,7 @@ function AdminConfiguracion() {
             </div>
             </div>
           </div>
+          )}
 
           {/* DISEÑO LIBRETA DE NOTAS */}
           <div className="config-card config-card-4">
@@ -1122,7 +1124,8 @@ function AdminConfiguracion() {
             </div>
           </div>
 
-          {/* COMISIÓN PAGO CON TARJETA */}
+          {/* COMISIÓN PAGO CON TARJETA - OCULTO */}
+          {false && (
           <div className="config-card config-card-11">
             <div className="config-section">
               <h2 className="section-title">💳 COMISIÓN PAGO CON TARJETA</h2>
@@ -1162,6 +1165,7 @@ function AdminConfiguracion() {
             </div>
             </div>
           </div>
+          )}
 
           {/* FACTURACIÓN */}
           <div className="config-card config-card-13">
