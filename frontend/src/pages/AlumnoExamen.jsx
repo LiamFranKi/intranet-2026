@@ -527,10 +527,24 @@ function AlumnoExamen() {
         return alternativa ? { html: alternativa.descripcion, tipo: 'html' } : null;
       
       case 'VERDADERO_FALSO':
-        // La respuesta es 'VERDADERO' o 'FALSO' (strings), no un ID de alternativa
-        if (respuesta === 'VERDADERO') {
+        // La respuesta puede ser un ID numérico o un string 'VERDADERO'/'FALSO' (para compatibilidad)
+        if (typeof respuesta === 'number' || (typeof respuesta === 'string' && !isNaN(parseInt(respuesta)))) {
+          // Es un ID de alternativa
+          const alternativa = pregunta.alternativas?.find(alt => alt.id === parseInt(respuesta));
+          if (alternativa) {
+            const desc = alternativa.descripcion ? alternativa.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase() : '';
+            if (desc.includes('verdadero')) {
+              return { html: '✅ Verdadero', tipo: 'text' };
+            } else if (desc.includes('falso')) {
+              return { html: '❌ Falso', tipo: 'text' };
+            }
+            return { html: alternativa.descripcion || 'Sin descripción', tipo: 'html' };
+          }
+        } else if (respuesta === 'VERDADERO') {
+          // Compatibilidad con formato antiguo
           return { html: '✅ Verdadero', tipo: 'text' };
         } else if (respuesta === 'FALSO') {
+          // Compatibilidad con formato antiguo
           return { html: '❌ Falso', tipo: 'text' };
         }
         return null;
