@@ -202,8 +202,21 @@ router.get('/configuracion', async (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production';
     const baseUrl = isProduction ? phpSystemUrl : 'http://localhost:5000';
 
+    // Asegurar que inicio_pensiones e inicio_notas sean números explícitamente
+    const inicioPensionesNum = Number(colegioData.inicio_pensiones) || 1;
+    const inicioNotasNum = Number(colegioData.inicio_notas) || 1;
+    
+    console.log('=== VALORES FINALES ENVIADOS AL FRONTEND ===');
+    console.log('inicio_pensiones:', inicioPensionesNum, 'tipo:', typeof inicioPensionesNum);
+    console.log('inicio_notas:', inicioNotasNum, 'tipo:', typeof inicioNotasNum);
+    
+    // Separar colegioData para evitar sobrescribir valores
+    const { inicio_pensiones: _, inicio_notas: __, ...restColegioData } = colegioData;
+    
     res.json({
-      ...colegioData,
+      ...restColegioData,
+      inicio_pensiones: inicioPensionesNum, // Forzar como número
+      inicio_notas: inicioNotasNum, // Forzar como número
       rangos_mensajes: rangosMensajes,
       rangos_letras_primaria: rangosLetrasPrimaria,
       rangos_ciclos_notas: rangosCiclosNotas,
