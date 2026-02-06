@@ -1858,23 +1858,50 @@ router.get('/aula-virtual/examenes', async (req, res) => {
       let intentos_usados = 0;
       
       if (matricula.length > 0) {
-        // Verificar si tiene nota
-        const notaData = await query(
-          `SELECT nota FROM asignaturas_examenes_notas
-           WHERE examen_id = ? AND matricula_id = ? AND nota IS NOT NULL`,
-          [examen.id, matricula[0].matricula_id]
-        );
-        
-        tiene_nota = notaData.length > 0 && notaData[0].nota !== null;
+        // Verificar si tiene nota (manejar caso donde la tabla no existe)
+        try {
+          const notaData = await query(
+            `SELECT nota FROM asignaturas_examenes_notas
+             WHERE examen_id = ? AND matricula_id = ? AND nota IS NOT NULL`,
+            [examen.id, matricula[0].matricula_id]
+          );
+          
+          tiene_nota = notaData.length > 0 && notaData[0].nota !== null;
+        } catch (error) {
+          // Si la tabla no existe, verificar en la tabla de pruebas
+          if (error.code === 'ER_NO_SUCH_TABLE') {
+            console.log('⚠️ Tabla asignaturas_examenes_notas no existe, verificando en pruebas');
+            try {
+              const pruebaConNota = await query(
+                `SELECT nota FROM asignaturas_examenes_pruebas
+                 WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA' AND nota IS NOT NULL
+                 ORDER BY fecha_fin DESC
+                 LIMIT 1`,
+                [examen.id, alumno_id]
+              );
+              
+              tiene_nota = pruebaConNota.length > 0 && pruebaConNota[0].nota !== null;
+            } catch (err) {
+              console.error('Error verificando nota en pruebas:', err);
+            }
+          } else {
+            console.error('Error verificando nota:', error);
+          }
+        }
         
         // Contar intentos usados
-        const intentosData = await query(
-          `SELECT COUNT(*) as total FROM asignaturas_examenes_pruebas
-           WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA'`,
-          [examen.id, alumno_id]
-        );
-        
-        intentos_usados = intentosData[0]?.total || 0;
+        try {
+          const intentosData = await query(
+            `SELECT COUNT(*) as total FROM asignaturas_examenes_pruebas
+             WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA'`,
+            [examen.id, alumno_id]
+          );
+          
+          intentos_usados = intentosData[0]?.total || 0;
+        } catch (error) {
+          console.error('Error contando intentos:', error);
+          intentos_usados = 0;
+        }
       }
       
       return {
