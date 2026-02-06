@@ -547,13 +547,14 @@ function AlumnoExamen() {
       
       case 'COMPLETAR':
         if (typeof respuesta === 'object' && Object.keys(respuesta).length > 0) {
-          const texto = pregunta.descripcion || '';
-          let textoCompleto = texto;
-          Object.keys(respuesta).forEach(index => {
-            const valor = respuesta[index] || '___';
-            textoCompleto = textoCompleto.replace(/\[\[.*?\]\]/, `[${valor}]`);
-          });
-          return { html: textoCompleto, tipo: 'html' };
+          // Solo mostrar las respuestas completadas, no toda la pregunta
+          const respuestasCompletadas = Object.entries(respuesta)
+            .map(([index, valor]) => {
+              const num = parseInt(index) + 1;
+              return `<span style="background: #e0f2fe; padding: 0.25rem 0.5rem; border-radius: 4px; margin: 0.25rem; display: inline-block; border: 1px solid #0ea5e9;">${num}. ${valor || '___'}</span>`;
+            })
+            .join('');
+          return { html: respuestasCompletadas, tipo: 'html' };
         }
         return null;
       
@@ -565,8 +566,10 @@ function AlumnoExamen() {
           const pares = Object.entries(respuesta).map(([idOrigen, idDestino]) => {
             const origen = pregunta.alternativas?.find(alt => alt.id === parseInt(idOrigen));
             const destino = pregunta.alternativas?.find(alt => alt.id === parseInt(idDestino));
-            return `${origen?.descripcion || '?'} → ${destino?.descripcion || '?'}`;
-          }).join('<br>');
+            const origenText = origen?.descripcion?.replace(/<[^>]*>/g, '') || '?';
+            const destinoText = destino?.descripcion?.replace(/<[^>]*>/g, '') || '?';
+            return `<div style="background: #f0f9ff; padding: 0.5rem; margin: 0.25rem 0; border-radius: 6px; border-left: 3px solid #3b82f6; display: flex; align-items: center; gap: 0.5rem;"><span style="font-weight: 600; color: #1e40af;">${origenText}</span><span style="color: #3b82f6; font-size: 1.2rem;">→</span><span style="color: #059669;">${destinoText}</span></div>`;
+          }).join('');
           return { html: pares, tipo: 'html' };
         }
         return null;
@@ -575,8 +578,9 @@ function AlumnoExamen() {
         if (typeof respuesta === 'object' && Object.keys(respuesta).length > 0) {
           const zonas = Object.entries(respuesta).map(([altId, zona]) => {
             const alt = pregunta.alternativas?.find(a => a.id === parseInt(altId));
-            return `Zona ${zona}: ${alt?.descripcion || '?'}`;
-          }).join('<br>');
+            const altText = alt?.descripcion?.replace(/<[^>]*>/g, '') || '?';
+            return `<div style="background: #fef3c7; padding: 0.5rem; margin: 0.25rem 0; border-radius: 6px; border-left: 3px solid #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span style="background: #fbbf24; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.85rem;">Zona ${zona}</span><span style="color: #92400e;">${altText}</span></div>`;
+          }).join('');
           return { html: zonas, tipo: 'html' };
         }
         return null;
