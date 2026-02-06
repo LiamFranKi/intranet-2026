@@ -24,21 +24,13 @@ function AlumnoExamen() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mostrarResumen, setMostrarResumen] = useState(false);
+  const [error, setError] = useState(null);
   
   const intervaloGuardado = useRef(null);
   const intervaloReloj = useRef(null);
   const tiempoInicio = useRef(null);
   const tiempoExpiracion = useRef(null);
   const respuestasRef = useRef({});
-
-  // Cargar examen y preguntas
-  useEffect(() => {
-    cargarExamen();
-    return () => {
-      if (intervaloGuardado.current) clearInterval(intervaloGuardado.current);
-      if (intervaloReloj.current) clearInterval(intervaloReloj.current);
-    };
-  }, [examenId]);
 
   // Función para cargar examen
   const cargarExamen = useCallback(async () => {
@@ -91,12 +83,16 @@ function AlumnoExamen() {
       
       setPreguntas(preguntasOrdenadas);
       setLoading(false);
+      setError(null);
     } catch (error) {
       console.error('Error cargando examen:', error);
+      setLoading(false);
+      setError(error.response?.data?.error || 'No se pudo cargar el examen');
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.response?.data?.error || 'No se pudo cargar el examen'
+        text: error.response?.data?.error || 'No se pudo cargar el examen',
+        confirmButtonText: 'Volver'
       }).then(() => {
         navigate(-1);
       });
@@ -105,12 +101,14 @@ function AlumnoExamen() {
 
   // Cargar examen al montar
   useEffect(() => {
-    cargarExamen();
+    if (examenId) {
+      cargarExamen();
+    }
     return () => {
       if (intervaloGuardado.current) clearInterval(intervaloGuardado.current);
       if (intervaloReloj.current) clearInterval(intervaloReloj.current);
     };
-  }, [cargarExamen]);
+  }, [examenId, cargarExamen]);
 
   // Protección de examen
   const handleViolation = useCallback((violation) => {
@@ -309,17 +307,82 @@ function AlumnoExamen() {
 
   if (loading) {
     return (
-      <div className="examen-loading">
-        <div className="loading-spinner">Cargando examen...</div>
+      <div className="examen-loading" style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)'
+      }}>
+        <div className="loading-spinner" style={{ fontSize: '1.5rem', color: '#3b82f6' }}>
+          Cargando examen...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="examen-error" style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
+        gap: '1rem',
+        padding: '2rem'
+      }}>
+        <h2 style={{ color: '#ef4444', margin: 0 }}>❌ Error</h2>
+        <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>{error}</p>
+        <button 
+          onClick={() => navigate(-1)}
+          style={{
+            padding: '0.75rem 2rem',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          Volver
+        </button>
       </div>
     );
   }
 
   if (!examen || preguntas.length === 0) {
     return (
-      <div className="examen-error">
-        <p>No se pudo cargar el examen</p>
-        <button onClick={() => navigate(-1)}>Volver</button>
+      <div className="examen-error" style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
+        gap: '1rem',
+        padding: '2rem'
+      }}>
+        <h2 style={{ color: '#6b7280', margin: 0 }}>⚠️ No hay preguntas</h2>
+        <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>Este examen no tiene preguntas disponibles.</p>
+        <button 
+          onClick={() => navigate(-1)}
+          style={{
+            padding: '0.75rem 2rem',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          Volver
+        </button>
       </div>
     );
   }
