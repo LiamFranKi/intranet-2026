@@ -2298,16 +2298,30 @@ router.post('/examenes/:examenId/violaciones', async (req, res) => {
     const { examenId } = req.params;
     const { tipo, timestamp } = req.body;
 
-    // Intentar registrar en auditoría (si la tabla existe)
+    // Registrar en auditoría usando la estructura correcta
     try {
+      const ahora = new Date();
+      const fecha = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+      const hora = ahora.toTimeString().split(' ')[0]; // HH:MM:SS
+      
       await execute(
         `INSERT INTO auditoria_logs 
-         (usuario_id, colegio_id, accion, modulo, entidad, detalles, fecha_hora)
-         VALUES (?, ?, 'VIOLACION_EXAMEN', 'EXAMENES', ?, ?, ?)`,
-        [usuario_id || null, colegio_id || null, examenId, JSON.stringify({ tipo, timestamp }), new Date()]
+         (usuario_id, colegio_id, tipo_usuario, accion, modulo, entidad, entidad_id,
+          descripcion, datos_nuevos, resultado, fecha_hora, fecha, hora)
+         VALUES (?, ?, 'ALUMNO', 'VIOLACION_EXAMEN', 'EXAMENES', 'examen', ?, ?, ?, 'EXITOSO', ?, ?, ?)`,
+        [
+          usuario_id || null, 
+          colegio_id || null, 
+          examenId, 
+          `Violación de examen: ${tipo}`, 
+          JSON.stringify({ tipo, timestamp }), 
+          ahora, 
+          fecha, 
+          hora
+        ]
       );
     } catch (auditError) {
-      // Si la tabla de auditoría no existe o hay error, solo loguear pero no fallar
+      // Si hay error en auditoría, solo loguear pero no fallar
       console.warn('No se pudo registrar violación en auditoría:', auditError.message);
     }
 
