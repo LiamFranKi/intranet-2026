@@ -178,14 +178,15 @@ function AlumnoExamen() {
     try {
       const response = await api.post(`/alumno/examenes/${examenId}/finalizar`);
       
-      Swal.fire({
-        icon: 'info',
-        title: 'Tiempo agotado',
-        text: 'El examen se ha finalizado automáticamente',
-        confirmButtonText: 'Ver resultados'
-      }).then(() => {
-        navigate(`/alumno/examen/${examenId}/resultados`);
-      });
+        Swal.fire({
+          icon: 'info',
+          title: 'Tiempo agotado',
+          text: 'El examen se ha finalizado automáticamente. Podrás ver tus resultados cuando el docente los publique.',
+          confirmButtonText: 'Entendido'
+        }).then(() => {
+          // Volver al aula virtual
+          navigate(-1);
+        });
     } catch (error) {
       console.error('Error finalizando examen:', error);
     }
@@ -292,15 +293,16 @@ function AlumnoExamen() {
       await guardarRespuestas();
       
       try {
-        const response = await api.post(`/alumno/examenes/${examenId}/finalizar`);
+        await api.post(`/alumno/examenes/${examenId}/finalizar`);
         
         Swal.fire({
           icon: 'success',
           title: 'Examen finalizado',
-          text: `Tu nota: ${response.data.nota}`,
-          confirmButtonText: 'Ver resultados'
+          text: 'Tu examen ha sido enviado correctamente. Podrás ver tus resultados cuando el docente los publique.',
+          confirmButtonText: 'Entendido'
         }).then(() => {
-          navigate(`/alumno/examen/${examenId}/resultados`);
+          // Volver al aula virtual
+          navigate(-1);
         });
       } catch (error) {
         console.error('Error finalizando examen:', error);
@@ -498,6 +500,49 @@ function AlumnoExamen() {
     });
   }
 
+  // Función para formatear la respuesta según el tipo de pregunta
+  const formatearRespuesta = (pregunta, respuesta) => {
+    if (!respuesta || respuesta === '') return 'Sin responder';
+    
+    switch (pregunta.tipo) {
+      case 'ALTERNATIVAS':
+      case 'VERDADERO_FALSO':
+        const alternativa = pregunta.alternativas?.find(alt => alt.id === respuesta);
+        return alternativa ? alternativa.descripcion : 'Sin responder';
+      
+      case 'ORDENAR':
+        if (Array.isArray(respuesta)) {
+          const ordenadas = respuesta
+            .map(id => pregunta.alternativas?.find(alt => alt.id === id))
+            .filter(Boolean);
+          return ordenadas.map((alt, idx) => `${idx + 1}. ${alt.descripcion}`).join(' | ');
+        }
+        return 'Sin responder';
+      
+      case 'COMPLETAR':
+        if (typeof respuesta === 'object') {
+          const texto = pregunta.descripcion || '';
+          let textoCompleto = texto;
+          Object.keys(respuesta).forEach(index => {
+            const valor = respuesta[index] || '___';
+            textoCompleto = textoCompleto.replace(/\[\[.*?\]\]/, `[${valor}]`);
+          });
+          return textoCompleto;
+        }
+        return 'Sin responder';
+      
+      case 'RESPUESTA_CORTA':
+        return respuesta || 'Sin responder';
+      
+      case 'EMPAREJAR':
+      case 'ARRASTRAR_Y_SOLTAR':
+        return typeof respuesta === 'object' ? JSON.stringify(respuesta) : respuesta || 'Sin responder';
+      
+      default:
+        return respuesta || 'Sin responder';
+    }
+  };
+
   if (mostrarResumen) {
     return (
       <div className="examen-resumen-container">
@@ -507,11 +552,16 @@ function AlumnoExamen() {
             {preguntas.map((p, index) => {
               const respuesta = respuestas[p.id];
               const tieneRespuesta = respuesta !== null && respuesta !== undefined && respuesta !== '';
+              const respuestaFormateada = formatearRespuesta(p, respuesta);
+              
               return (
                 <div key={p.id} className={`resumen-pregunta-item ${tieneRespuesta ? 'respondida' : 'sin-responder'}`}>
                   <div className="resumen-pregunta-numero">{index + 1}</div>
                   <div className="resumen-pregunta-info">
-                    <div className="resumen-pregunta-titulo" dangerouslySetInnerHTML={{ __html: p.descripcion?.substring(0, 100) + '...' || 'Pregunta sin título' }} />
+                    <div className="resumen-pregunta-titulo" dangerouslySetInnerHTML={{ __html: p.descripcion || 'Pregunta sin título' }} />
+                    <div className="resumen-pregunta-respuesta">
+                      <strong>Tu respuesta:</strong> {respuestaFormateada}
+                    </div>
                     <div className="resumen-pregunta-estado">
                       {tieneRespuesta ? '✓ Respondida' : '⚠️ Sin responder'}
                     </div>

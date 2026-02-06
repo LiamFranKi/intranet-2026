@@ -19,11 +19,10 @@ function PreguntaCompletar({ pregunta, respuesta, onRespuestaChange }) {
         });
       }
       
-      // Campo a completar
+      // Campo a completar (NO guardar respuestaCorrecta para el alumno)
       resultado.push({
         tipo: 'campo',
-        index: campoIndex++,
-        respuestaCorrecta: match[1]
+        index: campoIndex++
       });
       
       lastIndex = regex.lastIndex;

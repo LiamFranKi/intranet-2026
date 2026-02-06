@@ -476,13 +476,35 @@ function AlumnoAulaVirtual() {
                         >
                           ▶️ Iniciar Prueba
                         </button>
-                      ) : examen.tiene_nota ? (
-                        <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-                          ✓ Ya realizado
-                        </span>
+                      ) : examen.tiene_nota && examen.estado === 'INACTIVO' ? (
+                        <button
+                          onClick={() => navigate(`/alumno/examen/${examen.id}/resultados`)}
+                          style={{
+                            padding: '0.5rem 1.25rem',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.05)';
+                            e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)';
+                            e.target.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
+                          }}
+                        >
+                          📊 Ver Resultado
+                        </button>
                       ) : (
                         <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-                          No disponible
+                          {examen.estado === 'ACTIVO' ? 'En proceso...' : 'No disponible'}
                         </span>
                       )}
                     </td>
