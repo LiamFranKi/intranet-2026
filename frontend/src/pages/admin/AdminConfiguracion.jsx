@@ -430,14 +430,15 @@ function AdminConfiguracion() {
 
   const handleReiniciarAccesos = async () => {
     const result = await Swal.fire({
-      title: '¿Está seguro?',
-      text: 'Esto reiniciará los datos de acceso para ALUMNOS y APODERADOS',
+      title: '⚠️ ¿Está seguro?',
+      html: '<p style="text-align: left; margin-bottom: 1rem;">Esta acción reiniciará las contraseñas de <strong>TODOS los usuarios</strong> (excepto administradores):</p><ul style="text-align: left; margin-left: 1.5rem;"><li>Alumnos</li><li>Apoderados</li><li>Docentes</li><li>Personal administrativo</li></ul><p style="text-align: left; margin-top: 1rem; color: #dc2626;"><strong>Las contraseñas se establecerán como el número de DNI de cada usuario.</strong></p>',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, reiniciar',
-      cancelButtonText: 'Cancelar'
+      confirmButtonText: 'Sí, reiniciar contraseñas',
+      cancelButtonText: 'Cancelar',
+      width: '500px'
     });
 
     if (result.isConfirmed) {
@@ -1328,22 +1329,26 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
-            </div>
-          </div>
-
-          {/* REINICIAR ACCESOS */}
-          <div className="config-card config-card-16">
-            <div className="config-section">
-              <h2 className="section-title">🔄 REINICIAR ACCESOS</h2>
-            <div className="form-grid">
-              <div className="form-group full-width">
-                <button
-                  type="button"
-                  onClick={handleReiniciarAccesos}
-                  className="btn-warning"
-                >
-                  Reiniciar Datos de Acceso
-                </button>
+            
+            {/* Separador para Reiniciar Accesos */}
+            <div className="reiniciar-accesos-section">
+              <div className="section-divider"></div>
+              <div className="form-grid">
+                <div className="form-group full-width">
+                  <label style={{ marginBottom: '0.5rem', color: '#dc2626', fontWeight: '600' }}>
+                    🔄 Reiniciar Contraseñas de Usuarios
+                  </label>
+                  <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+                    Esto reiniciará las contraseñas de TODOS los usuarios (excepto administradores) y las establecerá como su número de DNI.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleReiniciarAccesos}
+                    className="btn-warning"
+                  >
+                    ⚠️ Reiniciar Contraseñas
+                  </button>
+                </div>
               </div>
             </div>
             </div>

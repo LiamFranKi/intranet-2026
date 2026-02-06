@@ -369,6 +369,17 @@
   border-top: 2px solid rgba(0, 0, 0, 0.1);
 }
 
+.reiniciar-accesos-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.section-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.15), transparent);
+  margin-bottom: 1.25rem;
+}
+
 .btn-submit-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
