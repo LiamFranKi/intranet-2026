@@ -6798,19 +6798,22 @@ router.get('/aula-virtual/examenes', async (req, res) => {
         let fechaDesdeStr = '';
         if (examen.fecha_desde) {
           if (typeof examen.fecha_desde === 'string') {
-            fechaDesdeStr = examen.fecha_desde;
+            // Validar que no sea una fecha inválida de MySQL (0000-00-00)
+            if (examen.fecha_desde !== '0000-00-00' && examen.fecha_desde !== '0000-00-00 00:00:00') {
+              fechaDesdeStr = examen.fecha_desde.split(' ')[0]; // Solo la fecha, sin hora
+            }
           } else if (examen.fecha_desde instanceof Date) {
             // Verificar que la fecha sea válida antes de convertir
             if (!isNaN(examen.fecha_desde.getTime())) {
               fechaDesdeStr = examen.fecha_desde.toISOString().split('T')[0];
-            } else {
-              // Si la fecha es inválida, intentar usar el string directamente o saltar
-              console.warn(`Fecha inválida para examen ${examen.id}:`, examen.fecha_desde);
-              fechaDesdeStr = '';
             }
+            // Si la fecha es inválida, simplemente no procesar este examen (fechaDesdeStr queda vacío)
           } else {
             // Intentar convertir a string
-            fechaDesdeStr = String(examen.fecha_desde);
+            const fechaStr = String(examen.fecha_desde);
+            if (fechaStr !== '0000-00-00' && fechaStr !== '0000-00-00 00:00:00') {
+              fechaDesdeStr = fechaStr.split(' ')[0];
+            }
           }
         }
 
@@ -6843,18 +6846,21 @@ router.get('/aula-virtual/examenes', async (req, res) => {
           let horaHastaStr = '';
           if (examen.fecha_hasta) {
             if (typeof examen.fecha_hasta === 'string') {
-              fechaHastaStr = examen.fecha_hasta;
+              // Validar que no sea una fecha inválida de MySQL (0000-00-00)
+              if (examen.fecha_hasta !== '0000-00-00' && examen.fecha_hasta !== '0000-00-00 00:00:00') {
+                fechaHastaStr = examen.fecha_hasta.split(' ')[0]; // Solo la fecha, sin hora
+              }
             } else if (examen.fecha_hasta instanceof Date) {
               // Verificar que la fecha sea válida antes de convertir
               if (!isNaN(examen.fecha_hasta.getTime())) {
                 fechaHastaStr = examen.fecha_hasta.toISOString().split('T')[0];
-              } else {
-                // Si la fecha es inválida, intentar usar el string directamente o saltar
-                console.warn(`Fecha hasta inválida para examen ${examen.id}:`, examen.fecha_hasta);
-                fechaHastaStr = '';
               }
+              // Si la fecha es inválida, simplemente no procesar (fechaHastaStr queda vacío)
             } else {
-              fechaHastaStr = String(examen.fecha_hasta);
+              const fechaStr = String(examen.fecha_hasta);
+              if (fechaStr !== '0000-00-00' && fechaStr !== '0000-00-00 00:00:00') {
+                fechaHastaStr = fechaStr.split(' ')[0];
+              }
             }
           }
           if (examen.hora_hasta) {
