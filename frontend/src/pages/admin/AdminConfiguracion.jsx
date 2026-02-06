@@ -827,6 +827,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* APRECIACIONES */}
@@ -889,6 +890,7 @@ function AdminConfiguracion() {
               >
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
+            </div>
             </div>
           </div>
 
@@ -953,6 +955,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* VENCIMIENTO DE PENSIONES */}
@@ -1011,6 +1014,7 @@ function AdminConfiguracion() {
               >
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
+            </div>
             </div>
           </div>
 
@@ -1124,6 +1128,7 @@ function AdminConfiguracion() {
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
             </div>
+            </div>
           </div>
 
           {/* MATRÍCULA ONLINE */}
@@ -1213,6 +1218,7 @@ function AdminConfiguracion() {
               >
                 {saving ? 'Guardando...' : '💾 Guardar'}
               </button>
+            </div>
             </div>
           </div>
 
