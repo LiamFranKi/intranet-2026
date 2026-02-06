@@ -1872,15 +1872,16 @@ router.get('/aula-virtual/examenes', async (req, res) => {
           if (error.code === 'ER_NO_SUCH_TABLE') {
             console.log('⚠️ Tabla asignaturas_examenes_notas no existe, verificando en pruebas');
             try {
+              // La tabla asignaturas_examenes_pruebas usa matricula_id (no alumno_id) y puntaje (no nota)
               const pruebaConNota = await query(
-                `SELECT nota FROM asignaturas_examenes_pruebas
-                 WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA' AND nota IS NOT NULL
-                 ORDER BY fecha_fin DESC
+                `SELECT puntaje FROM asignaturas_examenes_pruebas
+                 WHERE examen_id = ? AND matricula_id = ? AND estado = 'FINALIZADA' AND puntaje IS NOT NULL
+                 ORDER BY fecha_hora DESC
                  LIMIT 1`,
-                [examen.id, alumno_id]
+                [examen.id, matricula[0].matricula_id]
               );
               
-              tiene_nota = pruebaConNota.length > 0 && pruebaConNota[0].nota !== null;
+              tiene_nota = pruebaConNota.length > 0 && pruebaConNota[0].puntaje !== null;
             } catch (err) {
               console.error('Error verificando nota en pruebas:', err);
             }
@@ -1890,11 +1891,12 @@ router.get('/aula-virtual/examenes', async (req, res) => {
         }
         
         // Contar intentos usados
+        // La tabla usa matricula_id (no alumno_id)
         try {
           const intentosData = await query(
             `SELECT COUNT(*) as total FROM asignaturas_examenes_pruebas
-             WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA'`,
-            [examen.id, alumno_id]
+             WHERE examen_id = ? AND matricula_id = ? AND estado = 'FINALIZADA'`,
+            [examen.id, matricula[0].matricula_id]
           );
           
           intentos_usados = intentosData[0]?.total || 0;
@@ -1982,32 +1984,47 @@ router.post('/examenes/:examenId/iniciar', async (req, res) => {
       return res.status(400).json({ error: 'El examen no está activo' });
     }
 
-    // Verificar intentos
+    // Obtener matrícula del alumno
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    if (matricula.length === 0) {
+      return res.status(404).json({ error: 'No se encontró la matrícula del alumno' });
+    }
+
+    // Verificar intentos (la tabla usa matricula_id, no alumno_id)
     const intentosUsados = await query(
       `SELECT COUNT(*) as total FROM asignaturas_examenes_pruebas
-       WHERE examen_id = ? AND alumno_id = ? AND estado = 'FINALIZADA'`,
-      [examenId, alumno_id]
+       WHERE examen_id = ? AND matricula_id = ? AND estado = 'FINALIZADA'`,
+      [examenId, matricula[0].matricula_id]
     );
 
     if (examen[0].intentos > 0 && (intentosUsados[0]?.total || 0) >= examen[0].intentos) {
       return res.status(400).json({ error: 'Has agotado todos los intentos disponibles' });
     }
 
-    // Verificar si ya tiene una prueba en progreso
+    // Verificar si ya tiene una prueba en progreso (la tabla usa matricula_id, fecha_hora y estado 'ACTIVO')
     const pruebaEnProgreso = await query(
       `SELECT * FROM asignaturas_examenes_pruebas
-       WHERE examen_id = ? AND alumno_id = ? AND estado = 'EN_PROGRESO'
-       ORDER BY fecha_inicio DESC
+       WHERE examen_id = ? AND matricula_id = ? AND estado = 'ACTIVO'
+       ORDER BY fecha_hora DESC
        LIMIT 1`,
-      [examenId, alumno_id]
+      [examenId, matricula[0].matricula_id]
     );
 
     if (pruebaEnProgreso.length > 0) {
       // Retornar la prueba existente
       return res.json({
         prueba_id: pruebaEnProgreso[0].id,
-        fecha_inicio: pruebaEnProgreso[0].fecha_inicio,
-        fecha_expiracion: pruebaEnProgreso[0].fecha_expiracion,
+        fecha_inicio: pruebaEnProgreso[0].fecha_hora,
+        fecha_expiracion: pruebaEnProgreso[0].expiracion,
         respuestas: pruebaEnProgreso[0].respuestas ? JSON.parse(pruebaEnProgreso[0].respuestas) : {}
       });
     }
@@ -2020,9 +2037,9 @@ router.post('/examenes/:examenId/iniciar', async (req, res) => {
 
     const resultado = await execute(
       `INSERT INTO asignaturas_examenes_pruebas 
-       (examen_id, alumno_id, fecha_inicio, fecha_expiracion, estado, respuestas)
-       VALUES (?, ?, ?, ?, 'EN_PROGRESO', '{}')`,
-      [examenId, alumno_id, fechaInicio, fechaExpiracion]
+       (examen_id, matricula_id, fecha_hora, expiracion, estado, respuestas)
+       VALUES (?, ?, ?, ?, 'ACTIVO', '{}')`,
+      [examenId, matricula[0].matricula_id, fechaInicio, fechaExpiracion]
     );
 
     res.json({
@@ -2102,13 +2119,28 @@ router.post('/examenes/:examenId/respuestas', async (req, res) => {
     const { examenId } = req.params;
     const { respuestas } = req.body;
 
-    // Obtener prueba en progreso
+    // Obtener matrícula del alumno
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    if (matricula.length === 0) {
+      return res.status(404).json({ error: 'No se encontró la matrícula del alumno' });
+    }
+
+    // Obtener prueba en progreso (la tabla usa matricula_id y estado 'ACTIVO')
     const prueba = await query(
       `SELECT * FROM asignaturas_examenes_pruebas
-       WHERE examen_id = ? AND alumno_id = ? AND estado = 'EN_PROGRESO'
-       ORDER BY fecha_inicio DESC
+       WHERE examen_id = ? AND matricula_id = ? AND estado = 'ACTIVO'
+       ORDER BY fecha_hora DESC
        LIMIT 1`,
-      [examenId, alumno_id]
+      [examenId, matricula[0].matricula_id]
     );
 
     if (prueba.length === 0) {
@@ -2139,13 +2171,28 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
     const { usuario_id, colegio_id, anio_activo, alumno_id } = req.user;
     const { examenId } = req.params;
 
-    // Obtener prueba en progreso
+    // Obtener matrícula del alumno
+    const matricula = await query(
+      `SELECT m.id as matricula_id
+       FROM matriculas m
+       INNER JOIN grupos g ON g.id = m.grupo_id
+       WHERE m.alumno_id = ? AND m.colegio_id = ? AND g.anio = ?
+       AND (m.estado = 0 OR m.estado = 4)
+       LIMIT 1`,
+      [alumno_id, colegio_id, anio_activo]
+    );
+
+    if (matricula.length === 0) {
+      return res.status(404).json({ error: 'No se encontró la matrícula del alumno' });
+    }
+
+    // Obtener prueba en progreso (la tabla usa matricula_id y estado 'ACTIVO')
     const prueba = await query(
       `SELECT * FROM asignaturas_examenes_pruebas
-       WHERE examen_id = ? AND alumno_id = ? AND estado = 'EN_PROGRESO'
-       ORDER BY fecha_inicio DESC
+       WHERE examen_id = ? AND matricula_id = ? AND estado = 'ACTIVO'
+       ORDER BY fecha_hora DESC
        LIMIT 1`,
-      [examenId, alumno_id]
+      [examenId, matricula[0].matricula_id]
     );
 
     if (prueba.length === 0) {
@@ -2188,6 +2235,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       let puntosPregunta = 0;
       let esCorrecta = false;
 
+      // Calcular puntos totales de la pregunta
+      puntosTotal += examen[0].tipo_puntaje === 'GENERAL' 
+        ? (examen[0].puntos_correcta || 0)
+        : (pregunta.puntos || 0);
+
       if (pregunta.alternativas_data) {
         const alternativas = pregunta.alternativas_data.split('|').map(alt => {
           const [id, esCorrecta, puntos] = alt.split(':');
@@ -2198,19 +2250,16 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
           const alternativaCorrecta = alternativas.find(a => a.esCorrecta);
           if (respuestaAlumno === alternativaCorrecta?.id) {
             esCorrecta = true;
-            puntosPregunta = examen[0].tipo === 'GENERAL' 
+            puntosPregunta = examen[0].tipo_puntaje === 'GENERAL' 
               ? (examen[0].puntos_correcta || 0)
-              : (alternativaCorrecta.puntos || 0);
-          } else if (examen[0].penalizar_incorrecta && respuestaAlumno) {
-            puntosPregunta = -(examen[0].puntos_incorrecta || 0);
+              : (alternativaCorrecta.puntos || pregunta.puntos || 0);
+          } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno) {
+            puntosPregunta = -(examen[0].penalizacion_incorrecta || 0);
           }
         }
         // Aquí se pueden agregar más lógicas para otros tipos de preguntas
       }
 
-      puntosTotal += examen[0].tipo === 'GENERAL' 
-        ? (examen[0].puntos_correcta || 0)
-        : (pregunta.puntos || 0);
       puntosObtenidos += puntosPregunta;
 
       detalles.push({
@@ -2225,15 +2274,13 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       ? Math.max(0, Math.min(20, (puntosObtenidos / puntosTotal) * 20))
       : 0;
 
-    // Actualizar prueba
+    // Actualizar prueba (la tabla usa puntaje, no nota, y no tiene fecha_fin ni detalles)
     await execute(
       `UPDATE asignaturas_examenes_pruebas
        SET estado = 'FINALIZADA',
-           fecha_fin = NOW(),
-           nota = ?,
-           detalles = ?
+           puntaje = ?
        WHERE id = ?`,
-      [nota, JSON.stringify(detalles), prueba[0].id]
+      [nota, prueba[0].id]
     );
 
     // Guardar nota en la tabla de notas
