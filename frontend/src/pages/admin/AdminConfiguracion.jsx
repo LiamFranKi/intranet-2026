@@ -155,18 +155,33 @@ function AdminConfiguracion() {
       console.log('rangos_letras_primaria recibido:', data.rangos_letras_primaria);
       console.log('rangos_letras_primaria procesado:', rangosLetrasPrimaria);
 
-      // Separar data para evitar que sobrescriba rangos_letras_primaria
-      const { rangos_letras_primaria: _, ...restData } = data;
+      // Separar data para evitar que sobrescriba rangos_letras_primaria e inicio_pensiones
+      const { rangos_letras_primaria: _, inicio_pensiones: __, ...restData } = data;
+      
+      // Asegurar que inicio_notas también sea un número
+      let inicioNotas = 1;
+      if (data.inicio_notas !== undefined && data.inicio_notas !== null && data.inicio_notas !== '') {
+        inicioNotas = parseInt(data.inicio_notas, 10);
+        if (isNaN(inicioNotas) || inicioNotas < 1 || inicioNotas > 12) {
+          console.warn('inicio_notas inválido:', data.inicio_notas, 'usando valor por defecto 1');
+          inicioNotas = 1;
+        }
+      }
+      console.log('inicio_notas cargado:', data.inicio_notas, '-> parseado:', inicioNotas);
       
       setConfig({
         ...restData,
         inicio_pensiones: inicioPensiones,
+        inicio_notas: inicioNotas,
         rangos_letras_primaria: rangosLetrasPrimaria,
         login_fondo: null,
         libreta_logo: null,
         libreta_fondo: null,
         boleta_logo: null
       });
+      
+      // Debug final: verificar qué se estableció en el estado
+      console.log('Estado config establecido - inicio_pensiones:', inicioPensiones, 'tipo:', typeof inicioPensiones);
 
       // Cargar previews de archivos existentes
       setArchivosPreview({
@@ -797,7 +812,7 @@ function AdminConfiguracion() {
                   <label>Inicio de Registro</label>
                   <select
                     name="inicio_notas"
-                    value={String(config.inicio_notas || 1)}
+                    value={String(Number(config.inicio_notas) || 1)}
                     onChange={handleInputChange}
                   >
                     {MESES.map(mes => (

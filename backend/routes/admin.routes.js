@@ -94,6 +94,13 @@ router.get('/configuracion', async (req, res) => {
 
     const colegioData = colegio[0];
 
+    // Debug: verificar valores numéricos de la base de datos
+    console.log('=== DEBUG inicio_pensiones ===');
+    console.log('Tipo de dato:', typeof colegioData.inicio_pensiones);
+    console.log('Valor raw:', colegioData.inicio_pensiones);
+    console.log('Valor como número:', Number(colegioData.inicio_pensiones));
+    console.log('Valor parseado:', parseInt(colegioData.inicio_pensiones, 10));
+
     // Debug: verificar qué se está recibiendo de la base de datos
     console.log('=== DEBUG rangos_letras_primaria ===');
     console.log('Tipo de dato:', typeof colegioData.rangos_letras_primaria);
