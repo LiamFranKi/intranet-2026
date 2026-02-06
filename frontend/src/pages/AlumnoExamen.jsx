@@ -827,14 +827,19 @@ function RenderizarPregunta({ pregunta, respuesta, onRespuestaChange }) {
     }
   } catch (error) {
     console.error('Error renderizando pregunta:', error);
+    console.error('Tipo de pregunta:', pregunta?.tipo);
+    console.error('Pregunta completa:', pregunta);
     return (
       <div className="pregunta-container">
         <div 
           className="pregunta-descripcion"
-          dangerouslySetInnerHTML={{ __html: pregunta.descripcion || 'Sin descripción' }}
+          dangerouslySetInnerHTML={{ __html: pregunta?.descripcion || 'Sin descripción' }}
         />
         <p style={{ color: '#ef4444', marginTop: '1rem' }}>
           ❌ Error al renderizar la pregunta: {error.message}
+        </p>
+        <p style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>
+          Tipo: {pregunta?.tipo || 'Desconocido'}
         </p>
       </div>
     );
