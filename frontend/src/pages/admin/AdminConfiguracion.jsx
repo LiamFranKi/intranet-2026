@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import api from '../../services/api';
 import Swal from 'sweetalert2';
@@ -242,9 +242,8 @@ function AdminConfiguracion() {
     }));
   };
 
-  const generarRangosCiclosNotas = () => {
+  const generarRangosCiclosNotas = useCallback(() => {
     const total = parseInt(config.total_notas) || 4;
-    const cicloLabel = CICLOS.find(c => c.value === parseInt(config.ciclo_notas))?.label || 'Ciclo';
     const nuevosRangos = {};
     
     for (let i = 1; i <= total; i++) {
@@ -256,11 +255,11 @@ function AdminConfiguracion() {
     }
     
     setConfig(prev => ({ ...prev, rangos_ciclos_notas: nuevosRangos }));
-  };
+  }, [config.total_notas, config.ciclo_notas, config.rangos_ciclos_notas]);
 
   useEffect(() => {
     generarRangosCiclosNotas();
-  }, [config.total_notas, config.ciclo_notas]);
+  }, [generarRangosCiclosNotas]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -593,7 +592,7 @@ function AdminConfiguracion() {
                   ))}
                 </select>
               </div>
-              {config.ciclo_pensiones == 0 && (
+              {config.ciclo_pensiones === 0 && (
                 <div className="form-group">
                   <label>Inicio de Cobros</label>
                   <select
@@ -669,7 +668,7 @@ function AdminConfiguracion() {
                   ))}
                 </select>
               </div>
-              {config.ciclo_notas == 0 && (
+              {config.ciclo_notas === 0 && (
                 <div className="form-group">
                   <label>Inicio de Registro</label>
                   <select
@@ -694,7 +693,7 @@ function AdminConfiguracion() {
                 />
               </div>
             </div>
-            {config.ciclo_notas != 0 && (
+            {config.ciclo_notas !== 0 && (
               <div className="rangos-ciclos-notas">
                 <h3>Rangos de Ciclos de Notas</h3>
                 <table className="rangos-table">
