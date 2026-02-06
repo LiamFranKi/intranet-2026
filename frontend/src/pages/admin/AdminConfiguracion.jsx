@@ -13,19 +13,22 @@ const CICLOS = [
   { value: 5, label: 'Anual' }
 ];
 
+// IMPORTANTE: Los valores deben ser 0-based (0, 1, 2, ...) para coincidir con el sistema anterior
+// El sistema anterior usa el índice del array MESES como valor guardado en BD
+// Array: ['Enero', 'Febrero', 'Marzo', ...] donde índice 0=Enero, 1=Febrero, 2=Marzo
 const MESES = [
-  { value: 1, label: 'Enero' },
-  { value: 2, label: 'Febrero' },
-  { value: 3, label: 'Marzo' },
-  { value: 4, label: 'Abril' },
-  { value: 5, label: 'Mayo' },
-  { value: 6, label: 'Junio' },
-  { value: 7, label: 'Julio' },
-  { value: 8, label: 'Agosto' },
-  { value: 9, label: 'Septiembre' },
-  { value: 10, label: 'Octubre' },
-  { value: 11, label: 'Noviembre' },
-  { value: 12, label: 'Diciembre' }
+  { value: 0, label: 'Enero' },
+  { value: 1, label: 'Febrero' },
+  { value: 2, label: 'Marzo' },
+  { value: 3, label: 'Abril' },
+  { value: 4, label: 'Mayo' },
+  { value: 5, label: 'Junio' },
+  { value: 6, label: 'Julio' },
+  { value: 7, label: 'Agosto' },
+  { value: 8, label: 'Septiembre' },
+  { value: 9, label: 'Octubre' },
+  { value: 10, label: 'Noviembre' },
+  { value: 11, label: 'Diciembre' }
 ];
 
 function AdminConfiguracion() {
@@ -54,7 +57,7 @@ function AdminConfiguracion() {
     
     // Pagos
     ciclo_pensiones: 0,
-    inicio_pensiones: 1,
+    inicio_pensiones: 0, // 0-based: 0=Enero, 1=Febrero, 2=Marzo, ...
     total_pensiones: 10,
     moneda: 'S/.',
     monto_adicional: 0,
@@ -127,10 +130,10 @@ function AdminConfiguracion() {
       let inicioPensiones = 1;
       if (data.inicio_pensiones !== undefined && data.inicio_pensiones !== null && data.inicio_pensiones !== '') {
         inicioPensiones = parseInt(data.inicio_pensiones, 10);
-        // Validar que sea un número válido entre 1 y 12
-        if (isNaN(inicioPensiones) || inicioPensiones < 1 || inicioPensiones > 12) {
-          console.warn('inicio_pensiones inválido:', data.inicio_pensiones, 'usando valor por defecto 1');
-          inicioPensiones = 1;
+        // Validar que sea un número válido entre 0 y 11 (0-based: 0=Enero, 11=Diciembre)
+        if (isNaN(inicioPensiones) || inicioPensiones < 0 || inicioPensiones > 11) {
+          console.warn('inicio_pensiones inválido:', data.inicio_pensiones, 'usando valor por defecto 0');
+          inicioPensiones = 0;
         }
       }
       console.log('inicio_pensiones cargado:', data.inicio_pensiones, '-> parseado:', inicioPensiones);
@@ -162,9 +165,10 @@ function AdminConfiguracion() {
       let inicioNotas = 1;
       if (data.inicio_notas !== undefined && data.inicio_notas !== null && data.inicio_notas !== '') {
         inicioNotas = parseInt(data.inicio_notas, 10);
-        if (isNaN(inicioNotas) || inicioNotas < 1 || inicioNotas > 12) {
-          console.warn('inicio_notas inválido:', data.inicio_notas, 'usando valor por defecto 1');
-          inicioNotas = 1;
+        // Validar que sea un número válido entre 0 y 11 (0-based: 0=Enero, 11=Diciembre)
+        if (isNaN(inicioNotas) || inicioNotas < 0 || inicioNotas > 11) {
+          console.warn('inicio_notas inválido:', data.inicio_notas, 'usando valor por defecto 0');
+          inicioNotas = 0;
         }
       }
       console.log('inicio_notas cargado:', data.inicio_notas, '-> parseado:', inicioNotas);
@@ -237,7 +241,7 @@ function AdminConfiguracion() {
     // Si es un campo numérico y viene de un select o input numérico, convertir a número
     if (numericFields.includes(name) && type !== 'checkbox') {
       if (value === '' || value === null || value === undefined) {
-        processedValue = name === 'inicio_pensiones' || name === 'inicio_notas' ? 1 : 0;
+                  processedValue = name === 'inicio_pensiones' || name === 'inicio_notas' ? 0 : 0;
       } else {
         const numValue = parseInt(value, 10);
         processedValue = isNaN(numValue) ? value : numValue;
@@ -760,7 +764,7 @@ function AdminConfiguracion() {
                   <label>Inicio de Cobros</label>
                   <select
                     name="inicio_pensiones"
-                    value={String(Number(config.inicio_pensiones) || 1)}
+                    value={String(Number(config.inicio_pensiones) ?? 0)}
                     onChange={handleInputChange}
                   >
                     {MESES.map(mes => (
@@ -769,7 +773,7 @@ function AdminConfiguracion() {
                   </select>
                   {/* Debug en render */}
                   {(() => {
-                    const currentValue = Number(config.inicio_pensiones) || 1;
+                    const currentValue = Number(config.inicio_pensiones) ?? 0;
                     const stringValue = String(currentValue);
                     console.log('🔍 Select inicio_pensiones render - config.inicio_pensiones:', config.inicio_pensiones, 'tipo:', typeof config.inicio_pensiones, 'currentValue:', currentValue, 'stringValue:', stringValue, 'mes correspondiente:', MESES.find(m => m.value === currentValue)?.label);
                     return null;
@@ -856,7 +860,7 @@ function AdminConfiguracion() {
                   <label>Inicio de Registro</label>
                   <select
                     name="inicio_notas"
-                    value={String(Number(config.inicio_notas) || 1)}
+                    value={String(Number(config.inicio_notas) ?? 0)}
                     onChange={handleInputChange}
                   >
                     {MESES.map(mes => (
