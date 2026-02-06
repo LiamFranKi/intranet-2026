@@ -25,6 +25,7 @@ function AlumnoExamen() {
   const [guardando, setGuardando] = useState(false);
   const [mostrarResumen, setMostrarResumen] = useState(false);
   const [error, setError] = useState(null);
+  const [renderError, setRenderError] = useState(null);
   
   const intervaloGuardado = useRef(null);
   const intervaloReloj = useRef(null);
@@ -138,7 +139,15 @@ function AlumnoExamen() {
   }, [examenId]);
 
   // Protección de examen (siempre activa, pero solo funciona cuando hay examen)
-  useExamProtection(examen && !loading ? handleViolation : null, false);
+  // El hook debe estar siempre presente, pero el callback verifica si hay examen
+  const safeHandleViolation = useCallback((violation) => {
+    if (examen && !loading) {
+      handleViolation(violation);
+    }
+  }, [examen, loading, handleViolation]);
+
+  // Protección de examen - el hook debe estar siempre presente
+  useExamProtection(safeHandleViolation, false);
 
   // Función para finalizar examen automáticamente
   const finalizarExamenAutomatico = useCallback(async () => {
@@ -396,13 +405,90 @@ function AlumnoExamen() {
     );
   }
 
+  // Verificar que tenemos datos válidos antes de renderizar
+  if (!preguntas || preguntas.length === 0) {
+    console.error('❌ No hay preguntas para renderizar');
+    return (
+      <div className="examen-error" style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
+        gap: '1rem',
+        padding: '2rem'
+      }}>
+        <h2 style={{ color: '#6b7280', margin: 0 }}>⚠️ No hay preguntas</h2>
+        <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>Este examen no tiene preguntas disponibles.</p>
+        <button 
+          onClick={() => navigate(-1)}
+          style={{
+            padding: '0.75rem 2rem',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          Volver
+        </button>
+      </div>
+    );
+  }
+
   const pregunta = preguntas[preguntaActual];
+  if (!pregunta) {
+    console.error('❌ Pregunta actual no existe:', preguntaActual, 'de', preguntas.length);
+    return (
+      <div className="examen-error" style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%)',
+        gap: '1rem',
+        padding: '2rem'
+      }}>
+        <h2 style={{ color: '#ef4444', margin: 0 }}>❌ Error</h2>
+        <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>Error al cargar la pregunta actual.</p>
+        <button 
+          onClick={() => navigate(-1)}
+          style={{
+            padding: '0.75rem 2rem',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          Volver
+        </button>
+      </div>
+    );
+  }
+
   const totalPreguntas = preguntas.length;
   const progreso = ((preguntaActual + 1) / totalPreguntas) * 100;
   const porcentajeRestante = examen.tiempo > 0 
     ? (tiempoRestante / (examen.tiempo * 60)) * 100 
     : 100;
   const colorTimer = tiempoRestante <= 60 ? '#ef4444' : tiempoRestante <= 300 ? '#f59e0b' : '#10b981';
+
+  console.log('✅ Renderizando examen:', {
+    examenId,
+    totalPreguntas,
+    preguntaActual,
+    preguntaId: pregunta.id,
+    preguntaTipo: pregunta.tipo
+  });
 
   if (mostrarResumen) {
     return (
@@ -555,39 +641,62 @@ function AlumnoExamen() {
 
 // Componente para renderizar preguntas según su tipo
 function RenderizarPregunta({ pregunta, respuesta, onRespuestaChange }) {
+  if (!pregunta) {
+    return (
+      <div className="pregunta-container">
+        <p style={{ color: '#ef4444' }}>❌ Error: No se pudo cargar la pregunta</p>
+      </div>
+    );
+  }
+
   const props = {
     pregunta,
     respuesta,
     onRespuestaChange
   };
 
-  switch (pregunta.tipo) {
-    case 'ALTERNATIVAS':
-      return <PreguntaAlternativas {...props} />;
-    case 'COMPLETAR':
-      return <PreguntaCompletar {...props} />;
-    case 'VERDADERO_FALSO':
-      return <PreguntaVerdaderoFalso {...props} />;
-    case 'RESPUESTA_CORTA':
-      return <PreguntaRespuestaCorta {...props} />;
-    case 'ORDENAR':
-      return <PreguntaOrdenar {...props} />;
-    case 'EMPAREJAR':
-      return <PreguntaEmparejar {...props} />;
-    case 'ARRASTRAR_Y_SOLTAR':
-      return <PreguntaArrastrarSoltar {...props} />;
-    default:
-      return (
-        <div className="pregunta-container">
-          <div 
-            className="pregunta-descripcion"
-            dangerouslySetInnerHTML={{ __html: pregunta.descripcion }}
-          />
-          <p style={{ color: '#ef4444', marginTop: '1rem' }}>
-            ⚠️ Tipo de pregunta no soportado: {pregunta.tipo}
-          </p>
-        </div>
-      );
+  try {
+    switch (pregunta.tipo) {
+      case 'ALTERNATIVAS':
+        return <PreguntaAlternativas {...props} />;
+      case 'COMPLETAR':
+        return <PreguntaCompletar {...props} />;
+      case 'VERDADERO_FALSO':
+        return <PreguntaVerdaderoFalso {...props} />;
+      case 'RESPUESTA_CORTA':
+        return <PreguntaRespuestaCorta {...props} />;
+      case 'ORDENAR':
+        return <PreguntaOrdenar {...props} />;
+      case 'EMPAREJAR':
+        return <PreguntaEmparejar {...props} />;
+      case 'ARRASTRAR_Y_SOLTAR':
+        return <PreguntaArrastrarSoltar {...props} />;
+      default:
+        return (
+          <div className="pregunta-container">
+            <div 
+              className="pregunta-descripcion"
+              dangerouslySetInnerHTML={{ __html: pregunta.descripcion || 'Sin descripción' }}
+            />
+            <p style={{ color: '#ef4444', marginTop: '1rem' }}>
+              ⚠️ Tipo de pregunta no soportado: {pregunta.tipo}
+            </p>
+          </div>
+        );
+    }
+  } catch (error) {
+    console.error('Error renderizando pregunta:', error);
+    return (
+      <div className="pregunta-container">
+        <div 
+          className="pregunta-descripcion"
+          dangerouslySetInnerHTML={{ __html: pregunta.descripcion || 'Sin descripción' }}
+        />
+        <p style={{ color: '#ef4444', marginTop: '1rem' }}>
+          ❌ Error al renderizar la pregunta: {error.message}
+        </p>
+      </div>
+    );
   }
 }
 
