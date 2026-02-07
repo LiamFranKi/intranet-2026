@@ -2361,24 +2361,33 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
         case 'COMPLETAR':
           // La respuesta es un objeto con índices: {0: "lima", 1: "otro"}
           if (respuestaAlumno && typeof respuestaAlumno === 'object') {
-            // Obtener todas las respuestas del alumno
-            const respuestasCompletar = Object.values(respuestaAlumno).map(r => String(r).trim().toLowerCase()).filter(r => r);
-            // Obtener todas las respuestas correctas de las alternativas
-            const respuestasCorrectas = alternativas
-              .filter(alt => alt.correcta === 'SI')
-              .map(alt => alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase());
+            // Obtener todas las respuestas del alumno (normalizadas a minúsculas)
+            const respuestasCompletar = Object.values(respuestaAlumno)
+              .map(r => String(r).trim().toLowerCase())
+              .filter(r => r);
             
-            // Comparar cada respuesta del alumno con las correctas
-            let todasCorrectas = true;
-            if (respuestasCompletar.length === respuestasCorrectas.length) {
-              for (let i = 0; i < respuestasCompletar.length; i++) {
-                if (!respuestasCorrectas.includes(respuestasCompletar[i])) {
-                  todasCorrectas = false;
-                  break;
-                }
+            // Obtener respuestas correctas desde los placeholders [[...]] de la descripción
+            const descripcionLimpia = pregunta.descripcion ? pregunta.descripcion.replace(/<[^>]*>/g, '') : '';
+            const respuestasCorrectas = [];
+            const regex = /\[\[([^\]]+)\]\]/g;
+            let match;
+            while ((match = regex.exec(descripcionLimpia)) !== null) {
+              const respuesta = match[1].trim().toLowerCase();
+              if (respuesta) {
+                respuestasCorrectas.push(respuesta);
               }
-            } else {
-              todasCorrectas = false;
+            }
+            
+            // Comparar cada respuesta del alumno con las correctas (sin importar el orden)
+            let todasCorrectas = false;
+            if (respuestasCompletar.length > 0 && respuestasCorrectas.length > 0) {
+              // Verificar que todas las respuestas del alumno estén en las correctas
+              // y que tengan la misma cantidad
+              if (respuestasCompletar.length === respuestasCorrectas.length) {
+                todasCorrectas = respuestasCompletar.every(resp => 
+                  respuestasCorrectas.includes(resp)
+                );
+              }
             }
             
             if (todasCorrectas) {
@@ -2443,19 +2452,39 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
 
         case 'ARRASTRAR_Y_SOLTAR':
           // La respuesta es un objeto con zonas: {altId: zona}
-          if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+          if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
+            // Obtener todas las alternativas que tienen zona_drop (son las que deben arrastrarse)
+            const alternativasConZona = alternativas.filter(alt => alt.zona_drop && alt.zona_drop.trim() !== '');
+            
+            // Verificar que todas las zonas sean correctas
             let todasZonasCorrectas = true;
+            let zonasVerificadas = 0;
+            
             for (const [altId, zona] of Object.entries(respuestaAlumno)) {
-              const alternativa = alternativas.find(alt => alt.id === parseInt(altId));
-              const zonaEsperada = alternativa?.zona_drop?.trim().toLowerCase();
+              const altIdNum = parseInt(altId);
+              const alternativa = alternativas.find(alt => {
+                const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                return altIdComp === altIdNum;
+              });
+              
+              if (!alternativa) {
+                todasZonasCorrectas = false;
+                break;
+              }
+              
+              const zonaEsperada = alternativa.zona_drop ? alternativa.zona_drop.trim().toLowerCase() : null;
               const zonaAlumno = String(zona).trim().toLowerCase();
+              
               if (!zonaEsperada || zonaAlumno !== zonaEsperada) {
                 todasZonasCorrectas = false;
                 break;
               }
+              
+              zonasVerificadas++;
             }
             
-            if (todasZonasCorrectas) {
+            // Verificar que se hayan arrastrado todas las alternativas que requieren zona
+            if (todasZonasCorrectas && zonasVerificadas === alternativasConZona.length) {
               esCorrecta = true;
               puntosPregunta = tipoPuntaje === 'GENERAL' 
                 ? puntosCorrecta
