@@ -2492,7 +2492,9 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
           break;
 
         case 'ARRASTRAR_Y_SOLTAR':
-          // La respuesta es un objeto con zonas: {altId: zona}
+          // La respuesta puede ser:
+          // Formato 1: {altId: zona} - ejemplo: {"222286": "Mamiferos"}
+          // Formato 2: {altId: {zona: zona}} - ejemplo: {"222286": {"zona": "Mamiferos"}}
           if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
             // Obtener todas las alternativas que tienen zona_drop (son las que deben arrastrarse)
             const alternativasConZona = alternativas.filter(alt => alt.zona_drop && alt.zona_drop.trim() !== '');
@@ -2501,7 +2503,7 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
             let todasZonasCorrectas = true;
             let zonasVerificadas = 0;
             
-            for (const [altId, zona] of Object.entries(respuestaAlumno)) {
+            for (const [altId, zonaValue] of Object.entries(respuestaAlumno)) {
               const altIdNum = parseInt(altId);
               const alternativa = alternativas.find(alt => {
                 const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
@@ -2513,8 +2515,18 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
                 break;
               }
               
+              // Manejar ambos formatos: string directo o objeto con propiedad zona
+              let zonaAlumno;
+              if (typeof zonaValue === 'string') {
+                zonaAlumno = zonaValue.trim().toLowerCase();
+              } else if (typeof zonaValue === 'object' && zonaValue !== null && zonaValue.zona) {
+                zonaAlumno = String(zonaValue.zona).trim().toLowerCase();
+              } else {
+                todasZonasCorrectas = false;
+                break;
+              }
+              
               const zonaEsperada = alternativa.zona_drop ? alternativa.zona_drop.trim().toLowerCase() : null;
-              const zonaAlumno = String(zona).trim().toLowerCase();
               
               if (!zonaEsperada || zonaAlumno !== zonaEsperada) {
                 todasZonasCorrectas = false;
