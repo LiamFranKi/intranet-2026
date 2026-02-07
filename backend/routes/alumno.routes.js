@@ -2455,18 +2455,28 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
 
       puntosObtenidos += puntosPregunta;
       
+      // Contar correctas e incorrectas
+      // IMPORTANTE: Solo contar como incorrecta si hay respuesta y no es correcta
+      // Si no hay respuesta, no contar como incorrecta (pregunta sin responder)
       if (esCorrecta) {
         correctas++;
       } else if (respuestaAlumno !== null && respuestaAlumno !== undefined && respuestaAlumno !== '') {
+        // Solo contar como incorrecta si el alumno respondió pero está mal
         incorrectas++;
       }
+      // Si no hay respuesta, no se cuenta ni como correcta ni como incorrecta
 
       detalles.push({
         pregunta_id: pregunta.id,
         es_correcta: esCorrecta,
         puntos: puntosPregunta
       });
+      
+      // Debug: log para verificar conteo
+      console.log(`Pregunta ${pregunta.id} (${pregunta.tipo}): esCorrecta=${esCorrecta}, puntos=${puntosPregunta}, respuestaAlumno=`, respuestaAlumno);
     }
+    
+    console.log(`📊 Resumen final: correctas=${correctas}, incorrectas=${incorrectas}, puntosObtenidos=${puntosObtenidos}, puntosTotal=${puntosTotal}`);
 
     // Limitar puntaje mínimo a 0
     if (puntosObtenidos < 0) puntosObtenidos = 0;

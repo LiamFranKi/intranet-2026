@@ -6400,6 +6400,78 @@ function DetallesResultadoModal({ resultado, detalles, cargando, onClose }) {
                           </div>
                         );
 
+                      case 'VERDADERO_FALSO':
+                        // Para VERDADERO_FALSO, la respuesta es un ID de alternativa o string 'VERDADERO'/'FALSO'
+                        const respuestaVFAlumno = respuestaAlumnoNum || respuestaAlumno;
+                        const alternativaVFMarcada = pregunta.alternativas?.find(alt => {
+                          const altId = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                          return altId === respuestaVFAlumno || altId === respuestaAlumnoNum;
+                        });
+                        
+                        // Buscar la alternativa correcta
+                        const alternativaVFCorrecta = pregunta.alternativas?.find(alt => alt.correcta === 'SI');
+                        
+                        // Determinar si es correcta
+                        const esCorrectaVF = alternativaVFMarcada && alternativaVFCorrecta && 
+                                           alternativaVFMarcada.id === alternativaVFCorrecta.id;
+                        
+                        // Obtener texto de la respuesta del alumno
+                        let respuestaVFTexto = '(sin respuesta)';
+                        if (alternativaVFMarcada) {
+                          const desc = alternativaVFMarcada.descripcion ? alternativaVFMarcada.descripcion.replace(/<[^>]*>/g, '').trim() : '';
+                          respuestaVFTexto = desc || 'Sin descripción';
+                        } else if (respuestaAlumno === 'VERDADERO' || respuestaAlumno === 'verdadero') {
+                          respuestaVFTexto = 'Verdadero';
+                        } else if (respuestaAlumno === 'FALSO' || respuestaAlumno === 'falso') {
+                          respuestaVFTexto = 'Falso';
+                        }
+                        
+                        // Obtener texto de la respuesta correcta
+                        const respuestaVFCorrectaTexto = alternativaVFCorrecta 
+                          ? (alternativaVFCorrecta.descripcion ? alternativaVFCorrecta.descripcion.replace(/<[^>]*>/g, '').trim() : 'Sin descripción')
+                          : 'No definida';
+                        
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: esCorrectaVF ? '#d1fae5' : '#fee2e2',
+                              border: `2px solid ${esCorrectaVF ? '#10b981' : '#ef4444'}`
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Respuesta del alumno:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {esCorrectaVF ? (
+                                  <span style={{ color: '#10b981', fontSize: '1.2rem' }}>✓</span>
+                                ) : (
+                                  <span style={{ color: '#ef4444', fontSize: '1.2rem' }}>✗</span>
+                                )}
+                                <span style={{ fontWeight: esCorrectaVF ? '600' : '400', color: esCorrectaVF ? '#065f46' : '#991b1b' }}>
+                                  {respuestaVFTexto}
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ 
+                              padding: '0.75rem', 
+                              borderRadius: '8px',
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6'
+                            }}>
+                              <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '600', color: '#6b7280' }}>
+                                Respuesta correcta:
+                              </div>
+                              <div style={{ fontSize: '0.95rem', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ color: '#3b82f6', fontSize: '1.2rem' }}>✓</span>
+                                <span style={{ fontWeight: '600', color: '#1e40af' }}>
+                                  {respuestaVFCorrectaTexto}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+
                       case 'RESPUESTA_CORTA':
                         // Para RESPUESTA_CORTA, la respuesta es un string
                         const respuestaCortaAlumno = typeof respuestaAlumno === 'string' ? respuestaAlumno : String(respuestaAlumno || '');
