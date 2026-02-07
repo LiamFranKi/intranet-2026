@@ -8040,126 +8040,284 @@ router.post('/aula-virtual/examenes/:examenId/calificar', async (req, res) => {
           }
         }
 
-        // Calcular puntaje
+        // Calcular puntaje usando la misma lógica que finalizar examen
         // IMPORTANTE: Solo evaluar las preguntas que realmente vio el alumno
-        let puntaje = 0;
+        const puntosCorrecta = parseFloat(examenInfo.puntos_correcta) || 0;
+        const tipoPuntaje = examenInfo.tipo_puntaje;
+        let puntosObtenidos = 0;
         let correctas = 0;
         let incorrectas = 0;
 
         for (const pregunta of preguntasAValuar) {
           const respuestaAlumno = respuestasAlumno[pregunta.id.toString()];
           let esCorrecta = false;
+          let puntosPregunta = 0;
+          const alternativas = pregunta.alternativas || [];
 
-          // Evaluar según el tipo de pregunta
+          // Evaluar según el tipo de pregunta (misma lógica que finalizar examen)
           switch (pregunta.tipo) {
             case 'ALTERNATIVAS':
-            case 'VERDADERO_FALSO':
-              // Verificar si la alternativa marcada es correcta
-              if (respuestaAlumno) {
-                const alternativaMarcada = pregunta.alternativas.find(alt => alt.id === parseInt(respuestaAlumno));
+              if (respuestaAlumno !== null && respuestaAlumno !== undefined && respuestaAlumno !== '') {
+                const alternativaId = typeof respuestaAlumno === 'number' ? respuestaAlumno : parseInt(respuestaAlumno);
+                const alternativaMarcada = alternativas.find(alt => {
+                  const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                  return altIdComp === alternativaId;
+                });
+                
                 if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
                   esCorrecta = true;
+                  puntosPregunta = tipoPuntaje === 'GENERAL' 
+                    ? puntosCorrecta
+                    : (parseFloat(pregunta.puntos) || 0);
+                } else if (examenInfo.penalizar_incorrecta === 'SI') {
+                  puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
+                }
+              }
+              break;
+
+            case 'VERDADERO_FALSO':
+              if (respuestaAlumno !== null && respuestaAlumno !== undefined && respuestaAlumno !== '') {
+                if (typeof respuestaAlumno === 'number') {
+                  const alternativaMarcada = alternativas.find(alt => {
+                    const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                    return altIdComp === respuestaAlumno;
+                  });
+                  
+                  if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
+                    esCorrecta = true;
+                    puntosPregunta = tipoPuntaje === 'GENERAL' 
+                      ? puntosCorrecta
+                      : (parseFloat(pregunta.puntos) || 0);
+                  } else if (examenInfo.penalizar_incorrecta === 'SI') {
+                    puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
+                  }
+                } else {
+                  const respuestaTexto = String(respuestaAlumno).trim().toLowerCase();
+                  const alternativaMarcada = alternativas.find(alt => {
+                    if (!alt.descripcion) return false;
+                    const desc = alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
+                    return (respuestaTexto === 'verdadero' && desc.includes('verdadero')) ||
+                           (respuestaTexto === 'falso' && desc.includes('falso'));
+                  });
+                  
+                  if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
+                    esCorrecta = true;
+                    puntosPregunta = tipoPuntaje === 'GENERAL' 
+                      ? puntosCorrecta
+                      : (parseFloat(pregunta.puntos) || 0);
+                  } else if (examenInfo.penalizar_incorrecta === 'SI') {
+                    puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
+                  }
                 }
               }
               break;
 
             case 'COMPLETAR':
-              // Verificar si la respuesta coincide (case-insensitive, trim)
-              if (respuestaAlumno) {
-                const respuestaNormalizada = String(respuestaAlumno).trim().toLowerCase();
-                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                if (alternativaCorrecta) {
-                  const correctaNormalizada = alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
-                  if (respuestaNormalizada === correctaNormalizada) {
-                    esCorrecta = true;
+              if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+                const respuestasCompletar = Object.values(respuestaAlumno)
+                  .map(r => String(r).trim().toLowerCase())
+                  .filter(r => r);
+                
+                const descripcionLimpia = pregunta.descripcion ? pregunta.descripcion.replace(/<[^>]*>/g, '') : '';
+                const respuestasCorrectas = [];
+                const regex = /\[\[([^\]]+)\]\]/g;
+                let match;
+                while ((match = regex.exec(descripcionLimpia)) !== null) {
+                  const respuesta = match[1].trim().toLowerCase();
+                  if (respuesta) {
+                    respuestasCorrectas.push(respuesta);
                   }
+                }
+                
+                let todasCorrectas = false;
+                if (respuestasCompletar.length > 0 && respuestasCorrectas.length > 0) {
+                  if (respuestasCompletar.length === respuestasCorrectas.length) {
+                    todasCorrectas = respuestasCompletar.every(resp => 
+                      respuestasCorrectas.includes(resp)
+                    );
+                  }
+                }
+                
+                if (todasCorrectas) {
+                  esCorrecta = true;
+                  puntosPregunta = tipoPuntaje === 'GENERAL' 
+                    ? puntosCorrecta
+                    : (parseFloat(pregunta.puntos) || 0);
+                } else if (examenInfo.penalizar_incorrecta === 'SI' && respuestasCompletar.length > 0) {
+                  puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
                 }
               }
               break;
 
             case 'ORDENAR':
-              // Verificar si el orden es correcto
-              if (respuestaAlumno) {
-                const ordenAlumno = parseInt(respuestaAlumno);
-                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.orden_posicion === ordenAlumno);
-                if (alternativaCorrecta && alternativaCorrecta.correcta === 'SI') {
+              if (respuestaAlumno && Array.isArray(respuestaAlumno) && respuestaAlumno.length > 0) {
+                const alternativasConOrden = alternativas.filter(alt => alt.orden_posicion !== null && alt.orden_posicion !== undefined);
+                let ordenCorrecto = true;
+                if (respuestaAlumno.length === alternativasConOrden.length) {
+                  for (let i = 0; i < respuestaAlumno.length; i++) {
+                    const altId = parseInt(respuestaAlumno[i]);
+                    const alternativa = alternativas.find(alt => {
+                      const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                      return altIdComp === altId;
+                    });
+                    
+                    if (!alternativa) {
+                      ordenCorrecto = false;
+                      break;
+                    }
+                    
+                    const ordenEsperado = typeof alternativa.orden_posicion === 'number' 
+                      ? alternativa.orden_posicion 
+                      : parseInt(alternativa.orden_posicion);
+                    
+                    if (ordenEsperado !== (i + 1)) {
+                      ordenCorrecto = false;
+                      break;
+                    }
+                  }
+                } else {
+                  ordenCorrecto = false;
+                }
+                
+                if (ordenCorrecto) {
                   esCorrecta = true;
+                  puntosPregunta = tipoPuntaje === 'GENERAL' 
+                    ? puntosCorrecta
+                    : (parseFloat(pregunta.puntos) || 0);
+                } else if (examenInfo.penalizar_incorrecta === 'SI' && respuestaAlumno.length > 0) {
+                  puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
                 }
               }
               break;
 
             case 'EMPAREJAR':
-              // Verificar si el par es correcto
-              // En EMPAREJAR, la respuesta del alumno es el ID de la alternativa que marcó
-              // Necesitamos verificar si esa alternativa tiene como par_id a la alternativa correcta
-              if (respuestaAlumno) {
-                const alternativaIdMarcada = parseInt(respuestaAlumno);
-                // Buscar la alternativa que el alumno marcó
-                const alternativaMarcada = pregunta.alternativas.find(alt => alt.id === alternativaIdMarcada);
-                if (alternativaMarcada) {
-                  // Buscar la alternativa correcta (la que tiene correcta === 'SI')
-                  const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                  if (alternativaCorrecta) {
-                    // Verificar si la alternativa marcada tiene como par_id a la alternativa correcta
-                    // O si la alternativa correcta tiene como par_id a la alternativa marcada (emparejamiento bidireccional)
-                    if (alternativaMarcada.par_id === alternativaCorrecta.id || 
-                        alternativaCorrecta.par_id === alternativaMarcada.id) {
-                      esCorrecta = true;
-                    }
+              if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
+                const alternativasConPar = alternativas.filter(alt => alt.par_id !== null && alt.par_id !== undefined);
+                let todosParesCorrectos = true;
+                let paresVerificados = 0;
+                
+                for (const [altId, parId] of Object.entries(respuestaAlumno)) {
+                  const altIdNum = parseInt(altId);
+                  const parIdNum = parseInt(parId);
+                  const alternativa = alternativas.find(alt => {
+                    const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                    return altIdComp === altIdNum;
+                  });
+                  
+                  if (!alternativa) {
+                    todosParesCorrectos = false;
+                    break;
                   }
+                  
+                  const parEsperado = alternativa.par_id ? (typeof alternativa.par_id === 'number' ? alternativa.par_id : parseInt(alternativa.par_id)) : null;
+                  
+                  if (!parEsperado || parIdNum !== parEsperado) {
+                    todosParesCorrectos = false;
+                    break;
+                  }
+                  
+                  paresVerificados++;
+                }
+                
+                if (todosParesCorrectos && paresVerificados === alternativasConPar.length) {
+                  esCorrecta = true;
+                  puntosPregunta = tipoPuntaje === 'GENERAL' 
+                    ? puntosCorrecta
+                    : (parseFloat(pregunta.puntos) || 0);
+                } else if (examenInfo.penalizar_incorrecta === 'SI' && Object.keys(respuestaAlumno).length > 0) {
+                  puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
                 }
               }
               break;
 
             case 'ARRASTRAR_Y_SOLTAR':
-              // Verificar si la zona es correcta
-              if (respuestaAlumno) {
-                const zonaAlumno = String(respuestaAlumno).trim().toLowerCase();
-                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
-                if (alternativaCorrecta && alternativaCorrecta.zona_drop) {
-                  const zonaCorrecta = alternativaCorrecta.zona_drop.trim().toLowerCase();
-                  if (zonaAlumno === zonaCorrecta) {
-                    esCorrecta = true;
+              if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
+                const alternativasConZona = alternativas.filter(alt => alt.zona_drop && alt.zona_drop.trim() !== '');
+                let todasZonasCorrectas = true;
+                let zonasVerificadas = 0;
+                
+                for (const [altId, zonaValue] of Object.entries(respuestaAlumno)) {
+                  const altIdNum = parseInt(altId);
+                  const alternativa = alternativas.find(alt => {
+                    const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                    return altIdComp === altIdNum;
+                  });
+                  
+                  if (!alternativa) {
+                    todasZonasCorrectas = false;
+                    break;
                   }
+                  
+                  let zonaAlumno;
+                  if (typeof zonaValue === 'string') {
+                    zonaAlumno = zonaValue.trim().toLowerCase();
+                  } else if (typeof zonaValue === 'object' && zonaValue !== null && zonaValue.zona) {
+                    zonaAlumno = String(zonaValue.zona).trim().toLowerCase();
+                  } else {
+                    todasZonasCorrectas = false;
+                    break;
+                  }
+                  
+                  const zonaEsperada = alternativa.zona_drop ? alternativa.zona_drop.trim().toLowerCase() : null;
+                  
+                  if (!zonaEsperada || zonaAlumno !== zonaEsperada) {
+                    todasZonasCorrectas = false;
+                    break;
+                  }
+                  
+                  zonasVerificadas++;
+                }
+                
+                if (todasZonasCorrectas && zonasVerificadas === alternativasConZona.length) {
+                  esCorrecta = true;
+                  puntosPregunta = tipoPuntaje === 'GENERAL' 
+                    ? puntosCorrecta
+                    : (parseFloat(pregunta.puntos) || 0);
+                } else if (examenInfo.penalizar_incorrecta === 'SI' && Object.keys(respuestaAlumno).length > 0) {
+                  puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
                 }
               }
               break;
 
             case 'RESPUESTA_CORTA':
-              // Comparar texto (case-insensitive, trim)
               if (respuestaAlumno) {
                 const respuestaNormalizada = String(respuestaAlumno).trim().toLowerCase();
-                const alternativaCorrecta = pregunta.alternativas.find(alt => alt.correcta === 'SI');
+                const alternativaCorrecta = alternativas.find(alt => alt.correcta === 'SI');
                 if (alternativaCorrecta) {
                   const correctaNormalizada = alternativaCorrecta.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
                   if (respuestaNormalizada === correctaNormalizada) {
                     esCorrecta = true;
+                    puntosPregunta = tipoPuntaje === 'GENERAL' 
+                      ? puntosCorrecta
+                      : (parseFloat(pregunta.puntos) || 0);
+                  } else if (examenInfo.penalizar_incorrecta === 'SI') {
+                    puntosPregunta = -(parseFloat(examenInfo.penalizacion_incorrecta) || 0);
                   }
                 }
               }
               break;
           }
 
-          // Calcular puntos
+          puntosObtenidos += puntosPregunta;
+          
+          const tieneRespuesta = respuestaAlumno !== null && 
+                                   respuestaAlumno !== undefined && 
+                                   respuestaAlumno !== '' &&
+                                   !(typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length === 0) &&
+                                   !(Array.isArray(respuestaAlumno) && respuestaAlumno.length === 0);
+          
           if (esCorrecta) {
-            if (examenInfo.tipo_puntaje === 'GENERAL') {
-              puntaje += parseFloat(examenInfo.puntos_correcta) || 0;
-            } else {
-              puntaje += parseFloat(pregunta.puntos) || 0;
-            }
             correctas++;
-          } else {
-            // Penalizar incorrecta si está habilitado
-            if (examenInfo.penalizar_incorrecta === 'SI' && examenInfo.penalizacion_incorrecta) {
-              puntaje -= parseFloat(examenInfo.penalizacion_incorrecta) || 0;
-            }
+          } else if (tieneRespuesta) {
             incorrectas++;
           }
         }
 
-        // Limitar puntaje entre 0 y 20
-        if (puntaje < 0) puntaje = 0;
-        if (puntaje > 20) puntaje = 20;
+        // Limitar puntaje mínimo a 0
+        if (puntosObtenidos < 0) puntosObtenidos = 0;
+        
+        // Redondear puntos obtenidos a entero
+        const puntaje = Math.round(puntosObtenidos);
 
         // Actualizar la prueba
         await execute(
@@ -8168,6 +8326,8 @@ router.post('/aula-virtual/examenes/:examenId/calificar', async (req, res) => {
            WHERE id = ?`,
           [puntaje, correctas, incorrectas, prueba.id]
         );
+        
+        console.log(`✅ Recalificado prueba ${prueba.id}: puntaje=${puntaje}, correctas=${correctas}, incorrectas=${incorrectas}`);
 
         recalificados++;
       } catch (error) {
