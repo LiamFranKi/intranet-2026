@@ -2561,9 +2561,15 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       // Contar correctas e incorrectas
       // IMPORTANTE: Solo contar como incorrecta si hay respuesta y no es correcta
       // Si no hay respuesta, no contar como incorrecta (pregunta sin responder)
+      const tieneRespuesta = respuestaAlumno !== null && 
+                             respuestaAlumno !== undefined && 
+                             respuestaAlumno !== '' &&
+                             !(typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length === 0) &&
+                             !(Array.isArray(respuestaAlumno) && respuestaAlumno.length === 0);
+      
       if (esCorrecta) {
         correctas++;
-      } else if (respuestaAlumno !== null && respuestaAlumno !== undefined && respuestaAlumno !== '') {
+      } else if (tieneRespuesta) {
         // Solo contar como incorrecta si el alumno respondió pero está mal
         incorrectas++;
       }
@@ -2575,11 +2581,11 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
         puntos: puntosPregunta
       });
       
-      // Debug: log para verificar conteo
-      console.log(`Pregunta ${pregunta.id} (${pregunta.tipo}): esCorrecta=${esCorrecta}, puntos=${puntosPregunta}, respuestaAlumno=`, respuestaAlumno);
+      // Debug: log detallado para verificar evaluación
+      console.log(`📝 Pregunta ${pregunta.id} (${pregunta.tipo}): esCorrecta=${esCorrecta}, puntos=${puntosPregunta}, tieneRespuesta=${tieneRespuesta}, respuestaAlumno=`, JSON.stringify(respuestaAlumno));
     }
     
-    console.log(`📊 Resumen final: correctas=${correctas}, incorrectas=${incorrectas}, puntosObtenidos=${puntosObtenidos}, puntosTotal=${puntosTotal}`);
+    console.log(`📊 Resumen final: correctas=${correctas}, incorrectas=${incorrectas}, puntosObtenidos=${puntosObtenidos}, puntosTotal=${puntosTotal}, totalPreguntas=${preguntas.length}`);
 
     // Limitar puntaje mínimo a 0
     if (puntosObtenidos < 0) puntosObtenidos = 0;
