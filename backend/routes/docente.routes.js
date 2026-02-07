@@ -8020,8 +8020,14 @@ router.post('/aula-virtual/examenes/:examenId/calificar', async (req, res) => {
         let respuestasAlumno = {};
         if (prueba.respuestas && prueba.respuestas.trim() !== '') {
           try {
-            const decoded = Buffer.from(prueba.respuestas, 'base64').toString('utf-8');
-            respuestasAlumno = phpSerialize.unserialize(decoded) || {};
+            // Intentar primero como JSON (formato nuevo)
+            try {
+              respuestasAlumno = JSON.parse(prueba.respuestas) || {};
+            } catch (jsonError) {
+              // Si falla JSON, intentar deserializar desde base64 (formato PHP antiguo)
+              const decoded = Buffer.from(prueba.respuestas, 'base64').toString('utf-8');
+              respuestasAlumno = phpSerialize.unserialize(decoded) || {};
+            }
             // Normalizar claves a strings
             const respuestasNormalizadas = {};
             Object.keys(respuestasAlumno).forEach(key => {
