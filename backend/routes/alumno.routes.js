@@ -2312,15 +2312,48 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
       switch (pregunta.tipo) {
         case 'ALTERNATIVAS':
         case 'VERDADERO_FALSO':
-          if (respuestaAlumno) {
-            const alternativaMarcada = alternativas.find(alt => alt.id === parseInt(respuestaAlumno));
-            if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
-              esCorrecta = true;
-              puntosPregunta = tipoPuntaje === 'GENERAL' 
-                ? puntosCorrecta
-                : (parseFloat(pregunta.puntos) || 0);
-            } else if (examen[0].penalizar_incorrecta === 'SI' && respuestaAlumno) {
-              puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
+          if (respuestaAlumno !== null && respuestaAlumno !== undefined && respuestaAlumno !== '') {
+            // Normalizar la respuesta (puede ser número, string numérico, o string 'VERDADERO'/'FALSO')
+            const respuestaId = typeof respuestaAlumno === 'number' 
+              ? respuestaAlumno 
+              : (typeof respuestaAlumno === 'string' && !isNaN(parseInt(respuestaAlumno)))
+                ? parseInt(respuestaAlumno)
+                : null;
+            
+            if (respuestaId !== null) {
+              // Buscar la alternativa marcada por ID
+              const alternativaMarcada = alternativas.find(alt => {
+                const altId = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                return altId === respuestaId;
+              });
+              
+              if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
+                esCorrecta = true;
+                puntosPregunta = tipoPuntaje === 'GENERAL' 
+                  ? puntosCorrecta
+                  : (parseFloat(pregunta.puntos) || 0);
+              } else if (examen[0].penalizar_incorrecta === 'SI') {
+                puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
+              }
+            } else {
+              // Si la respuesta es un string 'VERDADERO'/'FALSO' (compatibilidad con formato antiguo)
+              // Buscar la alternativa que coincida con el texto
+              const respuestaTexto = String(respuestaAlumno).trim().toLowerCase();
+              const alternativaMarcada = alternativas.find(alt => {
+                if (!alt.descripcion) return false;
+                const desc = alt.descripcion.replace(/<[^>]*>/g, '').trim().toLowerCase();
+                return (respuestaTexto === 'verdadero' && desc.includes('verdadero')) ||
+                       (respuestaTexto === 'falso' && desc.includes('falso'));
+              });
+              
+              if (alternativaMarcada && alternativaMarcada.correcta === 'SI') {
+                esCorrecta = true;
+                puntosPregunta = tipoPuntaje === 'GENERAL' 
+                  ? puntosCorrecta
+                  : (parseFloat(pregunta.puntos) || 0);
+              } else if (examen[0].penalizar_incorrecta === 'SI') {
+                puntosPregunta = -(parseFloat(examen[0].penalizacion_incorrecta) || 0);
+              }
             }
           }
           break;
