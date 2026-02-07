@@ -2403,16 +2403,36 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
 
         case 'ORDENAR':
           // La respuesta es un array de IDs: [id1, id2, id3, ...]
-          if (respuestaAlumno && Array.isArray(respuestaAlumno)) {
+          if (respuestaAlumno && Array.isArray(respuestaAlumno) && respuestaAlumno.length > 0) {
+            // Obtener todas las alternativas que tienen orden_posicion
+            const alternativasConOrden = alternativas.filter(alt => alt.orden_posicion !== null && alt.orden_posicion !== undefined);
+            
             // Verificar que el orden sea correcto comparando con orden_posicion
             let ordenCorrecto = true;
-            for (let i = 0; i < respuestaAlumno.length; i++) {
-              const altId = parseInt(respuestaAlumno[i]);
-              const alternativa = alternativas.find(alt => alt.id === altId);
-              if (!alternativa || alternativa.orden_posicion !== (i + 1)) {
-                ordenCorrecto = false;
-                break;
+            if (respuestaAlumno.length === alternativasConOrden.length) {
+              for (let i = 0; i < respuestaAlumno.length; i++) {
+                const altId = parseInt(respuestaAlumno[i]);
+                const alternativa = alternativas.find(alt => {
+                  const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                  return altIdComp === altId;
+                });
+                
+                if (!alternativa) {
+                  ordenCorrecto = false;
+                  break;
+                }
+                
+                const ordenEsperado = typeof alternativa.orden_posicion === 'number' 
+                  ? alternativa.orden_posicion 
+                  : parseInt(alternativa.orden_posicion);
+                
+                if (ordenEsperado !== (i + 1)) {
+                  ordenCorrecto = false;
+                  break;
+                }
               }
+            } else {
+              ordenCorrecto = false;
             }
             
             if (ordenCorrecto) {
@@ -2428,18 +2448,39 @@ router.post('/examenes/:examenId/finalizar', async (req, res) => {
 
         case 'EMPAREJAR':
           // La respuesta es un objeto con pares: {altId1: parId1, altId2: parId2}
-          if (respuestaAlumno && typeof respuestaAlumno === 'object') {
+          if (respuestaAlumno && typeof respuestaAlumno === 'object' && Object.keys(respuestaAlumno).length > 0) {
+            // Obtener todas las alternativas que tienen par_id (son las que deben emparejarse)
+            const alternativasConPar = alternativas.filter(alt => alt.par_id !== null && alt.par_id !== undefined);
+            
+            // Verificar que todos los pares sean correctos
             let todosParesCorrectos = true;
+            let paresVerificados = 0;
+            
             for (const [altId, parId] of Object.entries(respuestaAlumno)) {
-              const alternativa = alternativas.find(alt => alt.id === parseInt(altId));
-              const parEsperado = alternativa?.par_id;
-              if (!parEsperado || parseInt(parId) !== parEsperado) {
+              const altIdNum = parseInt(altId);
+              const parIdNum = parseInt(parId);
+              const alternativa = alternativas.find(alt => {
+                const altIdComp = typeof alt.id === 'number' ? alt.id : parseInt(alt.id);
+                return altIdComp === altIdNum;
+              });
+              
+              if (!alternativa) {
                 todosParesCorrectos = false;
                 break;
               }
+              
+              const parEsperado = alternativa.par_id ? (typeof alternativa.par_id === 'number' ? alternativa.par_id : parseInt(alternativa.par_id)) : null;
+              
+              if (!parEsperado || parIdNum !== parEsperado) {
+                todosParesCorrectos = false;
+                break;
+              }
+              
+              paresVerificados++;
             }
             
-            if (todosParesCorrectos) {
+            // Verificar que se hayan emparejado todas las alternativas que requieren par
+            if (todosParesCorrectos && paresVerificados === alternativasConPar.length) {
               esCorrecta = true;
               puntosPregunta = tipoPuntaje === 'GENERAL' 
                 ? puntosCorrecta
